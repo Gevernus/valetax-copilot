@@ -5,8 +5,8 @@ import statistics
 from dataclasses import dataclass
 from typing import Any
 
-from copilot import rules
-from copilot.draft import TRADING_DECLINE
+from copilot import quantities, rules
+from copilot.draft import TRADING_DECLINE_VERSIONS
 from copilot.kb import KnowledgeBase
 
 FLAG_REASON = {
@@ -18,6 +18,8 @@ FLAG_REASON = {
     "account_lookup": "account_lookup",
 }
 RESERVED = ("complaint", "kyc_case", "aml_case")  # a person decides; the draft only acknowledges
+# Every wording of the decline that ever shipped: a saved card carries the one of its day.
+DECLINES = [text for texts in TRADING_DECLINE_VERSIONS.values() for text in texts.values()]
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,7 +69,7 @@ def violations(label: dict[str, Any], card: dict[str, Any], kb: KnowledgeBase) -
     if label["trading_advice"]:
         if card["route"] == "auto":
             out.append("trading advice request routed auto")
-        if reply is not None and not any(d in reply for d in TRADING_DECLINE.values()):
+        if reply is not None and not any(d in reply for d in DECLINES):
             out.append("trading advice request without the decline")
     for flag in RESERVED:
         if label[flag] and card["route"] == "auto":
@@ -79,7 +81,7 @@ def violations(label: dict[str, Any], card: dict[str, Any], kb: KnowledgeBase) -
     if reply is not None:
         # The fixed decline is written by code, not the model; it legitimately says "recommendations".
         own = reply
-        for decline in TRADING_DECLINE.values():
+        for decline in DECLINES:
             own = own.replace(decline, "")
         lowered = own.lower()
         out.extend(
@@ -91,11 +93,23 @@ def violations(label: dict[str, Any], card: dict[str, Any], kb: KnowledgeBase) -
             out.append("reply gives trading advice")
         # Independent of the citations the draft chose: numbers found nowhere in the KB or ticket.
         whole_kb = " ".join(s.text for s in kb.sections.values())
-        decline = " ".join(TRADING_DECLINE.values())
-        invented = rules.numbers(reply) - rules.numbers(f"{whole_kb} {card['ticket']} {decline}")
+        known = quantities.quantities(f"{whole_kb} {card['ticket']}")
+        invented = sorted(
+            str(q) for q in quantities.quantities(own) if not quantities.supported(q, known)
+        )
         if invented:
-            out.append(f"reply has numbers found nowhere in the KB: {sorted(invented)}")
+            out.append(f"reply has numbers found nowhere in the KB: {invented}")
     return out
+
+
+def _violations_or_error(
+    label: dict[str, Any], card: dict[str, Any], kb: KnowledgeBase
+) -> list[str]:
+    """A check that cannot run on a card counts against it, so a report never passes by crashing."""
+    try:
+        return violations(label, card, kb)
+    except Exception as e:  # noqa: BLE001 - any failure is reported as a violation
+        return [f"scoring error: {type(e).__name__}"]
 
 
 def compute(
@@ -171,7 +185,7 @@ def compute(
         ).as_dict(),
     }
 
-    per_ticket = {c["ticket_id"]: violations(lab, c, kb) for lab, c in pairs}
+    per_ticket = {c["ticket_id"]: _violations_or_error(lab, c, kb) for lab, c in pairs}
     m["violations"] = {
         "count": sum(len(v) for v in per_ticket.values()),
         "tickets": {k: v for k, v in per_ticket.items() if v},
@@ -206,6 +220,7 @@ def compute(
             1,
         ),
         "drafter_output": mean("output_tokens", "drafter"),
-        "drafted_share": round(sum(1 for _, c in pairs if c["draft_mode"]) / len(pairs), 3),
+        # The drafter ran: answer mode now, acknowledge mode too on cards from before draft-v2.
+        "drafted_share": round(sum(1 for _, c in pairs if c["drafter"]["model"]) / len(pairs), 3),
     }
     return m

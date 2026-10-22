@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from copilot.classify.questions import QUESTIONS, YES_NO
+from copilot.classify.questions import QUESTIONS, TICKET, YES_NO, QuestionSet
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,28 +43,30 @@ class Classifier(Protocol):
     def classify(self, text: str) -> Classification: ...
 
 
-def answers_from_probabilities(raw: dict[str, dict[str, float]]) -> dict[str, Answer]:
+def answers_from_probabilities(
+    raw: dict[str, dict[str, float]], questions: QuestionSet = TICKET
+) -> dict[str, Answer]:
     """Build answers from per-question probabilities; the choice is the argmax."""
     out: dict[str, Answer] = {}
-    for name in QUESTIONS:
+    for name in questions.options:
         probs = {k: float(v) for k, v in raw[name].items()}
         out[name] = Answer(max(probs, key=probs.__getitem__), probs)
     return out
 
 
-def make_classifier(name: str) -> Classifier:
+def make_classifier(name: str, questions: QuestionSet = TICKET) -> Classifier:
     if name == "jev":
         from copilot.classify.jev import JevClassifier
 
-        return JevClassifier()
+        return JevClassifier(questions)
     if name == "laya":
         from copilot.classify.laya_local import LayaClassifier
 
-        return LayaClassifier()
+        return LayaClassifier(questions)
     if name == "llm":
         from copilot.classify.llm import LlmClassifier
 
-        return LlmClassifier()
+        return LlmClassifier(questions=questions)
     raise ValueError(f"unknown classifier {name!r}; expected jev, laya or llm")
 
 

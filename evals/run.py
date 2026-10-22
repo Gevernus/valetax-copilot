@@ -23,6 +23,7 @@ from typing import Any
 from copilot.classify import make_classifier
 from copilot.classify.llm import SCHEMA as CLASSIFY_SCHEMA
 from copilot.classify.llm import SYSTEM as CLASSIFY_SYSTEM
+from copilot.classify.questions import REPLY
 from copilot.draft import Drafter, schema, system_prompt
 from copilot.kb import KnowledgeBase, load_kb
 from copilot.llm import ClaudeCli, UsageLimitError, make_llm
@@ -76,7 +77,12 @@ def run(args: argparse.Namespace) -> None:
     ids = list(labels)[: args.limit] if args.limit else list(labels)
 
     llm = make_llm(args.llm, args.model)
-    copilot = Copilot(kb, make_classifier(args.classifier), Drafter(llm, kb))
+    copilot = Copilot(
+        kb,
+        make_classifier(args.classifier),
+        Drafter(llm, kb),
+        reply_checker=make_classifier(args.classifier, REPLY),
+    )
     config = f"{args.classifier}+{args.model}"
     out = RESULTS / args.date / config
     out.mkdir(parents=True, exist_ok=True)
@@ -145,7 +151,7 @@ def run(args: argparse.Namespace) -> None:
 
 _TRACE_KEYS = {"ticket_id", "route", "reasons", "category", "urgency", "language", "flags",
                "rule_hits", "citations", "masked", "timings_ms", "classifier", "drafter",
-               "kb_version", "prompt_version", "draft_mode"}  # fmt: skip
+               "reply_check", "kb_version", "prompt_version", "draft_mode"}  # fmt: skip
 
 
 def _user_tokens(card: dict[str, Any]) -> int:
@@ -182,7 +188,7 @@ def cost_per_ticket(cards: list[dict[str, Any]], meta: dict[str, Any]) -> dict[s
                 cal["classifier"]["system"], _user_tokens(card), cls["output_tokens"],
                 PRICES["claude-haiku-5-5"],
             )  # fmt: skip
-        if card["draft_mode"]:
+        if card["drafter"]["model"]:
             # claude-cli: calibrated; anthropic: the cached part the API reports.
             d = card["drafter"]
             system = cal.get("drafter", {}).get("system") or (

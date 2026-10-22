@@ -76,25 +76,63 @@ parts it could not answer.
 property instead of a metric to watch. The grounding check still verifies ids, in case a
 backend does not enforce the schema.
 
-## 8. A deterministic grounding check instead of a judge model
+## 8. Checks on every draft: numbers in code, wording by patterns and the decision model
 
-**Decision.** A draft is withheld when it has no citations, or when its numbers, time units,
-fee or guarantee claims are not in the cited sections or the client's own message, or when it
-contains trading advice, or, for complaints, KYC and AML, when it announces an outcome.
-**Why.** The failure that hurts a broker is an invented fee, limit or timeline; numbers and
-units are checkable exactly, in milliseconds, with no second model to evaluate. Time units
-are canonicalised so an English source supports a Russian or Spanish reply.
-**Limits.** A paraphrased unsupported claim without a number ("withdrawals are usually
-quick") passes. Phase 2 can add a second decision-model pass over (cited text, draft); it goes
-in only if it reduces misses on the golden set.
-**Rejected.** An LLM judge in phase 1: a second model with its own errors, latency and cost.
+**Decision.** A draft is withheld when it has no citations; when a number with its unit or
+currency ("48 hours", "a business day", "$10"), or a fee or guarantee claim, appears in neither
+the cited sections nor the client's message; or when it gives trading advice, announces a
+decision on the client's case, names a compliance, fraud or security check, or says the case
+was passed on. These run on every shown draft, not only on tickets flagged as complaints, KYC or
+AML, so a missed flag does not let an outcome through. Only the cited sections support policy:
+a figure the draft takes from the client's message alone ("3 days ago") keeps the draft
+visible, is listed on the card, and routes the ticket to a person (`client_figures`). If a
+check cannot run, the draft is withheld (`check_error`).
+**How.** Numbers are compared in code (`quantities.py`): each with its unit or currency, so
+"$1,000" is not "$1", "3 days" is not "3 hours" or "3 business days", "8 €" is not "8 USD", and
+a bare "8" is not "8 USD". A number with a unit the tables do not know ("2 AUD", "₹2", "2
+trading days") is supported by nothing, step numbers ("Step 2") support nothing, and a locale-
+ambiguous "1,000" needs a number with the same readings. Units are read in every language the
+detector returns. Wording is checked in two layers: precise patterns (`rules.py`: "your
+withdrawal was rejected", "мы одобрили", "has been passed to") and three typed questions on
+the reply (`classify/questions.py: REPLY`) asked of the same decision model as the ticket
+questions, withholding at P(yes) ≥ 0.5.
+**Why two layers.** Measured on `evals/drafts.jsonl`: 465 labelled drafts and sentences (real
+drafts from every saved run, both review panels' probes, and paraphrases written before the
+checks were changed); thresholds and question wording were set on the dev split only, and the
+holdout is frozen by a hash test (`evals/run_drafts.py`, results in `evals/results/drafts-*`).
+
+| holdout (227 rows) | patterns only | patterns + Jev |
+|---|---|---|
+| decision recall | 34% (10/29) | 100% (29/29, 88–100%) |
+| compliance-check recall | 38% (5/13) | 100% (13/13, 77–100%) |
+| handover recall | 72% (33/46) | 100% (46/46, 92–100%) |
+| any of the three: recall / precision | 55% / 100% | 100% (88/88, 96–100%) / 97% (88/91) |
+
+Patterns alone missed paraphrases ("As discussed, your withdrawal has been approved",
+"Penarikan Anda telah disetujui", "Ya trasladamos su consulta al equipo de pagos"); an earlier attempt to widen them and excuse
+conditional sentences let "After reviewing your documents, we have approved…" through.
+**Limits.** Patterns and a classifier, not proof. The set is small (29 decisions, 13
+compliance checks in the holdout), labelled by one person, and the handover positives are
+mostly one template ("passed to the responsible team"); four labels were corrected after
+reading the model's disagreements, two of them in the holdout. Over-caution observed: "glad
+your withdrawal arrived", "after verification is completed, you're all set" and a future "I
+will pass your question" can be withheld. A paraphrased unsupported claim without a number
+("withdrawals are usually quick") passes. The reply check adds one decision-model call (about
+0.3 s) per shown draft.
+**Rejected.** An LLM judge: a second generative model with its own errors, latency and cost;
+the typed questions return probabilities on the contract the ticket classifier already uses.
 
 ## 9. Hard rules live in code
 
 - **Trading advice**: the decline text is fixed per language and appended by code, never
-  written by the model; the ticket routes to a person. The drafter answers only the rest.
-- **Complaints, KYC, AML**: the drafter runs in acknowledge mode, and the route is always a
-  person; a draft that announces an outcome is withheld.
+  written by the model; the ticket routes to a person. The drafter answers only the rest, and
+  the decline stays on the card when that part is withheld.
+- **Complaints, KYC, AML**: the drafter does not run, and its prompt says nothing about them
+  (`draft-v2`). The card carries a fixed, neutral acknowledgement per case and language
+  (`draft.ACKNOWLEDGEMENT`) that promises no outcome or timeline, does not claim a handover
+  that has not happened, and never names a compliance check; the route is always a person.
+- **Fixed texts are versioned**: a wording change adds a version and keeps the old ones, so
+  saved cards are scored against the text they carry (`evals/metrics.py`).
 - **Injection**: rule or model hit, the drafter does not run at all.
 - **Invented policy**: the grounding check above.
 

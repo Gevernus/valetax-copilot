@@ -30,6 +30,7 @@ build-backend = "uv_build"
 [tool.pytest.ini_options]
 addopts = "--strict-markers -q"
 testpaths = ["tests"]
+pythonpath = ["."]  # the evals package
 
 [tool.ruff]
 line-length = 100

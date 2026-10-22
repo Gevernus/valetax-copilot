@@ -59,8 +59,8 @@ uv run python -m evals.run report --date 2026-10-22            # re-score saved 
 | Draft grounded in the KB with citations, or abstain | `kb/valetax.toml`, `src/copilot/draft.py`, `src/copilot/grounding.py` |
 | Route to a human reviewer whenever required | `src/copilot/routing.py`, `src/copilot/pipeline.py` |
 | No trading advice; detect and decline politely | `rules.asks_trading_advice`, the `trading_advice` question, `draft.TRADING_DECLINE`, `rules.gives_trading_advice` |
-| Never decide complaint, KYC or AML outcomes | acknowledge mode in `draft.py`, `rules.announces_decision`, routing reasons |
-| Never invent policy, fees or timelines | `grounding.check_draft`, abstention in the draft schema |
+| Never decide complaint, KYC or AML outcomes | fixed acknowledgements in `draft.ACKNOWLEDGEMENT`, `rules.py` patterns and the `REPLY` questions on every draft ([decisions §8](docs/decisions.md)), routing reasons |
+| Never invent policy, fees or timelines | `grounding.check_draft` with `quantities.py`, abstention in the draft schema |
 | KB used as is, gaps and inconsistencies included | `kb/valetax.toml`, [docs/kb-issues.md](docs/kb-issues.md) |
 | Measure it | `evals/`, [docs/evals.md](docs/evals.md) |
 | Business case on one page | [docs/business-case.md](docs/business-case.md) |

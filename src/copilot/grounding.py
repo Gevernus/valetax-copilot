@@ -1,52 +1,63 @@
 """Deterministic check of a draft against the sections it cites. No model involved.
 
-A draft fails when it cites nothing or an unknown section, or when its text carries a number, a
-time unit, a fee/guarantee claim, trading advice or (in acknowledge mode) an outcome that the cited
-sections and the client's own message do not contain.
+A draft fails when it cites nothing or an unknown section; when a number with its unit or
+currency ("48 hours", "a business day", "$10") or a fee/guarantee claim appears in neither the
+cited sections nor the client's message; or when it gives trading advice, announces a decision,
+names a compliance check or says the case was passed on. Only the cited sections support policy: what the draft
+takes from the client's message alone is listed in `client_figures`, and a person checks it.
 """
 
 from dataclasses import dataclass
 
-from copilot import rules
-from copilot.draft import Draft, Mode
+from copilot import quantities, rules
+from copilot.draft import Draft
 from copilot.kb import KnowledgeBase
 
 
 @dataclass(frozen=True, slots=True)
 class GroundingResult:
     problems: tuple[str, ...]
+    client_figures: tuple[str, ...] = ()  # supported by the ticket only
 
     @property
     def ok(self) -> bool:
         return not self.problems
 
 
-def check_draft(draft: Draft, kb: KnowledgeBase, ticket: str, mode: Mode) -> GroundingResult:
+def check_draft(draft: Draft, kb: KnowledgeBase, ticket: str) -> GroundingResult:
     if draft.abstain:
         return GroundingResult(())
+    reply = draft.reply
     problems: list[str] = []
-    if not draft.reply.strip():
+    if not reply.strip():
         problems.append("empty reply without abstaining")
     unknown = [c for c in draft.citations if c not in kb.sections]
     if unknown:
         problems.append(f"unknown sections cited: {', '.join(unknown)}")
-    cited = [kb.sections[c].text for c in draft.citations if c in kb.sections]
-    if not cited and mode is Mode.ANSWER:
+    sources = " ".join(kb.sections[c].text for c in draft.citations if c in kb.sections)
+    if not sources:
         problems.append("no citations")
 
-    # The client's own message may be echoed back ("your 3-day-old request"); that is not invention.
-    support = " ".join([*cited, ticket])
-    extra_numbers = rules.numbers(draft.reply) - rules.numbers(support)
-    if extra_numbers:
-        problems.append(f"numbers not in cited sections: {', '.join(sorted(extra_numbers))}")
-    extra_units = rules.time_units(draft.reply) - rules.time_units(support)
-    if extra_units:
-        problems.append(f"time units not in cited sections: {', '.join(sorted(extra_units))}")
-    claims = [c for c in rules.policy_claims(draft.reply) if c.lower() not in support.lower()]
-    if claims:
-        problems.append(f"unsupported policy claims: {', '.join(claims)}")
-    if rules.gives_trading_advice(draft.reply):
+    in_sources, in_ticket = quantities.quantities(sources), quantities.quantities(ticket)
+    unsourced = [q for q in quantities.quantities(reply) if not quantities.supported(q, in_sources)]
+    echoed = sorted((q for q in unsourced if quantities.supported(q, in_ticket)), key=str)
+    invented = sorted(str(q) for q in unsourced if q not in echoed)
+    if invented:
+        problems.append(f"numbers not in cited sections: {', '.join(invented)}")
+    from_client = [str(q) for q in echoed]
+
+    claims = [c for c in rules.policy_claims(reply) if c.lower() not in sources.lower()]
+    from_client += [c for c in claims if c.lower() in ticket.lower()]
+    unsupported = [c for c in claims if c.lower() not in ticket.lower()]
+    if unsupported:
+        problems.append(f"unsupported policy claims: {', '.join(unsupported)}")
+
+    if rules.gives_trading_advice(reply):
         problems.append("reply contains trading advice")
-    if mode is Mode.ACKNOWLEDGE and rules.announces_decision(draft.reply):
-        problems.append("reply announces a decision on a case reserved for a person")
-    return GroundingResult(tuple(problems))
+    if rules.announces_decision(reply):
+        problems.append("reply announces a decision reserved for a person")
+    if rules.tips_off(reply):
+        problems.append("reply names a compliance check")
+    if rules.claims_handover(reply):
+        problems.append("reply says the case was passed on")
+    return GroundingResult(tuple(problems), tuple(from_client))

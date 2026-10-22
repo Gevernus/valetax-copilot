@@ -56,15 +56,65 @@ _ADVICE_IN_DRAFT: Final = re.compile(
     r")"
 )
 
-# A reply to a complaint, KYC or AML ticket acknowledges; these phrases announce an outcome.
+# Only a person decides a complaint, KYC or AML outcome; these phrases announce one. High
+# precision first: a passive outcome counts when the sentence opens with the client's own thing
+# ("Your withdrawal was approved") or says "now / already / successfully"; "once it is approved"
+# does not. The reply questions (classify/questions.py: REPLY) catch the paraphrases.
+_OUTCOME: Final = (
+    r"(approved|verified|rejected|declined|denied|accepted|unblocked|unfrozen|blocked|frozen"
+    r"|refunded|released|reinstated|suspended|cancell?ed|closed|restricted|complete|completed)"
+)
+_SENTENCE_START: Final = r"(?:^|(?<=[.!?\n]))\s*"
 _DECISION_LANGUAGE: Final = re.compile(
     r"(?i)("
-    r"\b(has|have) been (approved|rejected|declined|accepted|unblocked|unfrozen)"
-    r"|\bwe (will|'ll) (refund|compensate|reimburse|unblock|unfreeze|approve|reject)"
-    r"|\byou (are|will be) (refunded|compensated|reimbursed)"
-    r"|\b(is|are) (approved|verified) now\b"
-    r"|(одобрен|отклонен|отклонён)\w*"
-    r"|(вернём|вернем|компенсируем|разблокируем)"
+    rf"{_SENTENCE_START}your(\s+[\w'-]+){{1,5}}?\s+(is|are|was|were|has|have|had)"
+    rf"(\s+(now|already|successfully|fully|finally|just|not))*(\s+been)?\s+{_OUTCOME}\b"
+    r"|\b(is|are|was|were|has been|have been)(\s+(now|already|successfully|fully|finally))+"
+    rf"\s+{_OUTCOME}\b"
+    rf"|\b(we|i)('ve| have)?(\s+(now|already|successfully|just))*\s+{_OUTCOME}\b"
+    r"|\bwe (will|'ll) (refund|compensate|reimburse|unblock|unfreeze|approve|reject|release)\b"
+    r"|\byou (have been|are now) (refunded|compensated|reimbursed|verified)\b"
+    rf"|{_SENTENCE_START}ваш\w*(\s+[\w-]+){{0,5}}?\s+"
+    r"(одобрен|отклонен|отклонён|верифицирован|разблокирован|заблокирован|заморожен|приостановлен"
+    r"|отменён|отменен|возвращен|возвращён|подтвержд[её]н)[аоы]?\b"
+    r"|\bмы (уже )?(одобрили|отклонили|разблокировали|заблокировали|верифицировали|вернули"
+    r"|компенсировали|возместили|заморозили|разморозили|подтвердили)\b"
+    r"|\b(вернём|вернем|компенсируем|разблокируем|возместим)\b"
+    rf"|{_SENTENCE_START}(su|tu)(\s+[\w-]+){{1,5}}?\s+(fue|fueron|ha sido|han sido|está|están)"
+    r"(\s+(ya|ahora|correctamente))*\s+(aprobad|rechazad|verificad|denegad|desbloquead|bloquead"
+    r"|reembolsad|cancelad)[ao]s?\b"
+    r"|\bhemos (aprobado|rechazado|verificado|desbloqueado|bloqueado|reembolsado|cancelado)\b"
+    r"|\b(reembolsaremos|devolveremos|aprobaremos)\b"
+    r")"
+)
+
+# Telling a client they are under an AML, fraud or compliance check can itself be an offence
+# (tipping-off); no reply names one.
+_TIPPING_OFF: Final = re.compile(
+    r"(?i)("
+    r"\bAML\b|\b(anti-)?money laundering\b|\bcompliance\b|\banti-fraud\b|\bflagged\b"
+    r"|\bfraud (check|team|review|department|system|monitoring|investigation)s?\b"
+    r"|\binvestigat(e|es|ed|ing|ion|ions)\b|\bsuspicious\b"
+    r"|\b(security|risk) (team|review|check|department|service)s?\b"
+    r"|\bsource of (your |the )?(funds|wealth|income)\b"
+    r"|\bотмывани\w*|\bкомплаенс\w*|\bфинмониторинг\w*|\bрасследовани\w*|\bподозрительн\w*"
+    r"|\bмошенни\w*|\bслужб\w* безопасности\b|\bисточник\w* (ваших )?(средств|дохода|доходов)\b"
+    r"|\blavado de (dinero|activos)\b|\bcumplimiento\b|\binvestigaci[oó]n\b|\bsospechos[ao]s?\b"
+    r"|\bfraude\b|\borigen de (los |sus )?fondos\b|\bequipo de seguridad\b"
+    r")"
+)
+
+# A draft is a proposal to the agent; nothing has been handed over when the client reads it.
+_HANDOVER: Final = re.compile(
+    r"(?i)("
+    r"\b(is|was|were|has been|have been) (passed|forwarded|escalated|transferred|referred)"
+    r" (on )?to\b"
+    r"|\b(i|we)('ve| have)? (passed|forwarded|escalated|transferred|referred)\b"
+    r"|\b(мы|я) (уже )?передал\w*\b"
+    r"|\bпереда(н|на|но|ны)\s+(в|во|ответствен\w*|команд\w*|отдел\w*|специалист\w*|сотрудник\w*"
+    r"|коллег\w*)\b|\bпереда(н|на|но|ны)[.!]"
+    r"|\b(fue|fueron|ha sido|han sido) (remitid|transferid|derivad|escalad|trasladad)[ao]s?\b"
+    r"|\bhemos (remitido|transferido|derivado|pasado|escalado|trasladado)\b"
     r")"
 )
 
@@ -78,34 +128,6 @@ _POLICY_CLAIM: Final = re.compile(
     r")"
 )
 
-_NUMBER: Final = re.compile(r"\d+(?::\d+)?(?:[.,]\d+)?")
-_LIST_MARKER: Final = re.compile(r"(?m)^\s*\d+[.)]\s")
-
-# Canonical time units, so an English source supports a Russian or Spanish reply.
-_TIME_UNITS: Final = {
-    "minute": re.compile(r"(?i)\b(minutes?|mins?|минут\w*|minutos?|menit)\b"),
-    "hour": re.compile(r"(?i)\b(hours?|hrs?|час\w*|horas?|jam)\b"),
-    "day": re.compile(r"(?i)\b(days?|business days?|дн(я|ей|и)|день|сутк\w*|суток|días?|hari)\b"),
-    "week": re.compile(r"(?i)\b(weeks?|недел\w*|semanas?|minggu)\b"),
-    "month": re.compile(r"(?i)\b(months?|месяц\w*|mes(es)?|bulan)\b"),
-}
-
-
-def numbers(text: str) -> set[str]:
-    """Numbers as written, normalised so that "8", "8.00" and "8,0" compare equal.
-    Numbered-list markers are formatting, not claims, and are skipped."""
-    out = set()
-    for raw in _NUMBER.findall(_LIST_MARKER.sub(" ", text)):
-        n = raw.replace(",", ".")
-        if "." in n:
-            n = n.rstrip("0").rstrip(".")
-        out.add(n)
-    return out
-
-
-def time_units(text: str) -> set[str]:
-    return {unit for unit, pattern in _TIME_UNITS.items() if pattern.search(text)}
-
 
 def gives_trading_advice(text: str) -> bool:
     return _ADVICE_IN_DRAFT.search(text) is not None
@@ -113,6 +135,14 @@ def gives_trading_advice(text: str) -> bool:
 
 def announces_decision(text: str) -> bool:
     return _DECISION_LANGUAGE.search(text) is not None
+
+
+def tips_off(text: str) -> bool:
+    return _TIPPING_OFF.search(text) is not None
+
+
+def claims_handover(text: str) -> bool:
+    return _HANDOVER.search(text) is not None
 
 
 def policy_claims(text: str) -> list[str]:

@@ -4,9 +4,10 @@ from typing import Any
 
 import pytest
 
+from copilot import cli, pipeline, rules
 from copilot.classify import Answer, Classification
 from copilot.classify.questions import QUESTIONS, YES_NO
-from copilot.draft import TRADING_DECLINE, Drafter
+from copilot.draft import ACKNOWLEDGEMENT, TRADING_DECLINE, Drafter
 from copilot.kb import load_kb
 from copilot.llm import LlmResult, LlmUsage
 from copilot.pipeline import Copilot
@@ -95,22 +96,55 @@ def test_injection_skips_the_drafter() -> None:
     assert card.reply is None
 
 
-@pytest.mark.parametrize("flag", ["complaint", "kyc_case", "aml_case"])
-def test_reserved_cases_are_acknowledged_and_routed(flag: str) -> None:
-    llm = FakeLlm(
-        reply="Thank you, your case is passed to the responsible team.", citations=["verify.steps"]
-    )
+@pytest.mark.parametrize(
+    ("flag", "case"), [("complaint", "complaint"), ("kyc_case", "kyc"), ("aml_case", "aml")]
+)
+def test_reserved_cases_get_the_fixed_acknowledgement(flag: str, case: str) -> None:
+    llm = FakeLlm(reply="Your case has been approved.", citations=["verify.steps"])
     card = make(FakeClassifier(yes={flag: 0.9}), llm).process("t", "...")
+    assert llm.calls == []  # the model writes nothing for a reserved case
     assert card.route == "human"
     assert card.draft_mode == "acknowledge"
-    assert "Mode: acknowledge" in llm.calls[0][1]
+    assert card.reply == ACKNOWLEDGEMENT[case]["en"]
 
 
-def test_decision_in_acknowledgement_is_withheld() -> None:
-    llm = FakeLlm(reply="Your documents have been approved.", citations=["verify.steps"])
-    card = make(FakeClassifier(yes={"kyc_case": 0.9}), llm).process("t", "approve my documents")
+def test_aml_wins_over_complaint_and_kyc() -> None:
+    card = make(
+        FakeClassifier(yes={"complaint": 0.9, "kyc_case": 0.9, "aml_case": 0.9}), FakeLlm()
+    ).process("t", "...")
+    assert card.reply == ACKNOWLEDGEMENT["aml"]["en"]
+
+
+def test_acknowledgements_decide_nothing_and_reveal_nothing() -> None:
+    for by_language in ACKNOWLEDGEMENT.values():
+        for text in by_language.values():
+            assert not rules.announces_decision(text)
+            assert not rules.tips_off(text)
+            assert not rules.claims_handover(text)
+
+
+def test_decision_in_an_answer_is_withheld() -> None:
+    # The classifier missed the KYC case; the draft check still holds.
+    llm = FakeLlm(reply="Your account has been verified now.", citations=["verify.steps"])
+    card = make(FakeClassifier(category="verification"), llm).process("t", "am I verified?")
     assert card.reply is None
     assert "grounding_failed" in card.reasons
+
+
+def test_figures_only_the_client_gave_go_to_a_person(capsys: pytest.CaptureFixture[str]) -> None:
+    llm = FakeLlm(
+        reply="Your request from 3 days ago is in queue and in the midst of getting processed.",
+        citations=["funding.withdrawal-pending"],
+    )
+    card = make(FakeClassifier(category="withdrawal"), llm).process(
+        "t", "My withdrawal is pending for 3 days"
+    )
+    assert card.reasons == ["client_figures"]
+    assert card.reply is not None
+    cli._print_card(card)
+    assert "FROM THE CLIENT'S MESSAGE, NOT IN THE SOURCES:\n  - 3 days" in capsys.readouterr().out
+    assert card.trace()["client_figures"] == 1
+    assert "3 days" not in str(card.trace())
 
 
 def test_trading_advice_gets_the_fixed_decline_even_if_the_model_misses_it() -> None:
@@ -121,6 +155,22 @@ def test_trading_advice_gets_the_fixed_decline_even_if_the_model_misses_it() -> 
     assert "trading_advice" in card.reasons
     assert card.reply is not None
     assert card.reply.endswith(TRADING_DECLINE["en"])
+
+
+def test_decline_survives_a_withheld_draft() -> None:
+    llm = FakeLlm(reply="Deposits are free of charge.", citations=["funding.how-to-deposit"])
+    card = make(FakeClassifier(yes={"trading_advice": 0.9}), llm).process(
+        "t", "Any deposit fees? And should I buy gold now?"
+    )
+    assert "grounding_failed" in card.reasons
+    assert card.reply == TRADING_DECLINE["en"]
+
+
+def test_reserved_case_with_an_advice_request_gets_both_fixed_texts() -> None:
+    card = make(FakeClassifier(yes={"complaint": 0.9, "trading_advice": 0.9}), FakeLlm()).process(
+        "t", "..."
+    )
+    assert card.reply == f"{ACKNOWLEDGEMENT['complaint']['en']}\n\n{TRADING_DECLINE['en']}"
 
 
 def test_trading_advice_only_ticket_gets_the_decline_alone() -> None:
@@ -172,3 +222,74 @@ def test_trace_has_no_text() -> None:
     assert "minimum" not in line
     assert "a@b.co" not in line
     assert "8 USD" not in line
+
+
+def test_a_broken_check_withholds_the_draft(monkeypatch: pytest.MonkeyPatch) -> None:
+    def broken(*_: object) -> None:
+        raise KeyError("тысяч")
+
+    monkeypatch.setattr(pipeline, "check_draft", broken)
+    card = make(FakeClassifier(), FakeLlm(**MIN_DEPOSIT)).process("t", "Min deposit?")
+    assert card.reply is None
+    assert card.route == "human"
+    assert card.reasons == ["check_error"]
+
+
+def test_a_russian_amount_in_the_ticket_does_not_break_the_card() -> None:
+    card = make(FakeClassifier(), FakeLlm(**MIN_DEPOSIT)).process(
+        "t", "Хочу внести 50 тысяч рублей, какой минимальный депозит?"
+    )
+    assert card.route == "auto"
+
+
+class FakeReplyChecker:
+    name = "fake"
+
+    def __init__(self, **p_yes: float) -> None:
+        self.p_yes = p_yes
+        self.seen: list[str] = []
+
+    def classify(self, text: str) -> Classification:
+        self.seen.append(text)
+        answers = {
+            name: Answer("yes" if p >= 0.5 else "no", {"yes": p, "no": 1 - p})
+            for name, p in ({"decision": 0.0, "check": 0.0, "handover": 0.0} | self.p_yes).items()
+        }
+        return Classification(answers, "fake", "fake-reply")
+
+
+def with_reply_checker(checker: FakeReplyChecker, llm: FakeLlm) -> Copilot:
+    kb = load_kb()
+    return Copilot(kb, FakeClassifier(), Drafter(llm, kb), reply_checker=checker)
+
+
+def test_reply_questions_withhold_a_paraphrased_decision() -> None:
+    llm = FakeLlm(
+        reply="After reviewing everything, the withdrawal went through.",
+        citations=["funding.withdrawal-pending"],
+    )
+    checker = FakeReplyChecker(decision=0.9)
+    card = with_reply_checker(checker, llm).process("t", "is my withdrawal ok?")
+    assert checker.seen == ["After reviewing everything, the withdrawal went through."]
+    assert card.reply is None
+    assert card.reasons == ["grounding_failed"]
+    assert card.trace()["reply_check"]["decision"] == 0.9
+
+
+def test_reply_questions_pass_a_clean_draft() -> None:
+    card = with_reply_checker(FakeReplyChecker(), FakeLlm(**MIN_DEPOSIT)).process("t", "Min?")
+    assert card.route == "auto"
+
+
+def test_reply_questions_failing_withhold_the_draft() -> None:
+    class Down(FakeReplyChecker):
+        def classify(self, text: str) -> Classification:
+            raise TimeoutError
+
+    card = with_reply_checker(Down(), FakeLlm(**MIN_DEPOSIT)).process("t", "Min deposit?")
+    assert card.reply is None
+    assert card.reasons == ["check_error"]
+
+
+def test_decline_does_not_point_to_an_unconfirmed_document() -> None:
+    assert all("Risk" not in text and "рисков" not in text for text in TRADING_DECLINE.values())

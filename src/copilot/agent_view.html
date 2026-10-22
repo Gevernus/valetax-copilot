@@ -90,6 +90,8 @@
         ${c.ticket ? `<div class="ticket">${esc(c.ticket)}</div>` : ""}
         <h3>Draft</h3>
         ${draftBlock(c)}
+        ${(c.client_figures ?? []).length ? `<h3>From the client's message, not in the sources</h3><ul>${
+          c.client_figures.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>` : ""}
         ${c.unanswered.length ? `<h3>Not in the knowledge base</h3><ul>${c.unanswered.map((q) =>
           `<li>${esc(q)}</li>`).join("")}</ul>` : ""}
         ${c.citations.length ? `<h3>Sources</h3><ul class="sources">${c.citations.map((s) =>

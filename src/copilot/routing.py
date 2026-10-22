@@ -14,7 +14,9 @@ class Reason(StrEnum):
     LOW_CONFIDENCE = "low_confidence"
     KB_GAP = "kb_gap"
     KB_CONFLICT = "kb_conflict"
+    CLIENT_FIGURES = "client_figures"
     GROUNDING_FAILED = "grounding_failed"
+    CHECK_ERROR = "check_error"
     DRAFT_ERROR = "draft_error"
 
 
@@ -29,7 +31,9 @@ CONSEQUENCE: dict[Reason, str] = {
     Reason.LOW_CONFIDENCE: "Classifier is unsure about the topic. Read the ticket before using the draft.",
     Reason.KB_GAP: "The help pages do not answer all of it. Fill in what is listed as unanswered.",
     Reason.KB_CONFLICT: "The cited help pages contradict each other. Confirm the current policy first.",
+    Reason.CLIENT_FIGURES: "The draft repeats figures from the client's message that the help pages do not state. Check them before sending.",
     Reason.GROUNDING_FAILED: "The draft failed the source check and is withheld.",
+    Reason.CHECK_ERROR: "The source check could not run, so the draft is withheld. Reply manually.",
     Reason.DRAFT_ERROR: "Draft generation failed. Reply manually.",
 }
 
@@ -45,6 +49,7 @@ class Thresholds:
     injection: float = 0.5
     account_lookup: float = 0.5
     category_min: float = 0.5  # below this the topic itself is uncertain
+    reply_flag: float = 0.5  # a reply question at or above this withholds the draft
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,7 +64,9 @@ class Signals:
     abstained: bool = False
     unanswered: bool = False
     cites_conflict: bool = False
+    client_figures: bool = False
     grounding_failed: bool = False
+    check_error: bool = False
     draft_error: bool = False
 
 
@@ -87,7 +94,9 @@ _TABLE: tuple[tuple[str, Reason], ...] = (
     ("abstained", Reason.KB_GAP),
     ("unanswered", Reason.KB_GAP),
     ("cites_conflict", Reason.KB_CONFLICT),
+    ("client_figures", Reason.CLIENT_FIGURES),
     ("grounding_failed", Reason.GROUNDING_FAILED),
+    ("check_error", Reason.CHECK_ERROR),
     ("draft_error", Reason.DRAFT_ERROR),
 )
 

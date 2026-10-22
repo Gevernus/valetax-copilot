@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from copilot.classify import make_classifier
+from copilot.classify.questions import REPLY
 from copilot.draft import Drafter
 from copilot.kb import DEFAULT_KB, load_kb
 from copilot.llm import make_llm
@@ -16,7 +17,12 @@ from copilot.view import render_page
 
 def build_copilot(classifier: str, llm: str, model: str, kb_path: Path = DEFAULT_KB) -> Copilot:
     kb = load_kb(kb_path)
-    return Copilot(kb, make_classifier(classifier), Drafter(make_llm(llm, model), kb))
+    return Copilot(
+        kb,
+        make_classifier(classifier),
+        Drafter(make_llm(llm, model), kb),
+        reply_checker=make_classifier(classifier, REPLY),
+    )
 
 
 def _print_card(card: Card) -> None:
@@ -36,6 +42,10 @@ def _print_card(card: Card) -> None:
         print("(withheld: " + "; ".join(card.problems) + ")")
     else:
         print("(none)")
+    if card.client_figures:
+        print("\nFROM THE CLIENT'S MESSAGE, NOT IN THE SOURCES:")
+        for figure in card.client_figures:
+            print(f"  - {figure}")
     if card.unanswered:
         print("\nNOT IN THE KNOWLEDGE BASE:")
         for q in card.unanswered:

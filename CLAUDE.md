@@ -33,6 +33,8 @@ log or write them, and never put them in a test fixture.
 - `kb/valetax.toml`: the knowledge base; `docs/kb-issues.md` explains the issue tags
   (`conflict` routes to a person, `defect` keeps a section out of the prompt, `gap`).
 - `evals/tickets.jsonl`: golden set; `evals/metrics.py`: scoring; `evals/results/`: runs.
+- `evals/drafts.jsonl`: labelled drafts for the reply checks; `uv run python -m evals.run_drafts
+  [--classifier jev]`. Tune on `split: dev` only; the holdout hash is pinned in `tests/test_evals.py`.
 
 ## Rules for changes
 
