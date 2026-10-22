@@ -15,7 +15,13 @@ from copilot.pipeline import Copilot
 class FakeClassifier:
     name = "fake"
 
-    def __init__(self, category: str = "deposit", p_category: float = 0.95, **yes: float) -> None:
+    def __init__(
+        self,
+        category: str = "deposit",
+        p_category: float = 0.95,
+        yes: dict[str, float] | None = None,
+    ) -> None:
+        yes = yes or {}
         self.answers = {
             "category": Answer(category, {category: p_category}),
             "urgency": Answer("low", {"low": 1.0}),
@@ -94,7 +100,7 @@ def test_reserved_cases_are_acknowledged_and_routed(flag: str) -> None:
     llm = FakeLlm(
         reply="Thank you, your case is passed to the responsible team.", citations=["verify.steps"]
     )
-    card = make(FakeClassifier(**{flag: 0.9}), llm).process("t", "...")
+    card = make(FakeClassifier(yes={flag: 0.9}), llm).process("t", "...")
     assert card.route == "human"
     assert card.draft_mode == "acknowledge"
     assert "Mode: acknowledge" in llm.calls[0][1]
@@ -102,7 +108,7 @@ def test_reserved_cases_are_acknowledged_and_routed(flag: str) -> None:
 
 def test_decision_in_acknowledgement_is_withheld() -> None:
     llm = FakeLlm(reply="Your documents have been approved.", citations=["verify.steps"])
-    card = make(FakeClassifier(kyc_case=0.9), llm).process("t", "approve my documents")
+    card = make(FakeClassifier(yes={"kyc_case": 0.9}), llm).process("t", "approve my documents")
     assert card.reply is None
     assert "grounding_failed" in card.reasons
 
@@ -119,7 +125,7 @@ def test_trading_advice_gets_the_fixed_decline_even_if_the_model_misses_it() -> 
 
 def test_trading_advice_only_ticket_gets_the_decline_alone() -> None:
     llm = FakeLlm(abstain=True, abstain_reason="trading question")
-    card = make(FakeClassifier(category="other", trading_advice=0.9), llm).process(
+    card = make(FakeClassifier(category="other", yes={"trading_advice": 0.9}), llm).process(
         "t", "Will gold go up this week?"
     )
     assert card.reply == TRADING_DECLINE["en"]
