@@ -1,0 +1,101 @@
+"""Routing rules: a table from signals to reasons. Any reason sends the ticket to a person."""
+
+from dataclasses import dataclass, field
+from enum import StrEnum
+
+
+class Reason(StrEnum):
+    PROMPT_INJECTION = "prompt_injection"
+    AML = "aml"
+    KYC = "kyc"
+    COMPLAINT = "complaint"
+    TRADING_ADVICE = "trading_advice"
+    ACCOUNT_LOOKUP = "account_lookup"
+    LOW_CONFIDENCE = "low_confidence"
+    KB_GAP = "kb_gap"
+    KB_CONFLICT = "kb_conflict"
+    GROUNDING_FAILED = "grounding_failed"
+    DRAFT_ERROR = "draft_error"
+
+
+# What the agent sees first on the card: why, and what it means for them.
+CONSEQUENCE: dict[Reason, str] = {
+    Reason.PROMPT_INJECTION: "Message tries to instruct the AI. No draft was generated; handle manually.",
+    Reason.AML: "Compliance case. Forward to the AML team; the draft only acknowledges.",
+    Reason.KYC: "Verification decision. Forward to the KYC team; the draft only acknowledges.",
+    Reason.COMPLAINT: "Complaint. A person decides the outcome; the draft only acknowledges.",
+    Reason.TRADING_ADVICE: "Asks for trading advice. The draft declines it; check the decline fits.",
+    Reason.ACCOUNT_LOOKUP: "Needs the client's records (transaction, balance, status). Check them before replying.",
+    Reason.LOW_CONFIDENCE: "Classifier is unsure about the topic. Read the ticket before using the draft.",
+    Reason.KB_GAP: "The help pages do not answer all of it. Fill in what is listed as unanswered.",
+    Reason.KB_CONFLICT: "The cited help pages contradict each other. Confirm the current policy first.",
+    Reason.GROUNDING_FAILED: "The draft failed the source check and is withheld.",
+    Reason.DRAFT_ERROR: "Draft generation failed. Reply manually.",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class Thresholds:
+    """P(yes) above which a flag is raised. Lower where a miss costs more than a false alarm."""
+
+    trading_advice: float = 0.35
+    complaint: float = 0.5
+    kyc_case: float = 0.5
+    aml_case: float = 0.35
+    injection: float = 0.5
+    account_lookup: float = 0.5
+    category_min: float = 0.5  # below this the topic itself is uncertain
+
+
+@dataclass(frozen=True, slots=True)
+class Signals:
+    injection: bool = False
+    aml: bool = False
+    kyc: bool = False
+    complaint: bool = False
+    trading_advice: bool = False
+    account_lookup: bool = False
+    low_confidence: bool = False
+    abstained: bool = False
+    unanswered: bool = False
+    cites_conflict: bool = False
+    grounding_failed: bool = False
+    draft_error: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class Route:
+    reasons: tuple[Reason, ...] = field(default_factory=tuple)
+
+    @property
+    def to_human(self) -> bool:
+        return bool(self.reasons)
+
+    @property
+    def label(self) -> str:
+        return "human" if self.reasons else "auto"
+
+
+_TABLE: tuple[tuple[str, Reason], ...] = (
+    ("injection", Reason.PROMPT_INJECTION),
+    ("aml", Reason.AML),
+    ("kyc", Reason.KYC),
+    ("complaint", Reason.COMPLAINT),
+    ("trading_advice", Reason.TRADING_ADVICE),
+    ("account_lookup", Reason.ACCOUNT_LOOKUP),
+    ("low_confidence", Reason.LOW_CONFIDENCE),
+    ("abstained", Reason.KB_GAP),
+    ("unanswered", Reason.KB_GAP),
+    ("cites_conflict", Reason.KB_CONFLICT),
+    ("grounding_failed", Reason.GROUNDING_FAILED),
+    ("draft_error", Reason.DRAFT_ERROR),
+)
+
+
+def route(signals: Signals) -> Route:
+    """Reasons in table order (most severe first), without duplicates."""
+    reasons: list[Reason] = []
+    for attr, reason in _TABLE:
+        if getattr(signals, attr) and reason not in reasons:
+            reasons.append(reason)
+    return Route(tuple(reasons))

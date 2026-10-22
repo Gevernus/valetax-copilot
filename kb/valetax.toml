@@ -1,0 +1,205 @@
+# Valetax help-centre knowledge base, phase 1.
+#
+# Source: the four public pages below, snapshot of 2026-10-22, text kept verbatim
+# (typos included) so a citation can be checked against the live page.
+# The FAQ block that appears identically on the deposit and withdrawal pages is
+# stored once, with both URLs in `sources`.
+#
+# `issues` names entries in docs/kb-issues.md. A section with an issue of kind
+# "conflict" sends any draft that cites it to a human (see routing.py).
+
+snapshot = "2026-10-22"
+
+[pages]
+deposit = "https://valetax.com/how-to-deposit/"
+withdraw = "https://valetax.com/how-to-withdraw/"
+open = "https://valetax.com/how-to-open-an-account/"
+verify = "https://valetax.com/how-to-verify-account/"
+
+[issues]
+I1 = "conflict"   # deposit credit time: "instant" vs "within 60 minutes"
+I2 = "conflict"   # withdrawal steps are the deposit steps
+I3 = "gap"        # verification page has no document list or timeline
+I4 = "gap"        # minimum deposit depends on account type; account-types page not in KB
+I5 = "conflict"   # "begin trading immediately" vs "verification within 48 hours"
+I6 = "gap"        # no fees, methods, limits or withdrawal processing time anywhere
+I7 = "conflict"   # "instant" withdrawals vs "pending, in queue" and "24 hours"
+
+# --- How to deposit -------------------------------------------------------
+
+[[section]]
+id = "deposit.steps"
+sources = ["deposit"]
+title = "How to deposit"
+text = """
+Valetax offers a range of instant, simple and secure funding methods catering to your requirements \
+and preferences. Step 1: Log in to your Member Area. Step 2: Select your preferred payment channel. \
+Click on the Deposit button and select your preferred payment channel. Step 3: Enter your account \
+details and amount to deposit. Step 4: Start Trading!"""
+
+# --- Funding FAQ (identical on the deposit and withdrawal pages) ----------
+
+[[section]]
+id = "funding.min-deposit"
+sources = ["deposit", "withdraw"]
+title = "What is the minimum deposit amount?"
+text = "The minimum deposit starts from 8 USD, depending on the account type."
+issues = ["I4"]
+
+[[section]]
+id = "funding.how-to-deposit"
+sources = ["deposit", "withdraw"]
+title = "How can I deposit funds into my account?"
+text = "You may log in to your member area and select the preferred payment option and deposit size."
+
+[[section]]
+id = "funding.currencies"
+sources = ["deposit", "withdraw"]
+title = "What currencies can I use to deposit funds?"
+text = """
+You may deposit using any preferred currency into our USD account, which will follow that day's \
+exchange rates."""
+
+[[section]]
+id = "funding.credit-time"
+sources = ["deposit", "withdraw"]
+title = "How long does it take for deposited funds to be credited to my balance?"
+text = "Deposits are instant! You will be able to view your updated account balance within 60 minutes."
+issues = ["I1"]
+
+[[section]]
+id = "funding.available-for-trading"
+sources = ["deposit", "withdraw"]
+title = "When will my funds be available for trading?"
+text = "You can begin trading immediately once your balance has been updated."
+
+[[section]]
+id = "funding.history"
+sources = ["deposit", "withdraw"]
+title = "Where can I view my deposit and withdrawal history?"
+text = """
+You may log in to your member area to view all transactions related to deposits, withdrawals and \
+transfers."""
+
+[[section]]
+id = "funding.withdrawal-pending"
+sources = ["deposit", "withdraw"]
+title = "What is my withdrawal request status 'pending'?"
+text = """
+This means your request in in queue and in the midst of getting processed. Once approved, you will \
+be notified."""
+
+[[section]]
+id = "funding.withdrawal-rejected"
+sources = ["deposit", "withdraw"]
+title = "Why was my withdrawal request rejected?"
+text = """
+It could be that your account has not been verified, a possible error to data entered or \
+insifficient margin to process withdrawals. We will notify you via email on the rejection reason to \
+help fix this issue."""
+
+[[section]]
+id = "funding.withdrawal-not-received"
+sources = ["deposit", "withdraw"]
+title = "I have not received my funds after my withdrawal request. What should I do?"
+text = """
+Should you not receive your funds within 24 hours, please reach out to our friendly support team \
+for assistance."""
+
+# --- How to withdraw ------------------------------------------------------
+
+[[section]]
+id = "withdraw.steps"
+sources = ["withdraw"]
+title = "How to withdraw"
+text = """
+We've made fund withdrawals easy and instant, providing you with the ultimate convenience and \
+assurance you deserve. Step 1: Log in to your Member Area. Step 2: Select your preferred payment \
+channel. Step 3: Enter your account details and amount to deposit. Step 4: Start Trading!"""
+issues = ["I2", "I7"]
+
+# --- How to open an account -----------------------------------------------
+
+[[section]]
+id = "open.steps"
+sources = ["open"]
+title = "How to open an account"
+text = """
+Open your account with us in 3 quick and simple steps. Step 1: Visit www.valetax.com and click on \
+'Create Account' at the top right of the page. Step 2: Enter your details in the required fields \
+and proceed to create your account. Step 3: Upon successful registration, you will be provided \
+access to your own Member Area. Step 4: Once completed, you're ready to make your first deposit."""
+
+[[section]]
+id = "open.sign-up"
+sources = ["open"]
+title = "How do I sign up for an account?"
+text = """
+Follow the step-by-step instructions to verify and fund your account to start trading. Opening a \
+live account allows you to begin trading immediately. We recommend clients to read through our Risk \
+Disclosures, Privacy Policy and Terms of Business before they start trading."""
+issues = ["I5"]
+
+[[section]]
+id = "open.account-type"
+sources = ["open"]
+title = "What account type should I open?"
+text = """
+It will depend on your trading strategy and preferred trading instruments. You may view the various \
+account types on the Account types page. You may open another account type that suits you better \
+at a later stage too."""
+issues = ["I4"]
+
+[[section]]
+id = "open.min-initial-deposit"
+sources = ["open"]
+title = "What is the minimum initial deposit needed to open an account?"
+text = """
+It will depend on the account type that is being selected. You may view details of all our accounts \
+on the Account types page and the minimum deposit that is required for each account type."""
+issues = ["I4"]
+
+[[section]]
+id = "open.documents"
+sources = ["open"]
+title = "Do I need to provide any documents to open an account?"
+text = """
+For live accounts, we will require a Proof of identification and Proof of address via a bank \
+statement or a utility bill that are not older than 6 months. Please ensure that your name is \
+clearly displayed in these documents."""
+
+[[section]]
+id = "open.time"
+sources = ["open"]
+title = "How long does it take to open an account?"
+text = "Account opening and document verification will be completed within 48 hours."
+issues = ["I5"]
+
+[[section]]
+id = "open.leverage"
+sources = ["open"]
+title = "What leverage settings should I select?"
+text = """
+Your leverage setting is dependent on your trading strategy and goals. At Valetax, we offer up to \
+1:2000 depending on account types. For more details, visit our Account types page."""
+
+[[section]]
+id = "open.islamic"
+sources = ["open"]
+title = "Do you offer an Islamic-friendly account?"
+text = """
+All our account are Islamic friendly and there is no swap is credited or withdrawn from all trading \
+account."""
+
+# --- How to verify --------------------------------------------------------
+
+[[section]]
+id = "verify.steps"
+sources = ["verify"]
+title = "How to verify your account"
+text = """
+Identity verification plays a crucial role in ensuring the utmost security and protection against \
+identity theft and fraud. Step 1: Complete the required fields and upload the required documents to \
+complete your KYC profile. Step 2: Once completed, you will be taken to this page while your account \
+is being reviewed. Step 3: Account verification completed! You're all set to trade."""
+issues = ["I3"]

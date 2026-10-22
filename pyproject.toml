@@ -1,0 +1,55 @@
+[project]
+name = "copilot"
+version = "0.1.0"
+description = "Support-ticket co-pilot for a retail forex/CFD broker"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pydantic>=2.11",
+    "httpx>=0.28",
+    "lingua-language-detector>=2.2.0",
+]
+
+[project.optional-dependencies]
+laya = ["laya>=0.4.13"]
+anthropic = ["anthropic>=0.70"]
+
+[project.scripts]
+copilot = "copilot.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "mypy",
+    "ruff",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.28,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers -q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests", "evals"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "A", "C4", "DTZ", "SIM", "RET", "PT", "S", "BLE", "PERF", "RUF"]
+ignore = ["E501", "RUF001"]  # long prompt and pattern strings; Cyrillic text is intended
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+"src/copilot/llm.py" = ["S603", "S607"]  # the claude CLI is invoked with an argument list
+
+[tool.mypy]
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["src", "tests", "evals"]
+python_version = "3.12"
+
+[[tool.mypy.overrides]]
+module = ["laya", "laya.*", "anthropic", "anthropic.*"]
+ignore_missing_imports = true

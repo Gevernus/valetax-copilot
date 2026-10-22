@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support co-pilot — agent view</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #667085; --line: #e3e6eb;
+    --human: #b42318; --human-bg: #fef3f2; --auto: #067647; --auto-bg: #ecfdf3;
+    --chip: #eef1f5; --draft: #f9fafb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --card: #1a1f27; --text: #e6e9ef; --muted: #98a2b3; --line: #2b323d;
+      --human: #f97066; --human-bg: #2a1715; --auto: #47cd89; --auto-bg: #102519;
+      --chip: #252c36; --draft: #151a21;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 16px; border-bottom: 1px solid var(--line); background: var(--card);
+           position: sticky; top: 0; z-index: 1; display: flex; gap: 12px; flex-wrap: wrap;
+           align-items: center; }
+  header h1 { font-size: 16px; margin: 0 12px 0 0; }
+  header button { border: 1px solid var(--line); background: var(--chip); color: var(--text);
+                  border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  header button[aria-pressed="true"] { border-color: var(--text); }
+  main { max-width: 900px; margin: 0 auto; padding: 16px; display: grid; gap: 12px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .card.human { border-left: 4px solid var(--human); }
+  .card.auto { border-left: 4px solid var(--auto); }
+  .top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .badge { font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: 4px; }
+  .badge.human { color: var(--human); background: var(--human-bg); }
+  .badge.auto { color: var(--auto); background: var(--auto-bg); }
+  .chip { background: var(--chip); border-radius: 4px; padding: 1px 6px; font-size: 12px; color: var(--muted); }
+  .id { margin-left: auto; color: var(--muted); font-size: 12px; }
+  ul.reasons { margin: 8px 0; padding-left: 18px; }
+  ul.reasons li b { font-family: ui-monospace, monospace; font-size: 12px; }
+  .ticket { color: var(--muted); white-space: pre-wrap; border-left: 2px solid var(--line);
+            padding-left: 10px; margin: 8px 0; }
+  .draft { background: var(--draft); border: 1px solid var(--line); border-radius: 6px;
+           padding: 10px; white-space: pre-wrap; margin: 8px 0; }
+  .draft.none { color: var(--muted); font-style: italic; }
+  .sources a { color: inherit; }
+  .small { font-size: 12px; color: var(--muted); }
+  h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 10px 0 4px; }
+  button.copy { float: right; font-size: 12px; border: 1px solid var(--line); background: var(--chip);
+                color: var(--text); border-radius: 4px; cursor: pointer; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Support co-pilot</h1>
+  <span class="small" id="summary"></span>
+  <button data-filter="all" aria-pressed="true">All</button>
+  <button data-filter="human" aria-pressed="false">Needs a person</button>
+  <button data-filter="auto" aria-pressed="false">Draft ready</button>
+</header>
+<main id="cards"></main>
+<script id="data" type="application/json">/*CARDS*/</script>
+<script>
+  const cards = JSON.parse(document.getElementById("data").textContent);
+  const root = document.getElementById("cards");
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  function draftBlock(c) {
+    if (c.reply != null) {
+      return `<div class="draft"><button class="copy">Copy</button>${esc(c.reply)}</div>`;
+    }
+    const why = c.abstain_reason ? `Abstained: ${c.abstain_reason}`
+      : c.problems.length ? `Withheld: ${c.problems.join("; ")}` : "No draft.";
+    return `<div class="draft none">${esc(why)}</div>`;
+  }
+  function render(filter) {
+    const shown = cards.filter((c) => filter === "all" || c.route === filter);
+    root.innerHTML = shown.map((c) => `
+      <article class="card ${c.route}">
+        <div class="top">
+          <span class="badge ${c.route}">${c.route === "human" ? "NEEDS A PERSON" : "DRAFT READY"}</span>
+          <span class="chip">priority: ${esc(c.urgency)}</span>
+          <span class="chip">${esc(c.category)}</span>
+          <span class="chip">${esc(c.language)}</span>
+          <span class="chip">${esc(c.sentiment)}</span>
+          <span class="id">${esc(c.ticket_id)}</span>
+        </div>
+        ${c.reasons.length ? `<ul class="reasons">${c.reasons.map((r, i) =>
+          `<li><b>${esc(r)}</b> — ${esc(c.consequences[i])}</li>`).join("")}</ul>` : ""}
+        ${c.ticket ? `<div class="ticket">${esc(c.ticket)}</div>` : ""}
+        <h3>Draft</h3>
+        ${draftBlock(c)}
+        ${c.unanswered.length ? `<h3>Not in the knowledge base</h3><ul>${c.unanswered.map((q) =>
+          `<li>${esc(q)}</li>`).join("")}</ul>` : ""}
+        ${c.citations.length ? `<h3>Sources</h3><ul class="sources">${c.citations.map((s) =>
+          `<li><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>
+           <span class="small">[${esc(s.id)}]</span></li>`).join("")}</ul>` : ""}
+        <div class="small">classifier ${esc(c.classifier.backend)} · drafter ${esc(c.drafter.model ?? "—")}
+          · kb ${esc(c.kb_version)} · ${Object.entries(c.timings_ms).map(([k, v]) => `${k} ${v} ms`).join(", ")}</div>
+      </article>`).join("");
+  }
+  document.getElementById("summary").textContent =
+    `${cards.length} tickets · ${cards.filter((c) => c.route === "human").length} need a person`;
+  document.querySelectorAll("header button").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("header button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+    render(b.dataset.filter);
+  }));
+  root.addEventListener("click", (e) => {
+    if (e.target.classList.contains("copy")) {
+      navigator.clipboard.writeText(e.target.parentElement.textContent.replace(/^Copy/, ""));
+    }
+  });
+  render("all");
+</script>
+</body>
+</html>
