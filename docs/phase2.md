@@ -1,6 +1,6 @@
 # Phase 2: scale up
 
-Phase 1 is built for one fact: the knowledge base is four pages, about 2,100 tokens. Phase 2
+Phase 1 is built for one fact: the knowledge base is four pages, about 2,000 tokens of prompt. Phase 2
 is what changes when tickets grow past 10,000 a month and the KB grows into SOPs, product
 pages and internal procedures. Each step below has a trigger, so it is done when the numbers
 ask for it, not before.

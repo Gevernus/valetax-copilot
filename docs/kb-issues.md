@@ -2,15 +2,17 @@
 
 The four help pages as fetched on 2026-10-22, read line by line before sectioning
 (`kb/valetax.toml`). Each issue has an id used in the section tags. The co-pilot treats
-a **conflict** as a reason to send any draft that cites the section to a person, and a
-**gap** as something to abstain on. These are also the content fixes with the highest
-return: closing I1, I2 and I5 moves a measurable share of tickets from "needs a person"
-to "draft ready" (see [evals.md](evals.md)).
+a **conflict** as a reason to send any draft that cites the section to a person, a
+**defect** (content known to be wrong) as something the drafter must not see, and a **gap**
+as something to abstain on. These are also the content fixes with the highest
+return: on the golden set, 4 of 80 tickets (en08, en26, en32, ru15: deposit, account-opening
+and verification times) go to a person for no other reason than I1 or I5, and every "how do
+I withdraw" ticket goes there because of I2.
 
 | id | kind | where | what the pages say | effect on the co-pilot |
 |---|---|---|---|---|
 | I1 | conflict | deposit FAQ (also on the withdrawal page) | "Deposits are instant! You will be able to view your updated account balance within 60 minutes." The page intro also promises "instant" funding methods. | Instant or up to an hour? A deposit-time answer cites `funding.credit-time` and goes to a person. |
-| I2 | conflict | withdrawal page, steps | The four steps are the deposit steps: step 3 "Enter your account details and amount **to deposit**", step 4 "Start Trading!". Step 2 lacks the "Withdraw" button the deposit page names for deposits. | There is no withdrawal procedure in the KB. "How do I withdraw?" goes to a person. |
+| I2 | defect | withdrawal page, steps | The four steps are the deposit steps: step 3 "Enter your account details and amount **to deposit**", step 4 "Start Trading!". Step 2 lacks the "Withdraw" button the deposit page names for deposits. | There is no withdrawal procedure in the KB. The section is kept out of the prompt; "How do I withdraw?" abstains and goes to a person. |
 | I3 | gap | verification page | 76 words, three steps. No document list, no formats, no timeline, no rejection reasons. The document list and the 48-hour figure live on the account-opening page. | Verification questions are answered from `open.documents` and `open.time`; the drafter has to cross pages. |
 | I4 | gap | deposit FAQ, account-opening FAQ | "The minimum deposit starts from 8 USD, depending on the account type." The per-account amounts are on the Account types page, which is linked but not part of the KB. | "8 USD" is a floor, not an answer for a named account; "minimum for ECN?" abstains. |
 | I5 | conflict | account-opening FAQ | "Opening a live account allows you to begin trading immediately" vs "Account opening and document verification will be completed within 48 hours", and live accounts require proof of identity and address. | Account-opening and verification time answers go to a person. |

@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Protocol
 
 MODEL_IDS = {"haiku": "claude-haiku-5-5", "sonnet": "claude-sonnet-5-5"}
@@ -62,7 +63,9 @@ class ClaudeCli:
     def __init__(self, model: str = "haiku", timeout_s: float = 90.0) -> None:
         self.model = MODEL_IDS.get(model, model)
         self._timeout_s = timeout_s
-        self._workdir = tempfile.mkdtemp(prefix="copilot-claude-")  # no CLAUDE.md to discover
+        # An empty directory of our own: no CLAUDE.md for the CLI to discover.
+        self._workdir = Path(tempfile.gettempdir()) / "copilot-claude-cli"
+        self._workdir.mkdir(exist_ok=True)
 
     def complete(self, system: str, user: str, schema: dict[str, Any]) -> LlmResult:
         # The ticket goes through stdin, not argv, so it never shows up in the process list.
