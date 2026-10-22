@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from copilot.kb import KnowledgeBase
-from copilot.llm import Llm, LlmResult
+from copilot.llm import Llm, LlmError, LlmResult
 
 PROMPT_VERSION = "draft-v1"
 
@@ -66,7 +66,10 @@ def schema(kb: KnowledgeBase) -> dict[str, Any]:
             "abstain": {"type": "boolean"},
             "abstain_reason": {"type": "string"},
             "reply": {"type": "string"},
-            "citations": {"type": "array", "items": {"type": "string", "enum": list(kb.sections)}},
+            "citations": {
+                "type": "array",
+                "items": {"type": "string", "enum": [s.id for s in kb.citable]},
+            },
             "unanswered": {"type": "array", "items": {"type": "string"}},
         },
         "required": ["abstain", "abstain_reason", "reply", "citations", "unanswered"],
@@ -93,7 +96,11 @@ class Drafter:
 
     def draft(self, ticket: str, language: str, mode: Mode) -> DraftResult:
         user = f"Mode: {mode}\nClient language: {language}\n\n<ticket>\n{ticket}\n</ticket>"
-        result = self._llm.complete(self._system, user, self._schema)
+        try:
+            result = self._llm.complete(self._system, user, self._schema)
+        except LlmError:
+            # One retry: timeouts and malformed output are usually transient.
+            result = self._llm.complete(self._system, user, self._schema)
         return DraftResult(Draft.model_validate(result.data), result)
 
 

@@ -4,8 +4,11 @@ import time
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from pydantic import ValidationError
+
 from copilot import rules
 from copilot.classify import YES_NO, Classification, Classifier
+from copilot.classify.questions import QUESTIONS_VERSION
 from copilot.draft import PROMPT_VERSION, Draft, Drafter, Mode, trading_decline
 from copilot.grounding import check_draft
 from copilot.kb import KnowledgeBase
@@ -138,8 +141,11 @@ class Copilot:
                         result.llm.usage,
                         result.llm.latency_ms,
                     )
-                except LlmError:
+                except (LlmError, ValidationError):
                     draft_error = True
+            if draft is not None and not draft.abstain and not draft.reply.strip():
+                # Saying nothing is abstaining, whatever the flag says.
+                draft = draft.model_copy(update={"abstain": True, "abstain_reason": "empty reply"})
             if draft is not None:
                 with t("check"):
                     problems = check_draft(draft, self.kb, ticket, mode).problems
@@ -205,6 +211,7 @@ class Copilot:
 
 def _classifier_meta(cls: Classification) -> dict[str, Any]:
     return {
+        "questions_version": QUESTIONS_VERSION,
         "backend": cls.backend,
         "model": cls.model,
         "category_p": round(cls.answers["category"].p, 3),

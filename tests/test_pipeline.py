@@ -132,6 +132,15 @@ def test_trading_advice_only_ticket_gets_the_decline_alone() -> None:
     assert card.route == "human"
 
 
+def test_empty_reply_counts_as_abstention() -> None:
+    llm = FakeLlm(abstain=False, reply="  ")
+    card = make(FakeClassifier(category="other", yes={"trading_advice": 0.9}), llm).process(
+        "t", "Send me trading signals for gold"
+    )
+    assert "grounding_failed" not in card.reasons
+    assert card.reply == TRADING_DECLINE["en"]
+
+
 def test_invented_fee_is_withheld() -> None:
     llm = FakeLlm(reply="Deposits are free of charge.", citations=["funding.how-to-deposit"])
     card = make(FakeClassifier(), llm).process("t", "Do you charge deposit fees?")

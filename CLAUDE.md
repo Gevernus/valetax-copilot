@@ -36,7 +36,7 @@ log or write them, and never put them in a test fixture.
 - Nothing raw leaves `mask_pii`. Traces carry ids, labels, versions, tokens and timings, never
   ticket text, replies or prompts. `tests/test_pipeline.py::test_trace_has_no_text` guards it.
 - Changing the prompt, the KB, a threshold or a classifier question: bump `PROMPT_VERSION`
-  if the prompt changed, run the golden set for at least `jev+haiku`, and compare with the last
+  or `QUESTIONS_VERSION` for what changed, run the golden set for at least `jev+haiku`, and compare with the last
   results file. Violations must stay at 0.
 - A miss found in a run becomes a case in `evals/tickets.jsonl` with a `note`; fix the cause
   (KB, rule, threshold, question wording), not that one ticket. Do not tune on `split: holdout`.

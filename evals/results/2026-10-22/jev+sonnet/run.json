@@ -1,0 +1,15 @@
+{
+  "config": "jev+sonnet",
+  "classifier": "jev",
+  "llm_backend": "claude-cli",
+  "drafter_model": "claude-sonnet-5-5",
+  "kb_version": "36b3faddaafc",
+  "tickets": 80,
+  "workers": 4,
+  "wall_s": 236.0,
+  "calibration": {
+    "drafter": {
+      "system": 2116
+    }
+  }
+}

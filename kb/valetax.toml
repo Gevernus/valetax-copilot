@@ -6,7 +6,8 @@
 # stored once, with both URLs in `sources`.
 #
 # `issues` names entries in docs/kb-issues.md. A section with an issue of kind
-# "conflict" sends any draft that cites it to a human (see routing.py).
+# "conflict" sends any draft that cites it to a human (see routing.py); one of kind
+# "defect" is known to be wrong and is kept out of the drafter's prompt.
 
 snapshot = "2026-10-22"
 
@@ -18,7 +19,7 @@ verify = "https://valetax.com/how-to-verify-account/"
 
 [issues]
 I1 = "conflict"   # deposit credit time: "instant" vs "within 60 minutes"
-I2 = "conflict"   # withdrawal steps are the deposit steps
+I2 = "defect"     # withdrawal steps are the deposit steps
 I3 = "gap"        # verification page has no document list or timeline
 I4 = "gap"        # minimum deposit depends on account type; account-types page not in KB
 I5 = "conflict"   # "begin trading immediately" vs "verification within 48 hours"

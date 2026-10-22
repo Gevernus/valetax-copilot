@@ -19,5 +19,12 @@ def test_duplicated_faq_is_stored_once_with_both_pages() -> None:
 def test_conflicting_sections_are_marked() -> None:
     kb = load_kb()
     assert kb.has_conflict("funding.credit-time")
-    assert kb.has_conflict("withdraw.steps")
+    assert kb.has_conflict("withdraw.steps")  # I7
     assert not kb.has_conflict("funding.min-deposit")  # a gap, not a conflict
+
+
+def test_defective_section_is_not_shown_to_the_drafter() -> None:
+    kb = load_kb()
+    assert "withdraw.steps" in kb.sections
+    assert "withdraw.steps" not in {s.id for s in kb.citable}
+    assert "fund withdrawals easy and instant" not in kb.prompt_block

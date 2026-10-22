@@ -1,0 +1,1961 @@
+{
+  "jev+haiku": {
+    "n": 80,
+    "fields": {
+      "category": {
+        "hits": 79,
+        "n": 80,
+        "value": 0.9875,
+        "ci95": [
+          0.933,
+          0.998
+        ]
+      },
+      "urgency": {
+        "hits": 76,
+        "n": 80,
+        "value": 0.95,
+        "ci95": [
+          0.878,
+          0.98
+        ]
+      },
+      "sentiment": {
+        "hits": 80,
+        "n": 80,
+        "value": 1.0,
+        "ci95": [
+          0.954,
+          1.0
+        ]
+      },
+      "language": {
+        "hits": 78,
+        "n": 80,
+        "value": 0.975,
+        "ci95": [
+          0.913,
+          0.993
+        ]
+      }
+    },
+    "flags": {
+      "trading_advice": {
+        "recall": {
+          "hits": 9,
+          "n": 9,
+          "value": 1.0,
+          "ci95": [
+            0.701,
+            1.0
+          ]
+        },
+        "precision": {
+          "hits": 9,
+          "n": 9,
+          "value": 1.0,
+          "ci95": [
+            0.701,
+            1.0
+          ]
+        },
+        "model_only_recall": {
+          "hits": 9,
+          "n": 9,
+          "value": 1.0,
+          "ci95": [
+            0.701,
+            1.0
+          ]
+        },
+        "model_only_precision": {
+          "hits": 9,
+          "n": 9,
+          "value": 1.0,
+          "ci95": [
+            0.701,
+            1.0
+          ]
+        }
+      },
+      "complaint": {
+        "recall": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "precision": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "model_only_recall": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "model_only_precision": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        }
+      },
+      "kyc_case": {
+        "recall": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "precision": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "model_only_recall": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "model_only_precision": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        }
+      },
+      "aml_case": {
+        "recall": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "precision": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "model_only_recall": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "model_only_precision": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        }
+      },
+      "injection": {
+        "recall": {
+          "hits": 5,
+          "n": 5,
+          "value": 1.0,
+          "ci95": [
+            0.566,
+            1.0
+          ]
+        },
+        "precision": {
+          "hits": 5,
+          "n": 5,
+          "value": 1.0,
+          "ci95": [
+            0.566,
+            1.0
+          ]
+        },
+        "model_only_recall": {
+          "hits": 5,
+          "n": 5,
+          "value": 1.0,
+          "ci95": [
+            0.566,
+            1.0
+          ]
+        },
+        "model_only_precision": {
+          "hits": 5,
+          "n": 5,
+          "value": 1.0,
+          "ci95": [
+            0.566,
+            1.0
+          ]
+        }
+      },
+      "account_lookup": {
+        "recall": {
+          "hits": 16,
+          "n": 17,
+          "value": 0.9411764705882353,
+          "ci95": [
+            0.73,
+            0.99
+          ]
+        },
+        "precision": {
+          "hits": 16,
+          "n": 19,
+          "value": 0.8421052631578947,
+          "ci95": [
+            0.624,
+            0.945
+          ]
+        },
+        "model_only_recall": {
+          "hits": 16,
+          "n": 17,
+          "value": 0.9411764705882353,
+          "ci95": [
+            0.73,
+            0.99
+          ]
+        },
+        "model_only_precision": {
+          "hits": 16,
+          "n": 19,
+          "value": 0.8421052631578947,
+          "ci95": [
+            0.624,
+            0.945
+          ]
+        }
+      }
+    },
+    "route": {
+      "accuracy": {
+        "hits": 78,
+        "n": 80,
+        "value": 0.975,
+        "ci95": [
+          0.913,
+          0.993
+        ]
+      },
+      "human_recall": {
+        "hits": 48,
+        "n": 48,
+        "value": 1.0,
+        "ci95": [
+          0.926,
+          1.0
+        ]
+      },
+      "auto_precision": {
+        "hits": 30,
+        "n": 30,
+        "value": 1.0,
+        "ci95": [
+          0.886,
+          1.0
+        ]
+      },
+      "auto_recall": {
+        "hits": 30,
+        "n": 32,
+        "value": 0.9375,
+        "ci95": [
+          0.799,
+          0.983
+        ]
+      },
+      "auto_share": {
+        "hits": 30,
+        "n": 80,
+        "value": 0.375,
+        "ci95": [
+          0.277,
+          0.485
+        ]
+      },
+      "missed_escalations": [],
+      "needless_escalations": [
+        "en51",
+        "ru18"
+      ]
+    },
+    "abstain": {
+      "recall": {
+        "hits": 9,
+        "n": 9,
+        "value": 1.0,
+        "ci95": [
+          0.701,
+          1.0
+        ]
+      },
+      "precision": {
+        "hits": 9,
+        "n": 9,
+        "value": 1.0,
+        "ci95": [
+          0.701,
+          1.0
+        ]
+      }
+    },
+    "citations": {
+      "valid": {
+        "hits": 47,
+        "n": 47,
+        "value": 1.0,
+        "ci95": [
+          0.924,
+          1.0
+        ]
+      },
+      "expected_hit": {
+        "hits": 41,
+        "n": 41,
+        "value": 1.0,
+        "ci95": [
+          0.914,
+          1.0
+        ]
+      }
+    },
+    "violations": {
+      "count": 0,
+      "tickets": {}
+    },
+    "grounding_rejections": [
+      "en51",
+      "ru18"
+    ],
+    "latency_ms": {
+      "check": {
+        "p50": 0,
+        "p95": 2
+      },
+      "classify": {
+        "p50": 301,
+        "p95": 536
+      },
+      "draft": {
+        "p50": 7257,
+        "p95": 16086
+      },
+      "mask": {
+        "p50": 3,
+        "p95": 27
+      },
+      "total": {
+        "p50": 7431,
+        "p95": 16486
+      }
+    },
+    "tokens_mean": {
+      "classifier_input": 1176.3,
+      "classifier_output": 308.1,
+      "drafter_prompt_raw": 3374.4,
+      "drafter_output": 614.0,
+      "drafted_share": 0.938
+    },
+    "holdout": {
+      "route": {
+        "accuracy": {
+          "hits": 19,
+          "n": 20,
+          "value": 0.95,
+          "ci95": [
+            0.764,
+            0.991
+          ]
+        },
+        "human_recall": {
+          "hits": 13,
+          "n": 13,
+          "value": 1.0,
+          "ci95": [
+            0.772,
+            1.0
+          ]
+        },
+        "auto_precision": {
+          "hits": 6,
+          "n": 6,
+          "value": 1.0,
+          "ci95": [
+            0.61,
+            1.0
+          ]
+        },
+        "auto_recall": {
+          "hits": 6,
+          "n": 7,
+          "value": 0.8571428571428571,
+          "ci95": [
+            0.487,
+            0.974
+          ]
+        },
+        "auto_share": {
+          "hits": 6,
+          "n": 20,
+          "value": 0.3,
+          "ci95": [
+            0.145,
+            0.519
+          ]
+        },
+        "missed_escalations": [],
+        "needless_escalations": [
+          "ru18"
+        ]
+      },
+      "violations": {
+        "count": 0,
+        "tickets": {}
+      }
+    },
+    "cost": {
+      "usd_per_ticket_warm": 0.00038,
+      "usd_per_ticket_cold": 0.000608,
+      "usd_per_10k_warm": 3.8,
+      "usd_per_10k_cold": 6.08,
+      "drafter_our_prompt_tokens_mean": 2154.5
+    },
+    "meta": {
+      "config": "jev+haiku",
+      "classifier": "jev",
+      "llm_backend": "claude-cli",
+      "drafter_model": "claude-haiku-5-5",
+      "kb_version": "36b3faddaafc",
+      "tickets": 80,
+      "workers": 4,
+      "wall_s": 175.2,
+      "calibration": {
+        "drafter": {
+          "system": 2116
+        }
+      }
+    }
+  },
+  "jev+sonnet": {
+    "n": 80,
+    "fields": {
+      "category": {
+        "hits": 79,
+        "n": 80,
+        "value": 0.9875,
+        "ci95": [
+          0.933,
+          0.998
+        ]
+      },
+      "urgency": {
+        "hits": 76,
+        "n": 80,
+        "value": 0.95,
+        "ci95": [
+          0.878,
+          0.98
+        ]
+      },
+      "sentiment": {
+        "hits": 80,
+        "n": 80,
+        "value": 1.0,
+        "ci95": [
+          0.954,
+          1.0
+        ]
+      },
+      "language": {
+        "hits": 78,
+        "n": 80,
+        "value": 0.975,
+        "ci95": [
+          0.913,
+          0.993
+        ]
+      }
+    },
+    "flags": {
+      "trading_advice": {
+        "recall": {
+          "hits": 9,
+          "n": 9,
+          "value": 1.0,
+          "ci95": [
+            0.701,
+            1.0
+          ]
+        },
+        "precision": {
+          "hits": 9,
+          "n": 9,
+          "value": 1.0,
+          "ci95": [
+            0.701,
+            1.0
+          ]
+        },
+        "model_only_recall": {
+          "hits": 9,
+          "n": 9,
+          "value": 1.0,
+          "ci95": [
+            0.701,
+            1.0
+          ]
+        },
+        "model_only_precision": {
+          "hits": 9,
+          "n": 9,
+          "value": 1.0,
+          "ci95": [
+            0.701,
+            1.0
+          ]
+        }
+      },
+      "complaint": {
+        "recall": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "precision": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "model_only_recall": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "model_only_precision": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        }
+      },
+      "kyc_case": {
+        "recall": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "precision": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "model_only_recall": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "model_only_precision": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        }
+      },
+      "aml_case": {
+        "recall": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "precision": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "model_only_recall": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "model_only_precision": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        }
+      },
+      "injection": {
+        "recall": {
+          "hits": 5,
+          "n": 5,
+          "value": 1.0,
+          "ci95": [
+            0.566,
+            1.0
+          ]
+        },
+        "precision": {
+          "hits": 5,
+          "n": 5,
+          "value": 1.0,
+          "ci95": [
+            0.566,
+            1.0
+          ]
+        },
+        "model_only_recall": {
+          "hits": 5,
+          "n": 5,
+          "value": 1.0,
+          "ci95": [
+            0.566,
+            1.0
+          ]
+        },
+        "model_only_precision": {
+          "hits": 5,
+          "n": 5,
+          "value": 1.0,
+          "ci95": [
+            0.566,
+            1.0
+          ]
+        }
+      },
+      "account_lookup": {
+        "recall": {
+          "hits": 16,
+          "n": 17,
+          "value": 0.9411764705882353,
+          "ci95": [
+            0.73,
+            0.99
+          ]
+        },
+        "precision": {
+          "hits": 16,
+          "n": 19,
+          "value": 0.8421052631578947,
+          "ci95": [
+            0.624,
+            0.945
+          ]
+        },
+        "model_only_recall": {
+          "hits": 16,
+          "n": 17,
+          "value": 0.9411764705882353,
+          "ci95": [
+            0.73,
+            0.99
+          ]
+        },
+        "model_only_precision": {
+          "hits": 16,
+          "n": 19,
+          "value": 0.8421052631578947,
+          "ci95": [
+            0.624,
+            0.945
+          ]
+        }
+      }
+    },
+    "route": {
+      "accuracy": {
+        "hits": 77,
+        "n": 80,
+        "value": 0.9625,
+        "ci95": [
+          0.895,
+          0.987
+        ]
+      },
+      "human_recall": {
+        "hits": 48,
+        "n": 48,
+        "value": 1.0,
+        "ci95": [
+          0.926,
+          1.0
+        ]
+      },
+      "auto_precision": {
+        "hits": 29,
+        "n": 29,
+        "value": 1.0,
+        "ci95": [
+          0.883,
+          1.0
+        ]
+      },
+      "auto_recall": {
+        "hits": 29,
+        "n": 32,
+        "value": 0.90625,
+        "ci95": [
+          0.758,
+          0.968
+        ]
+      },
+      "auto_share": {
+        "hits": 29,
+        "n": 80,
+        "value": 0.3625,
+        "ci95": [
+          0.266,
+          0.472
+        ]
+      },
+      "missed_escalations": [],
+      "needless_escalations": [
+        "en33",
+        "en51",
+        "ru18"
+      ]
+    },
+    "abstain": {
+      "recall": {
+        "hits": 9,
+        "n": 9,
+        "value": 1.0,
+        "ci95": [
+          0.701,
+          1.0
+        ]
+      },
+      "precision": {
+        "hits": 9,
+        "n": 10,
+        "value": 0.9,
+        "ci95": [
+          0.596,
+          0.982
+        ]
+      }
+    },
+    "citations": {
+      "valid": {
+        "hits": 50,
+        "n": 50,
+        "value": 1.0,
+        "ci95": [
+          0.929,
+          1.0
+        ]
+      },
+      "expected_hit": {
+        "hits": 42,
+        "n": 42,
+        "value": 1.0,
+        "ci95": [
+          0.916,
+          1.0
+        ]
+      }
+    },
+    "violations": {
+      "count": 0,
+      "tickets": {}
+    },
+    "grounding_rejections": [
+      "en36",
+      "en51",
+      "ru10",
+      "ru18"
+    ],
+    "latency_ms": {
+      "check": {
+        "p50": 0,
+        "p95": 4
+      },
+      "classify": {
+        "p50": 315,
+        "p95": 556
+      },
+      "draft": {
+        "p50": 11425,
+        "p95": 18990
+      },
+      "mask": {
+        "p50": 2,
+        "p95": 26
+      },
+      "total": {
+        "p50": 11683,
+        "p95": 19327
+      }
+    },
+    "tokens_mean": {
+      "classifier_input": 1176.3,
+      "classifier_output": 308.1,
+      "drafter_prompt_raw": 3306.8,
+      "drafter_output": 276.7,
+      "drafted_share": 0.938
+    },
+    "holdout": {
+      "route": {
+        "accuracy": {
+          "hits": 19,
+          "n": 20,
+          "value": 0.95,
+          "ci95": [
+            0.764,
+            0.991
+          ]
+        },
+        "human_recall": {
+          "hits": 13,
+          "n": 13,
+          "value": 1.0,
+          "ci95": [
+            0.772,
+            1.0
+          ]
+        },
+        "auto_precision": {
+          "hits": 6,
+          "n": 6,
+          "value": 1.0,
+          "ci95": [
+            0.61,
+            1.0
+          ]
+        },
+        "auto_recall": {
+          "hits": 6,
+          "n": 7,
+          "value": 0.8571428571428571,
+          "ci95": [
+            0.487,
+            0.974
+          ]
+        },
+        "auto_share": {
+          "hits": 6,
+          "n": 20,
+          "value": 0.3,
+          "ci95": [
+            0.145,
+            0.519
+          ]
+        },
+        "missed_escalations": [],
+        "needless_escalations": [
+          "ru18"
+        ]
+      },
+      "violations": {
+        "count": 0,
+        "tickets": {}
+      }
+    },
+    "cost": {
+      "usd_per_ticket_warm": 0.003286,
+      "usd_per_ticket_cold": 0.007848,
+      "usd_per_10k_warm": 32.86,
+      "usd_per_10k_cold": 78.48,
+      "drafter_our_prompt_tokens_mean": 2154.5
+    },
+    "meta": {
+      "config": "jev+sonnet",
+      "classifier": "jev",
+      "llm_backend": "claude-cli",
+      "drafter_model": "claude-sonnet-5-5",
+      "kb_version": "36b3faddaafc",
+      "tickets": 80,
+      "workers": 4,
+      "wall_s": 236.0,
+      "calibration": {
+        "drafter": {
+          "system": 2116
+        }
+      }
+    }
+  },
+  "laya+haiku": {
+    "n": 80,
+    "fields": {
+      "category": {
+        "hits": 51,
+        "n": 80,
+        "value": 0.6375,
+        "ci95": [
+          0.528,
+          0.734
+        ]
+      },
+      "urgency": {
+        "hits": 51,
+        "n": 80,
+        "value": 0.6375,
+        "ci95": [
+          0.528,
+          0.734
+        ]
+      },
+      "sentiment": {
+        "hits": 72,
+        "n": 80,
+        "value": 0.9,
+        "ci95": [
+          0.815,
+          0.948
+        ]
+      },
+      "language": {
+        "hits": 78,
+        "n": 80,
+        "value": 0.975,
+        "ci95": [
+          0.913,
+          0.993
+        ]
+      }
+    },
+    "flags": {
+      "trading_advice": {
+        "recall": {
+          "hits": 9,
+          "n": 9,
+          "value": 1.0,
+          "ci95": [
+            0.701,
+            1.0
+          ]
+        },
+        "precision": {
+          "hits": 9,
+          "n": 47,
+          "value": 0.19148936170212766,
+          "ci95": [
+            0.104,
+            0.325
+          ]
+        },
+        "model_only_recall": {
+          "hits": 9,
+          "n": 9,
+          "value": 1.0,
+          "ci95": [
+            0.701,
+            1.0
+          ]
+        },
+        "model_only_precision": {
+          "hits": 9,
+          "n": 33,
+          "value": 0.2727272727272727,
+          "ci95": [
+            0.151,
+            0.442
+          ]
+        }
+      },
+      "complaint": {
+        "recall": {
+          "hits": 3,
+          "n": 4,
+          "value": 0.75,
+          "ci95": [
+            0.301,
+            0.954
+          ]
+        },
+        "precision": {
+          "hits": 3,
+          "n": 10,
+          "value": 0.3,
+          "ci95": [
+            0.108,
+            0.603
+          ]
+        },
+        "model_only_recall": {
+          "hits": 3,
+          "n": 4,
+          "value": 0.75,
+          "ci95": [
+            0.301,
+            0.954
+          ]
+        },
+        "model_only_precision": {
+          "hits": 3,
+          "n": 10,
+          "value": 0.3,
+          "ci95": [
+            0.108,
+            0.603
+          ]
+        }
+      },
+      "kyc_case": {
+        "recall": {
+          "hits": 3,
+          "n": 4,
+          "value": 0.75,
+          "ci95": [
+            0.301,
+            0.954
+          ]
+        },
+        "precision": {
+          "hits": 3,
+          "n": 19,
+          "value": 0.15789473684210525,
+          "ci95": [
+            0.055,
+            0.376
+          ]
+        },
+        "model_only_recall": {
+          "hits": 3,
+          "n": 4,
+          "value": 0.75,
+          "ci95": [
+            0.301,
+            0.954
+          ]
+        },
+        "model_only_precision": {
+          "hits": 3,
+          "n": 19,
+          "value": 0.15789473684210525,
+          "ci95": [
+            0.055,
+            0.376
+          ]
+        }
+      },
+      "aml_case": {
+        "recall": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "precision": {
+          "hits": 4,
+          "n": 65,
+          "value": 0.06153846153846154,
+          "ci95": [
+            0.024,
+            0.148
+          ]
+        },
+        "model_only_recall": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "model_only_precision": {
+          "hits": 4,
+          "n": 50,
+          "value": 0.08,
+          "ci95": [
+            0.032,
+            0.188
+          ]
+        }
+      },
+      "injection": {
+        "recall": {
+          "hits": 3,
+          "n": 5,
+          "value": 0.6,
+          "ci95": [
+            0.231,
+            0.882
+          ]
+        },
+        "precision": {
+          "hits": 3,
+          "n": 27,
+          "value": 0.1111111111111111,
+          "ci95": [
+            0.039,
+            0.281
+          ]
+        },
+        "model_only_recall": {
+          "hits": 1,
+          "n": 5,
+          "value": 0.2,
+          "ci95": [
+            0.036,
+            0.624
+          ]
+        },
+        "model_only_precision": {
+          "hits": 1,
+          "n": 25,
+          "value": 0.04,
+          "ci95": [
+            0.007,
+            0.195
+          ]
+        }
+      },
+      "account_lookup": {
+        "recall": {
+          "hits": 3,
+          "n": 17,
+          "value": 0.17647058823529413,
+          "ci95": [
+            0.062,
+            0.41
+          ]
+        },
+        "precision": {
+          "hits": 3,
+          "n": 30,
+          "value": 0.1,
+          "ci95": [
+            0.035,
+            0.256
+          ]
+        },
+        "model_only_recall": {
+          "hits": 3,
+          "n": 17,
+          "value": 0.17647058823529413,
+          "ci95": [
+            0.062,
+            0.41
+          ]
+        },
+        "model_only_precision": {
+          "hits": 3,
+          "n": 30,
+          "value": 0.1,
+          "ci95": [
+            0.035,
+            0.256
+          ]
+        }
+      }
+    },
+    "route": {
+      "accuracy": {
+        "hits": 49,
+        "n": 80,
+        "value": 0.6125,
+        "ci95": [
+          0.503,
+          0.712
+        ]
+      },
+      "human_recall": {
+        "hits": 48,
+        "n": 48,
+        "value": 1.0,
+        "ci95": [
+          0.926,
+          1.0
+        ]
+      },
+      "auto_precision": {
+        "hits": 1,
+        "n": 1,
+        "value": 1.0,
+        "ci95": [
+          0.207,
+          1.0
+        ]
+      },
+      "auto_recall": {
+        "hits": 1,
+        "n": 32,
+        "value": 0.03125,
+        "ci95": [
+          0.006,
+          0.157
+        ]
+      },
+      "auto_share": {
+        "hits": 1,
+        "n": 80,
+        "value": 0.0125,
+        "ci95": [
+          0.002,
+          0.067
+        ]
+      },
+      "missed_escalations": [],
+      "needless_escalations": [
+        "en01",
+        "en02",
+        "en03",
+        "en09",
+        "en10",
+        "en19",
+        "en20",
+        "en21",
+        "en23",
+        "en24",
+        "en29",
+        "en33",
+        "en51",
+        "en52",
+        "en54",
+        "ru01",
+        "ru02",
+        "ru03",
+        "ru06",
+        "ru07",
+        "ru11",
+        "ru12",
+        "ru18",
+        "es01",
+        "es02",
+        "id01",
+        "id02",
+        "ar01",
+        "ar02",
+        "pt01",
+        "tr01"
+      ]
+    },
+    "abstain": {
+      "recall": {
+        "hits": 7,
+        "n": 9,
+        "value": 0.7777777777777778,
+        "ci95": [
+          0.453,
+          0.937
+        ]
+      },
+      "precision": {
+        "hits": 7,
+        "n": 8,
+        "value": 0.875,
+        "ci95": [
+          0.529,
+          0.978
+        ]
+      }
+    },
+    "citations": {
+      "valid": {
+        "hits": 19,
+        "n": 19,
+        "value": 1.0,
+        "ci95": [
+          0.832,
+          1.0
+        ]
+      },
+      "expected_hit": {
+        "hits": 19,
+        "n": 19,
+        "value": 1.0,
+        "ci95": [
+          0.832,
+          1.0
+        ]
+      }
+    },
+    "violations": {
+      "count": 0,
+      "tickets": {}
+    },
+    "grounding_rejections": [
+      "en51",
+      "ru18"
+    ],
+    "latency_ms": {
+      "check": {
+        "p50": 0,
+        "p95": 0
+      },
+      "classify": {
+        "p50": 947,
+        "p95": 4327
+      },
+      "draft": {
+        "p50": 9021,
+        "p95": 16290
+      },
+      "mask": {
+        "p50": 2,
+        "p95": 39
+      },
+      "total": {
+        "p50": 7782,
+        "p95": 16615
+      }
+    },
+    "tokens_mean": {
+      "classifier_input": 0.0,
+      "classifier_output": 0.0,
+      "drafter_prompt_raw": 2338.3,
+      "drafter_output": 532.3,
+      "drafted_share": 0.662
+    },
+    "holdout": {
+      "route": {
+        "accuracy": {
+          "hits": 13,
+          "n": 20,
+          "value": 0.65,
+          "ci95": [
+            0.433,
+            0.819
+          ]
+        },
+        "human_recall": {
+          "hits": 13,
+          "n": 13,
+          "value": 1.0,
+          "ci95": [
+            0.772,
+            1.0
+          ]
+        },
+        "auto_precision": {
+          "hits": 0,
+          "n": 0,
+          "value": null,
+          "ci95": null
+        },
+        "auto_recall": {
+          "hits": 0,
+          "n": 7,
+          "value": 0.0,
+          "ci95": [
+            0.0,
+            0.354
+          ]
+        },
+        "auto_share": {
+          "hits": 0,
+          "n": 20,
+          "value": 0.0,
+          "ci95": [
+            0.0,
+            0.161
+          ]
+        },
+        "missed_escalations": [],
+        "needless_escalations": [
+          "en09",
+          "en52",
+          "ru02",
+          "ru06",
+          "ru18",
+          "ar01",
+          "tr01"
+        ]
+      },
+      "violations": {
+        "count": 0,
+        "tickets": {}
+      }
+    },
+    "cost": {
+      "usd_per_ticket_warm": 0.000283,
+      "usd_per_ticket_cold": 0.000444,
+      "usd_per_10k_warm": 2.83,
+      "usd_per_10k_cold": 4.44,
+      "drafter_our_prompt_tokens_mean": 2155.6
+    },
+    "meta": {
+      "config": "laya+haiku",
+      "classifier": "laya",
+      "llm_backend": "claude-cli",
+      "drafter_model": "claude-haiku-5-5",
+      "kb_version": "36b3faddaafc",
+      "tickets": 80,
+      "workers": 4,
+      "wall_s": 177.1,
+      "calibration": {
+        "drafter": {
+          "system": 2116
+        }
+      }
+    }
+  },
+  "llm+haiku": {
+    "n": 80,
+    "fields": {
+      "category": {
+        "hits": 77,
+        "n": 80,
+        "value": 0.9625,
+        "ci95": [
+          0.895,
+          0.987
+        ]
+      },
+      "urgency": {
+        "hits": 76,
+        "n": 80,
+        "value": 0.95,
+        "ci95": [
+          0.878,
+          0.98
+        ]
+      },
+      "sentiment": {
+        "hits": 77,
+        "n": 80,
+        "value": 0.9625,
+        "ci95": [
+          0.895,
+          0.987
+        ]
+      },
+      "language": {
+        "hits": 78,
+        "n": 80,
+        "value": 0.975,
+        "ci95": [
+          0.913,
+          0.993
+        ]
+      }
+    },
+    "flags": {
+      "trading_advice": {
+        "recall": {
+          "hits": 9,
+          "n": 9,
+          "value": 1.0,
+          "ci95": [
+            0.701,
+            1.0
+          ]
+        },
+        "precision": {
+          "hits": 9,
+          "n": 9,
+          "value": 1.0,
+          "ci95": [
+            0.701,
+            1.0
+          ]
+        },
+        "model_only_recall": {
+          "hits": 9,
+          "n": 9,
+          "value": 1.0,
+          "ci95": [
+            0.701,
+            1.0
+          ]
+        },
+        "model_only_precision": {
+          "hits": 9,
+          "n": 9,
+          "value": 1.0,
+          "ci95": [
+            0.701,
+            1.0
+          ]
+        }
+      },
+      "complaint": {
+        "recall": {
+          "hits": 3,
+          "n": 4,
+          "value": 0.75,
+          "ci95": [
+            0.301,
+            0.954
+          ]
+        },
+        "precision": {
+          "hits": 3,
+          "n": 3,
+          "value": 1.0,
+          "ci95": [
+            0.438,
+            1.0
+          ]
+        },
+        "model_only_recall": {
+          "hits": 3,
+          "n": 4,
+          "value": 0.75,
+          "ci95": [
+            0.301,
+            0.954
+          ]
+        },
+        "model_only_precision": {
+          "hits": 3,
+          "n": 3,
+          "value": 1.0,
+          "ci95": [
+            0.438,
+            1.0
+          ]
+        }
+      },
+      "kyc_case": {
+        "recall": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "precision": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "model_only_recall": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "model_only_precision": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        }
+      },
+      "aml_case": {
+        "recall": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "precision": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "model_only_recall": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        },
+        "model_only_precision": {
+          "hits": 4,
+          "n": 4,
+          "value": 1.0,
+          "ci95": [
+            0.51,
+            1.0
+          ]
+        }
+      },
+      "injection": {
+        "recall": {
+          "hits": 5,
+          "n": 5,
+          "value": 1.0,
+          "ci95": [
+            0.566,
+            1.0
+          ]
+        },
+        "precision": {
+          "hits": 5,
+          "n": 5,
+          "value": 1.0,
+          "ci95": [
+            0.566,
+            1.0
+          ]
+        },
+        "model_only_recall": {
+          "hits": 5,
+          "n": 5,
+          "value": 1.0,
+          "ci95": [
+            0.566,
+            1.0
+          ]
+        },
+        "model_only_precision": {
+          "hits": 5,
+          "n": 5,
+          "value": 1.0,
+          "ci95": [
+            0.566,
+            1.0
+          ]
+        }
+      },
+      "account_lookup": {
+        "recall": {
+          "hits": 16,
+          "n": 17,
+          "value": 0.9411764705882353,
+          "ci95": [
+            0.73,
+            0.99
+          ]
+        },
+        "precision": {
+          "hits": 16,
+          "n": 18,
+          "value": 0.8888888888888888,
+          "ci95": [
+            0.672,
+            0.969
+          ]
+        },
+        "model_only_recall": {
+          "hits": 16,
+          "n": 17,
+          "value": 0.9411764705882353,
+          "ci95": [
+            0.73,
+            0.99
+          ]
+        },
+        "model_only_precision": {
+          "hits": 16,
+          "n": 18,
+          "value": 0.8888888888888888,
+          "ci95": [
+            0.672,
+            0.969
+          ]
+        }
+      }
+    },
+    "route": {
+      "accuracy": {
+        "hits": 78,
+        "n": 80,
+        "value": 0.975,
+        "ci95": [
+          0.913,
+          0.993
+        ]
+      },
+      "human_recall": {
+        "hits": 48,
+        "n": 48,
+        "value": 1.0,
+        "ci95": [
+          0.926,
+          1.0
+        ]
+      },
+      "auto_precision": {
+        "hits": 30,
+        "n": 30,
+        "value": 1.0,
+        "ci95": [
+          0.886,
+          1.0
+        ]
+      },
+      "auto_recall": {
+        "hits": 30,
+        "n": 32,
+        "value": 0.9375,
+        "ci95": [
+          0.799,
+          0.983
+        ]
+      },
+      "auto_share": {
+        "hits": 30,
+        "n": 80,
+        "value": 0.375,
+        "ci95": [
+          0.277,
+          0.485
+        ]
+      },
+      "missed_escalations": [],
+      "needless_escalations": [
+        "en51",
+        "ru18"
+      ]
+    },
+    "abstain": {
+      "recall": {
+        "hits": 8,
+        "n": 9,
+        "value": 0.8888888888888888,
+        "ci95": [
+          0.565,
+          0.98
+        ]
+      },
+      "precision": {
+        "hits": 8,
+        "n": 8,
+        "value": 1.0,
+        "ci95": [
+          0.676,
+          1.0
+        ]
+      }
+    },
+    "citations": {
+      "valid": {
+        "hits": 45,
+        "n": 45,
+        "value": 1.0,
+        "ci95": [
+          0.921,
+          1.0
+        ]
+      },
+      "expected_hit": {
+        "hits": 41,
+        "n": 41,
+        "value": 1.0,
+        "ci95": [
+          0.914,
+          1.0
+        ]
+      }
+    },
+    "violations": {
+      "count": 1,
+      "tickets": {
+        "en11": [
+          "reply contains forbidden text 'Start Trading'"
+        ]
+      }
+    },
+    "grounding_rejections": [
+      "en31",
+      "en51",
+      "ru18"
+    ],
+    "latency_ms": {
+      "check": {
+        "p50": 0,
+        "p95": 1
+      },
+      "classify": {
+        "p50": 8107,
+        "p95": 15865
+      },
+      "draft": {
+        "p50": 9053,
+        "p95": 19194
+      },
+      "mask": {
+        "p50": 1,
+        "p95": 23
+      },
+      "total": {
+        "p50": 17815,
+        "p95": 30581
+      }
+    },
+    "tokens_mean": {
+      "classifier_input": 2.0,
+      "classifier_output": 374.5,
+      "drafter_prompt_raw": 3306.7,
+      "drafter_output": 585.7,
+      "drafted_share": 0.938
+    },
+    "holdout": {
+      "route": {
+        "accuracy": {
+          "hits": 19,
+          "n": 20,
+          "value": 0.95,
+          "ci95": [
+            0.764,
+            0.991
+          ]
+        },
+        "human_recall": {
+          "hits": 13,
+          "n": 13,
+          "value": 1.0,
+          "ci95": [
+            0.772,
+            1.0
+          ]
+        },
+        "auto_precision": {
+          "hits": 6,
+          "n": 6,
+          "value": 1.0,
+          "ci95": [
+            0.61,
+            1.0
+          ]
+        },
+        "auto_recall": {
+          "hits": 6,
+          "n": 7,
+          "value": 0.8571428571428571,
+          "ci95": [
+            0.487,
+            0.974
+          ]
+        },
+        "auto_share": {
+          "hits": 6,
+          "n": 20,
+          "value": 0.3,
+          "ci95": [
+            0.145,
+            0.519
+          ]
+        },
+        "missed_escalations": [],
+        "needless_escalations": [
+          "ru18"
+        ]
+      },
+      "violations": {
+        "count": 0,
+        "tickets": {}
+      }
+    },
+    "cost": {
+      "usd_per_ticket_warm": 0.000517,
+      "usd_per_ticket_cold": 0.000852,
+      "usd_per_10k_warm": 5.17,
+      "usd_per_10k_cold": 8.52,
+      "drafter_our_prompt_tokens_mean": 2154.5
+    },
+    "meta": {
+      "config": "llm+haiku",
+      "classifier": "llm",
+      "llm_backend": "claude-cli",
+      "drafter_model": "claude-haiku-5-5",
+      "kb_version": "36b3faddaafc",
+      "tickets": 80,
+      "workers": 4,
+      "wall_s": 386.5,
+      "calibration": {
+        "drafter": {
+          "system": 2116
+        },
+        "classifier": {
+          "system": 932
+        }
+      }
+    }
+  }
+}

@@ -30,10 +30,18 @@ class KnowledgeBase:
         return any(self.issue_kinds.get(i) == "conflict" for i in section.issues)
 
     @property
+    def citable(self) -> list[Section]:
+        """Sections the drafter sees. A known defect stays in the file, out of the prompt."""
+        return [
+            s
+            for s in self.sections.values()
+            if not any(self.issue_kinds.get(i) == "defect" for i in s.issues)
+        ]
+
+    @property
     def prompt_block(self) -> str:
-        """The whole KB as one stable string: identical bytes on every call, so it caches."""
-        parts = [f"[{s.id}] {s.title}\n{s.text}" for s in self.sections.values()]
-        return "\n\n".join(parts)
+        """The KB as one stable string: identical bytes on every call, so it caches."""
+        return "\n\n".join(f"[{s.id}] {s.title}\n{s.text}" for s in self.citable)
 
 
 def load_kb(path: Path = DEFAULT_KB) -> KnowledgeBase:

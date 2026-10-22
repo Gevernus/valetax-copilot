@@ -10,8 +10,10 @@ and <date>.md. Re-scoring never calls a model.
 
 import argparse
 import json
+import shutil
 import statistics
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -23,7 +25,7 @@ from copilot.classify.llm import SCHEMA as CLASSIFY_SCHEMA
 from copilot.classify.llm import SYSTEM as CLASSIFY_SYSTEM
 from copilot.draft import Drafter, schema, system_prompt
 from copilot.kb import KnowledgeBase, load_kb
-from copilot.llm import ClaudeCli, make_llm
+from copilot.llm import ClaudeCli, UsageLimitError, make_llm
 from copilot.masking import mask_pii
 from copilot.pipeline import Copilot
 from evals.metrics import compute
@@ -85,12 +87,20 @@ def run(args: argparse.Namespace) -> None:
     if args.classifier == "llm":
         calibration["classifier"] = calibrate(ClaudeCli("haiku"), CLASSIFY_SYSTEM, CLASSIFY_SCHEMA)
 
+    out_of_quota = threading.Event()
+
     def one(tid: str) -> dict[str, Any]:
+        if out_of_quota.is_set():
+            raise UsageLimitError("stopped after a usage-limit error")
         text = labels[tid]["text"]
         for attempt in (1, 2):
             try:
                 card = copilot.process(tid, text).to_dict()
                 break
+            except UsageLimitError:
+                # Quota is not a model failure: stop the run rather than score it.
+                out_of_quota.set()
+                raise
             except Exception as e:  # a transient API error should not lose the whole run
                 if attempt == 2:
                     raise
@@ -103,8 +113,12 @@ def run(args: argparse.Namespace) -> None:
     started = time.perf_counter()
     if args.classifier == "laya":
         copilot.classifier.classify("warm-up")  # load the checkpoint outside the timings
-    with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        cards = list(pool.map(one, ids))
+    try:
+        with ThreadPoolExecutor(max_workers=args.workers) as pool:
+            cards = list(pool.map(one, ids))
+    except UsageLimitError:
+        shutil.rmtree(out)
+        raise SystemExit(f"{config}: usage limit reached; run discarded, nothing scored") from None
     wall_s = round(time.perf_counter() - started, 1)
 
     with (out / "cards.jsonl").open("w") as f:

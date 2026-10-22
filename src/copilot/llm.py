@@ -6,7 +6,9 @@
 
 import json
 import os
+import re
 import subprocess
+import tempfile
 import time
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -37,7 +39,14 @@ class LlmResult:
 
 
 class LlmError(RuntimeError):
-    pass
+    """A failed call; the pipeline routes the ticket to a person."""
+
+
+class UsageLimitError(RuntimeError):
+    """The account is out of quota. Not a model failure: callers stop instead of recording it."""
+
+
+_LIMIT = re.compile(r"(?i)usage limit|rate limit|hit your limit|limit reached")
 
 
 class Llm(Protocol):
@@ -50,27 +59,46 @@ class Llm(Protocol):
 class ClaudeCli:
     name = "claude-cli"
 
-    def __init__(self, model: str = "haiku", timeout_s: float = 120.0) -> None:
+    def __init__(self, model: str = "haiku", timeout_s: float = 90.0) -> None:
         self.model = MODEL_IDS.get(model, model)
         self._timeout_s = timeout_s
+        self._workdir = tempfile.mkdtemp(prefix="copilot-claude-")  # no CLAUDE.md to discover
 
     def complete(self, system: str, user: str, schema: dict[str, Any]) -> LlmResult:
+        # The ticket goes through stdin, not argv, so it never shows up in the process list.
+        # Isolated from the developer's setup: without these flags and an empty working
+        # directory the CLI adds the user's CLAUDE.md, memory, hooks, MCP servers and skills to
+        # every call, which changes the drafts and adds ~12k tokens.
         cmd = [
-            "claude", "-p", user,
+            "claude", "-p",
             "--model", self.model,
             "--system-prompt", system,
             "--tools", "",
+            "--setting-sources", "",
+            "--strict-mcp-config",
+            "--disable-slash-commands",
+            "--no-session-persistence",
+            "--no-chrome",
             "--json-schema", json.dumps(schema),
             "--output-format", "json",
         ]  # fmt: skip
         started = time.perf_counter()
         try:
             proc = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=self._timeout_s, check=False
+                cmd,
+                input=user,
+                cwd=self._workdir,
+                capture_output=True,
+                text=True,
+                timeout=self._timeout_s,
+                check=False,
             )
         except subprocess.TimeoutExpired as e:
             raise LlmError(f"claude CLI timed out after {self._timeout_s:.0f}s") from e
         latency_ms = int((time.perf_counter() - started) * 1000)
+        failed = proc.returncode != 0 or '"is_error":true' in proc.stdout.replace(" ", "")
+        if failed and _LIMIT.search(proc.stdout + proc.stderr):
+            raise UsageLimitError("claude CLI reports a usage or rate limit")
         if proc.returncode != 0:
             # stderr can echo the prompt; keep only the exit code.
             raise LlmError(f"claude CLI exited with {proc.returncode}")
