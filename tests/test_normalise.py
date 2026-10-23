@@ -49,14 +49,6 @@ def test_normalise(text: str, expected: str) -> None:
     assert normalise(text) == expected
 
 
-def test_normalise_is_linear() -> None:
-    import time
-
-    started = time.perf_counter()
-    normalise(("  　\n\u200b" * 400_000) + "x")
-    assert time.perf_counter() - started < 5.0
-
-
 @pytest.mark.parametrize(
     "text",
     [

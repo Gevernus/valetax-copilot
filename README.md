@@ -5,34 +5,44 @@ sentiment), drafts a reply from the Valetax help pages with citations or abstain
 ticket to a person whenever a hard rule or the evidence requires it. Nothing is sent to a client:
 an agent reads every card. Python 3.12, uv; a CLI and a static HTML page for agents.
 
+Built with Claude Code over ~2 days: I set the design, evals and gates; agents implemented and
+reviewed ([docs/process.md](docs/process.md)).
+
 **What the brief asked for, and what is done:** [docs/requirements.md](docs/requirements.md).
 
 ## Results
 
-Jev classifier + Haiku drafter, run `2026-10-23` on the current code. Full tables with intervals:
+Jev classifier + Haiku drafter, run `2026-10-23`, its decisions replayed through the current code
+(`evals.run replay --write`; every moved route is listed in [docs/evals.md](docs/evals.md#results)).
+Full tables with intervals:
 [`evals/results/2026-10-23.md`](evals/results/2026-10-23.md) (golden) and
 [`evals/results/2026-10-23-challenge.md`](evals/results/2026-10-23-challenge.md) (blind).
 
 | | golden set, 80 tickets | blind set, 60 tickets |
 |---|---|---|
 | hard-rule violations | 0 (95% upper bound 3.7%) | 0 (≤ 4.9%) |
-| tickets that need a person and reached one | 48 of 48 | 39 of 39 |
-| route accuracy | 98% (91–99%); held-out 20: 95% | 95% (86–98%) |
-| ready drafts that were right | 30 of 30 | 18 of 18 |
+| tickets that need a person and reached one (other languages always do) | 54 of 54 | 42 of 42 |
+| route accuracy | 92% (85–96%); held-out 20: 90% | 93% (84–97%) |
+| routed ready, and the label also says ready (route agreement, not a review of the text) | 20 of 20 | 14 of 14 |
+| reply check on the decision model: hits on live drafts / on the blind synthetic set | 0 of 157 | 93 of 93 |
 | API cost per ticket, warm / cold cache | $0.00031 / $0.00049 | |
 
+The reply check has never fired on a live draft: it is insurance, measured on synthetic
+positives, and the pilot decides whether it stays. The checks on a draft read numbers with their units, time words, fee and guarantee phrases,
+links, and names from closed lists (currencies, payment methods, countries, instruments). A
+claim without any of these ("withdrawals go back to the same account") is not checked by code:
+the drafter's rules and the agent who reads every card cover it.
+
 Sonnet adds nothing measurable at 8–13 times the model cost; the LLM classifier routes the same
-within noise at 4.7 s against 0.33 s; zero-shot Laya is safe but sends nearly everything to a
-person. Is it worth running: [docs/business-case.md](docs/business-case.md).
+within noise at 4.7 s against 0.33 s. Is it worth running: [docs/business-case.md](docs/business-case.md).
 
 ## Run it
 
 ```bash
-uv sync --all-extras                     # the laya extra pulls torch; plain `uv sync` skips it
+uv sync --all-extras                     # the anthropic extra is the production LLM path
 export TYPESAFE_API_KEY=...              # Jev classifier (default)
-uv run copilot run "My withdrawal is pending for 3 days. Also, should I buy gold now?"
-uv run copilot run --classifier laya "Какие документы нужны для верификации?"   # local classifier
-uv run copilot run --json --file ticket.txt
+echo "My withdrawal is pending for 3 days. Also, should I buy gold now?" | uv run copilot run
+uv run copilot run --json --file ticket.txt   # the ticket comes from stdin or a file, never argv
 ```
 
 The drafter defaults to `--llm claude-cli --model haiku`, which shells out to an authenticated
@@ -51,12 +61,12 @@ uv run copilot view evals/results/2026-10-23/jev+haiku+reply-jev/cards.jsonl -o 
 ```mermaid
 flowchart LR
     t([ticket]) --> m[normalise, mask PII<br/>rules: injection, advice]
-    m --> c[decision model<br/>9 typed questions<br/>Jev / Laya / LLM]
+    m --> c[decision model<br/>9 typed questions<br/>Jev / LLM]
     m --> l[language<br/>lingua]
     c --> d{injection or<br/>complaint, KYC, AML?}
     d -->|no| g[draft from the whole KB<br/>cites section ids or abstains]
-    g --> k[source check: figures, fees<br/>reply check: decision, compliance, handover]
-    k --> r[routing: 18 reasons]
+    g --> k[source check: figures, fees,<br/>links, closed-list names<br/>reply check: decision, compliance, handover]
+    k --> r[routing: 19 reasons<br/>ready only in en, ru, es]
     d -->|yes: no draft, or a fixed text by code| r
     r --> card([card: reasons first,<br/>draft, sources])
     r --> tr[(trace line, no text)]
@@ -66,9 +76,9 @@ flowchart LR
 |---|---|
 | `src/copilot/pipeline.py` | the order of stages; any failure becomes a card for a person |
 | `normalise.py`, `masking.py`, `rules.py` | one normalised text, PII masked, input patterns |
-| `classify/` | the typed questions and the Jev, Laya and LLM backends |
+| `classify/` | the typed questions and the Jev and LLM backends |
 | `draft.py`, `kb.py`, `kb/valetax.toml` | the drafter prompt and schema, the fixed texts, the KB |
-| `grounding.py`, `quantities.py`, `reply_guard.py` | checks on every draft |
+| `grounding.py`, `quantities.py`, `terms.py`, `reply_guard.py` | checks on every draft |
 | `routing.py` | the reasons, in order of severity, and the thresholds |
 | `errors.py`, `llm.py` | three provider error kinds, one retry budget, the LLM backends |
 | `cli.py`, `view.py`, `trace.py` | the CLI, the agent page, the trace writer |
@@ -96,4 +106,5 @@ and their route accuracy. `uvx pre-commit install` adds ruff and mypy as commit 
 - [docs/kb-issues.md](docs/kb-issues.md): the gaps and contradictions in the four help pages
 - [docs/rollout.md](docs/rollout.md): launch stages, promotion and stop criteria, scaling triggers
 - [docs/phase2.md](docs/phase2.md): what each scaling step builds, the weekly improvement loop
+- [docs/process.md](docs/process.md): how it was built, by whom, and how it was reviewed
 - [CLAUDE.md](CLAUDE.md): the guide Claude Code worked from (the brief asked for an agentic tool)

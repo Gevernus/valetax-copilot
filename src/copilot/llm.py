@@ -11,7 +11,6 @@ import subprocess
 import tempfile
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Protocol
 
 from copilot.errors import (
@@ -81,9 +80,8 @@ class ClaudeCli:
     def __init__(self, model: str = "haiku", timeout_s: float = 90.0) -> None:
         self.model = MODEL_IDS.get(model, model)
         self._timeout_s = timeout_s
-        # An empty directory of our own: no CLAUDE.md for the CLI to discover.
-        self._workdir = Path(tempfile.gettempdir()) / "copilot-claude-cli"
-        self._workdir.mkdir(exist_ok=True)
+        # An empty private directory (mode 0700) of our own: no CLAUDE.md for the CLI to discover.
+        self._workdir = tempfile.TemporaryDirectory(prefix="copilot-claude-cli-")
 
     def complete(
         self, system: str, user: str, schema: dict[str, Any], timeout_s: float | None = None
@@ -110,7 +108,8 @@ class ClaudeCli:
             proc = subprocess.run(
                 cmd,
                 input=user,
-                cwd=self._workdir,
+                cwd=self._workdir.name,
+                env=_cli_env(),
                 capture_output=True,
                 text=True,
                 timeout=min(self._timeout_s, timeout_s or self._timeout_s),
@@ -123,7 +122,10 @@ class ClaudeCli:
         if out is not None and out.get("is_error"):
             result = str(out.get("result", ""))
             rate_limited = out.get("api_error_status") == 429 or _RATE_LIMIT.search(result)
-            if _USAGE_LIMIT.search(result) and not rate_limited:
+            # The CLI may report an exhausted plan as a 429 too; its error code tells them apart.
+            if out.get("api_error") == "usage_limit_reached" or (
+                _USAGE_LIMIT.search(result) and not rate_limited
+            ):
                 raise UsageLimitError("claude CLI reports a usage limit")
         if proc.returncode != 0:
             # stderr can echo the prompt; keep only the exit code.
@@ -141,6 +143,19 @@ class ClaudeCli:
             cache_write_tokens=int(u.get("cache_creation_input_tokens", 0)),
         )
         return LlmResult(data, usage, self.model, latency_ms)
+
+
+# What the CLI needs to start and authenticate; nothing else from our environment (the
+# TypeSafe key, for one) reaches the subprocess.
+_CLI_ENV = (
+    "PATH", "HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "TMPDIR",
+    "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "CLAUDE_CODE_OAUTH_TOKEN",
+    "CLAUDE_CONFIG_DIR", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "NODE_EXTRA_CA_CERTS",
+)  # fmt: skip
+
+
+def _cli_env() -> dict[str, str]:
+    return {k: os.environ[k] for k in _CLI_ENV if k in os.environ}
 
 
 def _json_object(text: str) -> dict[str, Any] | None:
@@ -190,6 +205,8 @@ class AnthropicApi:
         except anthropic.AnthropicError as e:
             raise anthropic_error(e) from None  # the SDK message can carry the response body
         latency_ms = int((time.perf_counter() - started) * 1000)
+        if response.stop_reason == "max_tokens":  # the same call would stop at the same place
+            raise PermanentError("stop_reason=max_tokens")
         if response.stop_reason != "end_turn":
             raise TransientError(f"stop_reason={response.stop_reason}")
         text = next((b.text for b in response.content if b.type == "text"), "")

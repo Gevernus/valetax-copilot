@@ -8,8 +8,8 @@ what each step builds.
 
 ## 1. Rollout
 
-Shadow, a five-agent pilot, all agents, and maybe auto-send for a narrow category, each with
-entry, exit and stop criteria and a rollback flag: [rollout.md](rollout.md).
+Shadow, a five-agent pilot, then all agents, each with entry, exit and stop criteria and a
+rollback flag: [rollout.md](rollout.md). Sending without an agent is not in this plan.
 
 ## 2. The weekly loop: miss → case → fix → re-run
 
@@ -59,12 +59,15 @@ retrieval misses.
 ## 5. Classifier: from zero-shot to fine-tuned
 
 - Trigger: 2,000 agent-confirmed labels, 4–8 weeks of pilot ([rollout.md](rollout.md#scaling-triggers)).
-- Fine-tune Laya on them (its notebook supports Apple Silicon and T4); the README reports
-  0.362 → 0.766 accuracy from fine-tuning on another typed-decision workload.
+- Fine-tune Laya, the open-source model on Jev's `/v1/systemone` contract, on them. Zero-shot it
+  was measured at 61% route accuracy with one ready draft in 80, and its backend was removed from
+  phase 1 ([decisions.md §3](decisions.md#3-classification-by-a-decision-model-not-an-llm)); its
+  README reports 0.362 → 0.766 accuracy from fine-tuning on another typed-decision workload.
 - Fit per-question thresholds on held-out data instead of the hand-set ones in
   `routing.Thresholds`, with a target error per flag (stricter for trading advice and AML).
-- Keep Jev and the fine-tuned Laya on the same `/v1/systemone` contract and compare them on
-  the golden set; pick by accuracy at the required recall on reserved topics.
+- Compare Jev and the fine-tuned Laya on the golden and blind sets; pick by accuracy at the
+  required recall on reserved topics. A second classifier is also the answer to a Jev outage,
+  which today sends every ticket to a person without a draft.
 
 ## 6. Cost and model routing
 

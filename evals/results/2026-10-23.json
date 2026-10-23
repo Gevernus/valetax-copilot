@@ -275,54 +275,58 @@
     },
     "route": {
       "accuracy": {
-        "hits": 78,
+        "hits": 74,
         "n": 80,
-        "value": 0.975,
+        "value": 0.925,
         "ci95": [
-          0.913,
-          0.993
+          0.846,
+          0.965
         ]
       },
       "human_recall": {
-        "hits": 48,
-        "n": 48,
+        "hits": 54,
+        "n": 54,
         "value": 1.0,
         "ci95": [
-          0.926,
+          0.934,
           1.0
         ]
       },
       "auto_precision": {
-        "hits": 30,
-        "n": 30,
+        "hits": 20,
+        "n": 20,
         "value": 1.0,
         "ci95": [
-          0.886,
+          0.839,
           1.0
         ]
       },
       "auto_recall": {
-        "hits": 30,
-        "n": 32,
-        "value": 0.9375,
+        "hits": 20,
+        "n": 26,
+        "value": 0.7692307692307693,
         "ci95": [
-          0.799,
-          0.983
+          0.579,
+          0.89
         ]
       },
       "auto_share": {
-        "hits": 30,
+        "hits": 20,
         "n": 80,
-        "value": 0.375,
+        "value": 0.25,
         "ci95": [
-          0.277,
-          0.485
+          0.168,
+          0.355
         ]
       },
       "missed_escalations": [],
       "needless_escalations": [
+        "en03",
+        "en09",
         "en51",
-        "ru18"
+        "ru03",
+        "ru18",
+        "es02"
       ]
     },
     "abstain": {
@@ -347,20 +351,20 @@
     },
     "citations": {
       "valid": {
-        "hits": 43,
-        "n": 43,
+        "hits": 42,
+        "n": 42,
         "value": 1.0,
         "ci95": [
-          0.918,
+          0.916,
           1.0
         ]
       },
       "expected_hit": {
-        "hits": 39,
-        "n": 39,
+        "hits": 38,
+        "n": 38,
         "value": 1.0,
         "ci95": [
-          0.91,
+          0.908,
           1.0
         ]
       }
@@ -371,7 +375,8 @@
     },
     "grounding_rejections": [
       "en51",
-      "ru18"
+      "ru18",
+      "es02"
     ],
     "latency_ms": {
       "check": {
@@ -405,52 +410,53 @@
     "holdout": {
       "route": {
         "accuracy": {
-          "hits": 19,
+          "hits": 18,
           "n": 20,
-          "value": 0.95,
+          "value": 0.9,
           "ci95": [
-            0.764,
-            0.991
+            0.699,
+            0.972
           ]
         },
         "human_recall": {
-          "hits": 13,
-          "n": 13,
+          "hits": 15,
+          "n": 15,
           "value": 1.0,
           "ci95": [
-            0.772,
+            0.796,
             1.0
           ]
         },
         "auto_precision": {
-          "hits": 6,
-          "n": 6,
+          "hits": 3,
+          "n": 3,
           "value": 1.0,
           "ci95": [
-            0.61,
+            0.438,
             1.0
           ]
         },
         "auto_recall": {
-          "hits": 6,
-          "n": 7,
-          "value": 0.8571428571428571,
+          "hits": 3,
+          "n": 5,
+          "value": 0.6,
           "ci95": [
-            0.487,
-            0.974
+            0.231,
+            0.882
           ]
         },
         "auto_share": {
-          "hits": 6,
+          "hits": 3,
           "n": 20,
-          "value": 0.3,
+          "value": 0.15,
           "ci95": [
-            0.145,
-            0.519
+            0.052,
+            0.36
           ]
         },
         "missed_escalations": [],
         "needless_escalations": [
+          "en09",
           "ru18"
         ]
       },
@@ -482,7 +488,40 @@
         "drafter": {
           "system": 1924
         }
-      }
+      },
+      "replayed": [
+        {
+          "rules": "8bfaca719602",
+          "changed": [
+            "en03",
+            "ru03"
+          ]
+        },
+        {
+          "rules": "8efefbf57d68",
+          "changed": [
+            "ar01",
+            "ar02",
+            "id01",
+            "id02",
+            "id03",
+            "pt01",
+            "tr01",
+            "vi01"
+          ]
+        },
+        {
+          "rules": "aa2af668d236",
+          "changed": []
+        },
+        {
+          "rules": "950dec5f06f4",
+          "changed": [
+            "en09",
+            "es02"
+          ]
+        }
+      ]
     }
   },
   "jev+sonnet+reply-jev": {
@@ -761,55 +800,59 @@
     },
     "route": {
       "accuracy": {
-        "hits": 77,
+        "hits": 73,
         "n": 80,
-        "value": 0.9625,
+        "value": 0.9125,
         "ci95": [
-          0.895,
-          0.987
+          0.83,
+          0.957
         ]
       },
       "human_recall": {
-        "hits": 48,
-        "n": 48,
+        "hits": 54,
+        "n": 54,
         "value": 1.0,
         "ci95": [
-          0.926,
+          0.934,
           1.0
         ]
       },
       "auto_precision": {
-        "hits": 29,
-        "n": 29,
+        "hits": 19,
+        "n": 19,
         "value": 1.0,
         "ci95": [
-          0.883,
+          0.832,
           1.0
         ]
       },
       "auto_recall": {
-        "hits": 29,
-        "n": 32,
-        "value": 0.90625,
+        "hits": 19,
+        "n": 26,
+        "value": 0.7307692307692307,
         "ci95": [
-          0.758,
-          0.968
+          0.539,
+          0.863
         ]
       },
       "auto_share": {
-        "hits": 29,
+        "hits": 19,
         "n": 80,
-        "value": 0.3625,
+        "value": 0.2375,
         "ci95": [
-          0.266,
-          0.472
+          0.158,
+          0.341
         ]
       },
       "missed_escalations": [],
       "needless_escalations": [
+        "en03",
+        "en09",
         "en33",
         "en51",
-        "ru18"
+        "ru03",
+        "ru18",
+        "es02"
       ]
     },
     "abstain": {
@@ -834,20 +877,20 @@
     },
     "citations": {
       "valid": {
-        "hits": 48,
-        "n": 48,
+        "hits": 46,
+        "n": 46,
         "value": 1.0,
         "ci95": [
-          0.926,
+          0.923,
           1.0
         ]
       },
       "expected_hit": {
-        "hits": 39,
-        "n": 39,
+        "hits": 38,
+        "n": 38,
         "value": 1.0,
         "ci95": [
-          0.91,
+          0.908,
           1.0
         ]
       }
@@ -858,7 +901,9 @@
     },
     "grounding_rejections": [
       "en51",
-      "ru18"
+      "ru18",
+      "es02",
+      "vi01"
     ],
     "latency_ms": {
       "check": {
@@ -892,52 +937,53 @@
     "holdout": {
       "route": {
         "accuracy": {
-          "hits": 19,
+          "hits": 18,
           "n": 20,
-          "value": 0.95,
+          "value": 0.9,
           "ci95": [
-            0.764,
-            0.991
+            0.699,
+            0.972
           ]
         },
         "human_recall": {
-          "hits": 13,
-          "n": 13,
+          "hits": 15,
+          "n": 15,
           "value": 1.0,
           "ci95": [
-            0.772,
+            0.796,
             1.0
           ]
         },
         "auto_precision": {
-          "hits": 6,
-          "n": 6,
+          "hits": 3,
+          "n": 3,
           "value": 1.0,
           "ci95": [
-            0.61,
+            0.438,
             1.0
           ]
         },
         "auto_recall": {
-          "hits": 6,
-          "n": 7,
-          "value": 0.8571428571428571,
+          "hits": 3,
+          "n": 5,
+          "value": 0.6,
           "ci95": [
-            0.487,
-            0.974
+            0.231,
+            0.882
           ]
         },
         "auto_share": {
-          "hits": 6,
+          "hits": 3,
           "n": 20,
-          "value": 0.3,
+          "value": 0.15,
           "ci95": [
-            0.145,
-            0.519
+            0.052,
+            0.36
           ]
         },
         "missed_escalations": [],
         "needless_escalations": [
+          "en09",
           "ru18"
         ]
       },
@@ -969,7 +1015,44 @@
         "drafter": {
           "system": 1924
         }
-      }
+      },
+      "replayed": [
+        {
+          "rules": "8bfaca719602",
+          "changed": [
+            "en03",
+            "en37",
+            "ru03",
+            "ru16"
+          ]
+        },
+        {
+          "rules": "8efefbf57d68",
+          "changed": [
+            "ar01",
+            "ar02",
+            "id01",
+            "id02",
+            "id03",
+            "pt01",
+            "tr01",
+            "vi01"
+          ]
+        },
+        {
+          "rules": "aa2af668d236",
+          "changed": [
+            "vi01"
+          ]
+        },
+        {
+          "rules": "950dec5f06f4",
+          "changed": [
+            "en09",
+            "es02"
+          ]
+        }
+      ]
     }
   },
   "laya+haiku+reply-jev": {
@@ -1248,20 +1331,20 @@
     },
     "route": {
       "accuracy": {
-        "hits": 49,
+        "hits": 55,
         "n": 80,
-        "value": 0.6125,
+        "value": 0.6875,
         "ci95": [
-          0.503,
-          0.712
+          0.579,
+          0.778
         ]
       },
       "human_recall": {
-        "hits": 48,
-        "n": 48,
+        "hits": 54,
+        "n": 54,
         "value": 1.0,
         "ci95": [
-          0.926,
+          0.934,
           1.0
         ]
       },
@@ -1276,11 +1359,11 @@
       },
       "auto_recall": {
         "hits": 1,
-        "n": 32,
-        "value": 0.03125,
+        "n": 26,
+        "value": 0.038461538461538464,
         "ci95": [
-          0.006,
-          0.157
+          0.007,
+          0.189
         ]
       },
       "auto_share": {
@@ -1318,13 +1401,7 @@
         "ru12",
         "ru18",
         "es01",
-        "es02",
-        "id01",
-        "id02",
-        "ar01",
-        "ar02",
-        "pt01",
-        "tr01"
+        "es02"
       ]
     },
     "abstain": {
@@ -1407,20 +1484,20 @@
     "holdout": {
       "route": {
         "accuracy": {
-          "hits": 13,
+          "hits": 15,
           "n": 20,
-          "value": 0.65,
+          "value": 0.75,
           "ci95": [
-            0.433,
-            0.819
+            0.531,
+            0.888
           ]
         },
         "human_recall": {
-          "hits": 13,
-          "n": 13,
+          "hits": 15,
+          "n": 15,
           "value": 1.0,
           "ci95": [
-            0.772,
+            0.796,
             1.0
           ]
         },
@@ -1432,11 +1509,11 @@
         },
         "auto_recall": {
           "hits": 0,
-          "n": 7,
+          "n": 5,
           "value": 0.0,
           "ci95": [
             0.0,
-            0.354
+            0.434
           ]
         },
         "auto_share": {
@@ -1454,9 +1531,7 @@
           "en52",
           "ru02",
           "ru06",
-          "ru18",
-          "ar01",
-          "tr01"
+          "ru18"
         ]
       },
       "violations": {
@@ -1487,7 +1562,34 @@
         "drafter": {
           "system": 1924
         }
-      }
+      },
+      "replayed": [
+        {
+          "rules": "8bfaca719602",
+          "changed": []
+        },
+        {
+          "rules": "8efefbf57d68",
+          "changed": [
+            "ar01",
+            "ar02",
+            "id01",
+            "id02",
+            "id03",
+            "pt01",
+            "tr01",
+            "vi01"
+          ]
+        },
+        {
+          "rules": "aa2af668d236",
+          "changed": []
+        },
+        {
+          "rules": "950dec5f06f4",
+          "changed": []
+        }
+      ]
     }
   },
   "llm+haiku+reply-jev": {
@@ -1766,54 +1868,58 @@
     },
     "route": {
       "accuracy": {
-        "hits": 77,
+        "hits": 73,
         "n": 80,
-        "value": 0.9625,
+        "value": 0.9125,
         "ci95": [
-          0.895,
-          0.987
+          0.83,
+          0.957
         ]
       },
       "human_recall": {
-        "hits": 48,
-        "n": 48,
+        "hits": 54,
+        "n": 54,
         "value": 1.0,
         "ci95": [
-          0.926,
+          0.934,
           1.0
         ]
       },
       "auto_precision": {
-        "hits": 29,
-        "n": 29,
+        "hits": 19,
+        "n": 19,
         "value": 1.0,
         "ci95": [
-          0.883,
+          0.832,
           1.0
         ]
       },
       "auto_recall": {
-        "hits": 29,
-        "n": 32,
-        "value": 0.90625,
+        "hits": 19,
+        "n": 26,
+        "value": 0.7307692307692307,
         "ci95": [
-          0.758,
-          0.968
+          0.539,
+          0.863
         ]
       },
       "auto_share": {
-        "hits": 29,
+        "hits": 19,
         "n": 80,
-        "value": 0.3625,
+        "value": 0.2375,
         "ci95": [
-          0.266,
-          0.472
+          0.158,
+          0.341
         ]
       },
       "missed_escalations": [],
       "needless_escalations": [
+        "en03",
+        "en09",
         "en12",
         "en51",
+        "ru03",
+        "ru11",
         "ru18"
       ]
     },
@@ -1839,20 +1945,20 @@
     },
     "citations": {
       "valid": {
-        "hits": 43,
-        "n": 43,
+        "hits": 40,
+        "n": 40,
         "value": 1.0,
         "ci95": [
-          0.918,
+          0.912,
           1.0
         ]
       },
       "expected_hit": {
-        "hits": 38,
-        "n": 38,
+        "hits": 36,
+        "n": 36,
         "value": 1.0,
         "ci95": [
-          0.908,
+          0.904,
           1.0
         ]
       }
@@ -1863,7 +1969,10 @@
     },
     "grounding_rejections": [
       "en51",
-      "ru18"
+      "ru11",
+      "ru18",
+      "id02",
+      "vi01"
     ],
     "latency_ms": {
       "check": {
@@ -1897,52 +2006,53 @@
     "holdout": {
       "route": {
         "accuracy": {
-          "hits": 19,
+          "hits": 18,
           "n": 20,
-          "value": 0.95,
+          "value": 0.9,
           "ci95": [
-            0.764,
-            0.991
+            0.699,
+            0.972
           ]
         },
         "human_recall": {
-          "hits": 13,
-          "n": 13,
+          "hits": 15,
+          "n": 15,
           "value": 1.0,
           "ci95": [
-            0.772,
+            0.796,
             1.0
           ]
         },
         "auto_precision": {
-          "hits": 6,
-          "n": 6,
+          "hits": 3,
+          "n": 3,
           "value": 1.0,
           "ci95": [
-            0.61,
+            0.438,
             1.0
           ]
         },
         "auto_recall": {
-          "hits": 6,
-          "n": 7,
-          "value": 0.8571428571428571,
+          "hits": 3,
+          "n": 5,
+          "value": 0.6,
           "ci95": [
-            0.487,
-            0.974
+            0.231,
+            0.882
           ]
         },
         "auto_share": {
-          "hits": 6,
+          "hits": 3,
           "n": 20,
-          "value": 0.3,
+          "value": 0.15,
           "ci95": [
-            0.145,
-            0.519
+            0.052,
+            0.36
           ]
         },
         "missed_escalations": [],
         "needless_escalations": [
+          "en09",
           "ru18"
         ]
       },
@@ -1977,7 +2087,43 @@
         "classifier": {
           "system": 930
         }
-      }
+      },
+      "replayed": [
+        {
+          "rules": "8bfaca719602",
+          "changed": [
+            "en03",
+            "ru03"
+          ]
+        },
+        {
+          "rules": "8efefbf57d68",
+          "changed": [
+            "ar01",
+            "ar02",
+            "id01",
+            "id02",
+            "id03",
+            "pt01",
+            "tr01",
+            "vi01"
+          ]
+        },
+        {
+          "rules": "aa2af668d236",
+          "changed": [
+            "id02",
+            "vi01"
+          ]
+        },
+        {
+          "rules": "950dec5f06f4",
+          "changed": [
+            "en09",
+            "ru11"
+          ]
+        }
+      ]
     }
   }
 }

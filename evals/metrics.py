@@ -14,6 +14,7 @@ from typing import Any
 from copilot import quantities, rules
 from copilot.draft import TRADING_DECLINE_VERSIONS
 from copilot.kb import KnowledgeBase
+from copilot.pipeline import READY_LANGUAGES
 
 FLAG_REASON = {
     "trading_advice": "trading_advice",
@@ -70,25 +71,6 @@ def zero_failure_upper(n: int) -> float:
     return 1 - math.pow(0.05, 1 / n)
 
 
-def discordant(a_ok: list[bool], b_ok: list[bool]) -> tuple[int, int]:
-    """Items only the first system got right, and items only the second did."""
-    pairs = list(zip(a_ok, b_ok, strict=True))
-    return sum(a and not b for a, b in pairs), sum(b and not a for a, b in pairs)
-
-
-def mcnemar(a_ok: list[bool], b_ok: list[bool]) -> float:
-    """Exact two-sided McNemar p-value for two systems scored on the same items.
-
-    A binomial test on the items exactly one of them got right.
-    """
-    only_a, only_b = discordant(a_ok, b_ok)
-    n = only_a + only_b
-    if not n:
-        return 1.0
-    tail = sum(math.comb(n, i) for i in range(min(only_a, only_b) + 1)) / math.pow(2, n)
-    return min(1.0, 2 * tail)
-
-
 def recall_precision(pairs: list[tuple[bool, bool]]) -> dict[str, Any]:
     """(truth, prediction) pairs -> recall and precision with their Wilson intervals."""
     return {
@@ -113,6 +95,15 @@ def short(r: dict[str, Any]) -> str:
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
     """One JSON object per non-empty line: label sets and saved cards."""
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+
+
+def expected_route(label: dict[str, Any]) -> str:
+    """The label's route under the language policy: outside READY_LANGUAGES, a person.
+
+    The labels keep the writer's reading of the content; the policy is applied here, so the
+    holdout and the blind set are not relabelled.
+    """
+    return label["route"] if label["lang"] in READY_LANGUAGES else "human"
 
 
 def _rate(pairs: list[bool]) -> Rate:
@@ -181,9 +172,13 @@ def _reply_violations(label: dict[str, Any], card: dict[str, Any], kb: Knowledge
     if rules.gives_trading_advice(own):
         out.append("reply gives trading advice")
     # Independent of the citations the draft chose: numbers found nowhere in the KB or ticket.
+    # The parser reads units in READY_LANGUAGES only; elsewhere the digit check above stands.
     known = quantities.quantities(f"{whole_kb} {card['ticket']}")
+    readable = card.get("language") in READY_LANGUAGES
     invented = sorted(
-        str(q) for q in quantities.quantities(own) if not quantities.supported(q, known)
+        str(q)
+        for q in quantities.quantities(own)
+        if (readable or q.unit != "unknown") and not quantities.supported(q, known)
     )
     if invented:
         out.append(f"reply has numbers found nowhere in the KB: {invented}")
@@ -207,7 +202,11 @@ def compute(
     # A failure card (the co-pilot could not process the ticket) went to a person with nothing
     # to judge: counted on its own line, kept out of every quality rate.
     failed = [c["ticket_id"] for c in cards if c.get("error")]
-    pairs = [(labels[c["ticket_id"]], c) for c in cards if not c.get("error")]
+    pairs = [
+        ({**labels[c["ticket_id"]], "route": expected_route(labels[c["ticket_id"]])}, c)
+        for c in cards
+        if not c.get("error")
+    ]
     m: dict[str, Any] = {"n": len(pairs), "failures": {"count": len(failed), "tickets": failed}}
 
     fields: dict[str, Rate] = {

@@ -1,15 +1,18 @@
 """A failure anywhere sends the ticket to a person; only transient errors are retried."""
 
+import io
+from pathlib import Path
+
 import pytest
 
-from copilot import pipeline
+from copilot import cli, pipeline
 from copilot.classify import Classification, Classifier
 from copilot.classify.questions import QuestionSet
 from copilot.draft import Drafter
 from copilot.errors import Budget, PermanentError, RetryPolicy, TransientError, UsageLimitError
 from copilot.kb import load_kb
 from copilot.llm import Llm, LlmResult
-from copilot.pipeline import Copilot
+from copilot.pipeline import MAX_RAW_CHARS, Copilot
 from test_pipeline import MIN_DEPOSIT, FakeClassifier, FakeLlm, FakeReplyChecker
 
 NO_WAIT = RetryPolicy(attempts=3, backoff_s=0.0, deadline_s=60.0)
@@ -180,6 +183,13 @@ def test_drafter_output_that_breaks_the_schema_is_transient() -> None:
     card = build(FakeClassifier(), bad).process("t", "Min deposit?")
     assert card.reasons == ["draft_error"]
     assert card.trace()["attempts"]["draft"] == 3
+
+
+def test_a_draft_over_a_length_cap_is_not_retried() -> None:
+    long = FakeLlm(reply="x" * 5000, citations=["funding.min-deposit"])
+    card = build(FakeClassifier(), long).process("t", "Min deposit?")
+    assert card.reasons == ["draft_error"]
+    assert card.trace()["attempts"]["draft"] == 1
 
 
 def test_the_trace_records_versions() -> None:
@@ -411,3 +421,15 @@ def test_text_that_grows_past_the_raw_limit_when_normalised_is_not_read() -> Non
     card = build(FakeClassifier(), FakeLlm(**MIN_DEPOSIT)).process("t", text)
     assert card.reasons == ["too_long"]
     assert card.ticket == ""
+
+
+def test_the_cli_takes_the_ticket_from_stdin_or_a_file_only(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    with pytest.raises(SystemExit):  # no positional text: it would land in shell history
+        cli.main(["run", "my passport A12345678"])
+    huge = tmp_path / "t.txt"
+    huge.write_text("x" * (MAX_RAW_CHARS * 3))
+    assert len(cli._read_ticket(huge)) == MAX_RAW_CHARS + 1  # read is bounded, then refused
+    monkeypatch.setattr("sys.stdin", io.StringIO("y" * (MAX_RAW_CHARS * 2)))
+    assert len(cli._read_ticket(None)) == MAX_RAW_CHARS + 1

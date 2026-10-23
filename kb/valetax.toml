@@ -22,7 +22,7 @@ I1 = "conflict"   # deposit credit time: "instant" vs "within 60 minutes"
 I2 = "defect"     # withdrawal steps are the deposit steps
 I3 = "gap"        # verification page has no document list or timeline
 I4 = "gap"        # minimum deposit depends on account type; account-types page not in KB
-I5 = "conflict"   # "begin trading immediately" vs "verification within 48 hours"
+I5 = "conflict"   # "begin trading immediately" (twice) vs "verification within 48 hours"
 I6 = "gap"        # no fees, methods, limits or withdrawal processing time anywhere
 I7 = "conflict"   # "instant" withdrawals vs "pending, in queue" and "24 hours"
 
@@ -73,6 +73,7 @@ id = "funding.available-for-trading"
 sources = ["deposit", "withdraw"]
 title = "When will my funds be available for trading?"
 text = "You can begin trading immediately once your balance has been updated."
+issues = ["I5"]
 
 [[section]]
 id = "funding.history"

@@ -1,4 +1,10 @@
-"""PII masking. Runs first; nothing downstream (models, logs, traces) sees the raw ticket."""
+"""PII masking. Runs first; nothing downstream (models, logs, traces) sees the raw ticket.
+
+Masked: emails, cards, IBANs, wallets, phones, account numbers, long digit runs, and identity
+document numbers after a keyword ("passport A12345678", "DNI 12345678Z"). Not masked: names,
+addresses and dates of birth. They reach the classifier and drafter vendors
+(docs/decisions.md §16); masking them well needs a named-entity model, not a pattern.
+"""
 
 import re
 from collections import Counter
@@ -20,6 +26,14 @@ _ACCOUNT_KEYWORD = re.compile(
     r"(\d{5,})"
 )
 _LONG_NUMBER = re.compile(r"\b\d{7,}\b")
+# Identity documents: a keyword, then a token with a digit in it ("A12345678", "12345678Z",
+# "4510 123456"). A bare "ID" is left to the account rule: it is usually a login.
+_ID_DOCUMENT = re.compile(
+    r"(?i)\b(passports?|pasaporte|DNI|NIE|national id|id card|id number|identity (?:card|number)"
+    r"|паспорт\w*)"
+    r"(\s{0,3}(?:no\.?|number|num\.?|nº|№|#|номер|серия)?[ \t]{0,2}:?\s{0,3})"
+    r"([a-z]{0,3}\d[a-z\d]{3,15}(?:[ -]\d{3,10})?)\b"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,7 +55,7 @@ def _luhn_ok(digits: str) -> bool:
 
 
 def mask_pii(text: str) -> Masked:
-    """Mask emails, cards, IBANs, wallets, phones and account numbers in the normalised text.
+    """Mask emails, cards, IBANs, wallets, phones, account and ID numbers in the normalised text.
 
     `normalise` is idempotent, so a caller that already normalised loses nothing, and an invisible
     character cannot split an email or a number.
@@ -67,11 +81,16 @@ def mask_pii(text: str) -> Masked:
         counts["ACCOUNT"] += 1
         return f"{m.group(1)}{m.group(2)}[ACCOUNT]"
 
+    def id_document(m: re.Match[str]) -> str:
+        counts["ID"] += 1
+        return f"{m.group(1)}{m.group(2)}[ID]"
+
     out = sub(_EMAIL, "EMAIL", text)
     out = sub(_IBAN, "IBAN", out)
     out = _CARD.sub(card, out)
     out = sub(_WALLET, "WALLET", out)
     out = sub(_PHONE, "PHONE", out)
+    out = _ID_DOCUMENT.sub(id_document, out)
     out = _ACCOUNT_KEYWORD.sub(account, out)
     out = sub(_LONG_NUMBER, "NUMBER", out)
     return Masked(out, dict(counts))

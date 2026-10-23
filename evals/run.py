@@ -2,7 +2,7 @@
 
     uv run python -m evals.run run --classifier jev --model haiku [--set tickets_challenge]
     uv run python -m evals.run report --date <dir>
-    uv run python -m evals.run replay --date <dir> [--reply-checker jev]
+    uv run python -m evals.run replay --date <dir> [--reply-checker jev] [--write]
 
 A run writes evals/results/<date>/<classifier>+<model>+reply-<checker>/{cards,traces}.jsonl;
 `report` (also called at the end of every run) recomputes metrics from saved cards and writes
@@ -11,7 +11,10 @@ evals/results/<date>.json and <date>.md. Re-scoring never calls a model.
 `replay` puts each saved run's model outputs (the classifier's answers, the drafter's reply)
 through the current deterministic code and scores the result: a regression check for a code
 change, without the network unless `--reply-checker jev`. It judges the code, not new model
-behaviour; a changed prompt or question needs a new run.
+behaviour; a changed prompt or question needs a new run. `--write` keeps the replayed decisions
+when a code change moves routes on purpose: each card takes the current code's route, reasons,
+reply and checks and keeps the live run's timings, tokens and reply-check record; `run.json`
+lists the tickets that changed, and the dir is re-scored.
 """
 
 import argparse
@@ -40,7 +43,7 @@ from copilot.draft import Drafter, schema, system_prompt
 from copilot.errors import PermanentError, RetryPolicy, UsageLimitError
 from copilot.kb import KnowledgeBase, load_kb
 from copilot.llm import ClaudeCli, LlmResult, LlmUsage, make_llm
-from copilot.pipeline import Copilot
+from copilot.pipeline import Card, Copilot
 from evals.metrics import compute, fmt, read_jsonl, short
 from evals.prices import run_cost, user_tokens
 
@@ -125,8 +128,6 @@ def run(args: argparse.Namespace) -> None:
         calibration["classifier"] = calibrate(ClaudeCli("haiku"), CLASSIFY_SYSTEM, CLASSIFY_SCHEMA)
 
     started = time.perf_counter()
-    if args.classifier == "laya":
-        copilot.classifier.classify("warm-up")  # load the checkpoint outside the timings
     try:
         results = _process_all(copilot, labels, ids, args.workers)
     except (UsageLimitError, OutageError) as e:
@@ -414,11 +415,42 @@ def replay_run(run: str, reply_checker: str = "none") -> dict[str, Any]:
     return {"cards": cards, "metrics": score(cards, labels, kb), "changed": changed}
 
 
-def replay(day: str, reply_checker: str) -> int:
-    """Every run of a results dir; prints what changed and the scores. Exit 1 on a violation."""
+# Measured in the live run, kept when a replay is written: the replay itself calls no model.
+_LIVE_FIELDS = ("timings_ms", "classifier", "drafter", "attempts", "reply_check", "error")
+# The versions that produced the model outputs; the code's own (rules, KB, thresholds) are new.
+_MODEL_VERSIONS = ("prompt", "ticket_questions", "reply_questions")
+
+
+def _merged(old: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
+    """A replayed card with the live run's measurements and model versions."""
+    versions = {**new["versions"], **{k: old["versions"][k] for k in _MODEL_VERSIONS}}
+    return {**new, **{k: old[k] for k in _LIVE_FIELDS}, "versions": versions}
+
+
+def write_replay(run_dir: Path, result: dict[str, Any]) -> None:
+    """Save a replay's decisions into the run, with the live run's measurements."""
+    saved, meta = _saved(run_dir)
+    cards = [_merged(old, new) for old, new in zip(saved, result["cards"], strict=True)]
+    _write_jsonl(run_dir / "cards.jsonl", cards)
+    fields = Card.__dataclass_fields__  # a failure card kept from an older run may carry more
+    traces = [Card(**{k: v for k, v in c.items() if k in fields}).trace() for c in cards]
+    _write_jsonl(run_dir / "traces.jsonl", traces)
+    changed = sorted(old["ticket_id"] for old, _ in result["changed"])
+    rules = cards[0]["versions"]["rules"]
+    meta.setdefault("replayed", []).append({"rules": rules, "changed": changed})
+    (run_dir / "run.json").write_text(json.dumps(meta, indent=2))
+
+
+def replay(day: str, reply_checker: str, write: bool = False) -> int:
+    """Every run of a results dir; prints what changed and the scores. Exit 1 on a violation.
+
+    With `write`, the replayed decisions are saved and the dir re-scored (`write_replay`).
+    """
     bad = 0
     for run_dir in sorted(p for p in (RESULTS / day).iterdir() if (p / "cards.jsonl").exists()):
         result = replay_run(f"{day}/{run_dir.name}", reply_checker)
+        if write:
+            write_replay(run_dir, result)
         m, r = result["metrics"], result["metrics"]["route"]
         print(f"## {day}/{run_dir.name}, replayed with reply check: {reply_checker}")
         for old, new in result["changed"]:
@@ -435,6 +467,8 @@ def replay(day: str, reply_checker: str) -> int:
             + f", needs-a-person recall {fmt(r['human_recall'])}, ready {fmt(r['auto_share'])}\n"
         )
         bad += m["violations"]["count"]
+    if write:
+        report(day)
     return 1 if bad else 0
 
 
@@ -447,7 +481,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="evals.run")
     sub = parser.add_subparsers(dest="command", required=True)
     r = sub.add_parser("run")
-    r.add_argument("--classifier", choices=["jev", "laya", "llm"], default="jev")
+    r.add_argument("--classifier", choices=["jev", "llm"], default="jev")
     r.add_argument("--llm", choices=["claude-cli", "anthropic"], default="claude-cli")
     r.add_argument("--model", default="haiku")
     r.add_argument("--reply-checker", choices=[*MEASURED_REPLY_CHECKERS, "none"], default="jev")
@@ -462,11 +496,12 @@ def main() -> None:
     again.add_argument(
         "--reply-checker", choices=[*MEASURED_REPLY_CHECKERS, "none"], default="none"
     )
+    again.add_argument("--write", action="store_true", help="save the replayed decisions")
     args = parser.parse_args()
     if args.command == "run":
         run(args)
     elif args.command == "replay":
-        sys.exit(replay(args.date, args.reply_checker))
+        sys.exit(replay(args.date, args.reply_checker, args.write))
     else:
         report(args.date)
 

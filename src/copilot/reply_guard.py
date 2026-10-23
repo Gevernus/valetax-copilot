@@ -2,9 +2,11 @@
 
 It must not decide a reserved case, name a compliance check (tipping-off), or claim a handover
 that has not happened. Two layers per label: a precise pattern from rules.py, and the REPLY
-question on the decision model (classify/questions.py). The patterns are a frozen floor and are
-not widened; a new miss becomes a dev row in evals/drafts.jsonl and, if needed, a change to the
-question's wording.
+question on the decision model (classify/questions.py). The patterns are a precise floor,
+widened once after review: a help-page step that announces a result ("Account verification
+completed!") restated as the client's status, which the decision model let through on live
+drafts. Otherwise a new miss becomes a dev row in evals/drafts.jsonl and, if needed, a change to
+the question's wording.
 """
 
 from collections.abc import Callable

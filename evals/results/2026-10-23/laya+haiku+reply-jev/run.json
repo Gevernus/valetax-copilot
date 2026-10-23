@@ -13,5 +13,32 @@
     "drafter": {
       "system": 1924
     }
-  }
+  },
+  "replayed": [
+    {
+      "rules": "8bfaca719602",
+      "changed": []
+    },
+    {
+      "rules": "8efefbf57d68",
+      "changed": [
+        "ar01",
+        "ar02",
+        "id01",
+        "id02",
+        "id03",
+        "pt01",
+        "tr01",
+        "vi01"
+      ]
+    },
+    {
+      "rules": "aa2af668d236",
+      "changed": []
+    },
+    {
+      "rules": "950dec5f06f4",
+      "changed": []
+    }
+  ]
 }

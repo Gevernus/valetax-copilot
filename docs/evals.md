@@ -2,7 +2,9 @@
 
 ## Method
 
-**Golden set** (`evals/tickets.jsonl`): 80 tickets written and labelled by hand.
+**Golden set** (`evals/tickets.jsonl`): 80 tickets written and labelled by hand, plus en55
+(a new client asking how to verify, like blind c11), added after the 2026-10-23 runs and not
+in them; it enters the next run.
 
 | | |
 |---|---|
@@ -46,8 +48,7 @@ a bot?".
 - **Latency** p50/p95 per stage; **cost per ticket** at API list prices (below).
 - Every rate has a Wilson 95% interval. With n = 4 complaints, "100%" means somewhere
   between 51% and 100%. Zero violations in n tickets is reported with its one-sided 95% upper
-  bound, 1 − 0.05^(1/n). Two classifiers on the same tickets are compared with an exact
-  McNemar test on the tickets only one of them routed right.
+  bound, 1 − 0.05^(1/n).
 
 **Cost per ticket.** The evals run the drafter through the `claude` CLI, which adds 8–12k
 tokens of its own prompt that a production API call does not carry. Our system prompt is
@@ -59,81 +60,99 @@ newer runs, an estimate of ~600 tokens on older ones). Output tokens include the
 adaptive thinking, so they are an upper bound for an API call at low effort. Prices and the
 formula live in one place, `evals/prices.py`: Anthropic's pricing page (Sonnet 5.5 cache hits
 are 0.05× input) and TypeSafe's models page (docs.typesafe.ai/models: $0.042 per million input
-tokens, output free). Laya runs locally: no per-token cost.
+tokens, output free).
 
 ## Results
 
 Full tables with every metric and interval: `evals/results/2026-10-23.md` (golden set, four
 configurations) and `evals/results/2026-10-23-challenge.md` (blind set). Both runs use the
 current code, prompt `draft-v3` and the Jev reply check; `evals.run replay` on them reproduces
-every route and verdict. Per-ticket cards and trace lines sit next to them.
+every route and verdict. When a code change moves routes on purpose, `evals.run replay --write`
+saves the replayed decisions into the run, keeps its measured timings and tokens, and lists the
+changed tickets in its `run.json` (`replayed`). Every change so far went from "draft ready" to
+a person: en03, ru03, c40 (a currency taken from the question, not the sources); id01, id02,
+ar01, ar02, pt01, tr01, c48, c55 (languages without ready drafts); en09 (`funding.available-for-trading`
+now tagged I5); es02, ru11 (LLM classifier run) and c11, whose drafts restate the KB's step
+"Account verification completed! You're all set to trade" as the client's status. Per-ticket cards and trace lines sit next to them.
 
 <!-- generated:headline -->
 Runs `2026-10-23` (golden) and `2026-10-23-challenge` (blind challenge), current code, reply check on Jev. Cells: value (hits/n, Wilson 95% CI); violations: tickets with one, and for none the one-sided 95% upper bound on the rate.
 
-| | Jev + Haiku | Jev + Sonnet | LLM classifier + Haiku | Laya + Haiku |
-|---|---|---|---|---|
-| golden: violations | **0** of 80 (≤ 3.7%) | **0** of 80 (≤ 3.7%) | **0** of 80 (≤ 3.7%) | **0** of 80 (≤ 3.7%) |
-| golden: failures (to a person, unscored) | 0 | 0 | 0 | 0 |
-| golden dev: route accuracy | 98% (59/60, 91%–100%) | 97% (58/60, 89%–99%) | 97% (58/60, 89%–99%) | 60% (36/60, 47%–71%) |
-| golden holdout: route accuracy | 95% (19/20, 76%–99%) | 95% (19/20, 76%–99%) | 95% (19/20, 76%–99%) | 65% (13/20, 43%–82%) |
-| golden: needs-a-person recall | 100% (48/48, 93%–100%) | 100% (48/48, 93%–100%) | 100% (48/48, 93%–100%) | 100% (48/48, 93%–100%) |
-| golden: draft ready | 38% (30/80, 28%–48%) | 36% (29/80, 27%–47%) | 36% (29/80, 27%–47%) | 1% (1/80, 0%–7%) |
-| **blind challenge: violations** | **0** of 60 (≤ 4.9%) | not run | not run | not run |
-| blind challenge: failures | 0 | not run | not run | not run |
-| blind challenge: route accuracy | 95% (57/60, 86%–98%) | not run | not run | not run |
-| blind challenge: needs-a-person recall | 100% (39/39, 91%–100%) | not run | not run | not run |
-| blind challenge: draft ready | 30% (18/60, 20%–42%) | not run | not run | not run |
-| API cost per ticket, warm / cold cache | $0.00031 / $0.00049 | $0.00259 / $0.00628 | $0.00046 / $0.00074 | $0.00003 / $0.00005 |
-| p50 classify / end to end (CLI), s | 0.33 / 5.2 | 0.63 / 6.5 | 4.70 / 10.8 | 0.28 / 0.3 |
-
-Jev vs the LLM classifier (both with Haiku), route right on the same 80 golden tickets: 78 vs 77; right for one only: Jev 1, LLM 0; exact McNemar p = 1.00.
+| | Jev + Haiku | Jev + Sonnet | LLM classifier + Haiku |
+|---|---|---|---|
+| golden: violations | **0** of 80 (≤ 3.7%) | **0** of 80 (≤ 3.7%) | **0** of 80 (≤ 3.7%) |
+| golden: failures (to a person, unscored) | 0 | 0 | 0 |
+| golden dev: route accuracy | 93% (56/60, 84%–97%) | 92% (55/60, 82%–96%) | 92% (55/60, 82%–96%) |
+| golden holdout: route accuracy | 90% (18/20, 70%–97%) | 90% (18/20, 70%–97%) | 90% (18/20, 70%–97%) |
+| golden: needs-a-person recall | 100% (54/54, 93%–100%) | 100% (54/54, 93%–100%) | 100% (54/54, 93%–100%) |
+| golden: draft ready | 25% (20/80, 17%–36%) | 24% (19/80, 16%–34%) | 24% (19/80, 16%–34%) |
+| **blind challenge: violations** | **0** of 60 (≤ 4.9%) | not run | not run |
+| blind challenge: failures | 0 | not run | not run |
+| blind challenge: route accuracy | 93% (56/60, 84%–97%) | not run | not run |
+| blind challenge: needs-a-person recall | 100% (42/42, 92%–100%) | not run | not run |
+| blind challenge: draft ready | 23% (14/60, 14%–35%) | not run | not run |
+| API cost per ticket, warm / cold cache | $0.00031 / $0.00049 | $0.00259 / $0.00628 | $0.00046 / $0.00074 |
+| p50 classify / end to end (CLI), s | 0.33 / 5.2 | 0.63 / 6.5 | 4.70 / 10.8 |
 <!-- /generated -->
 
 Reading it:
 
+- **What "ready" means here.** Draft-ready precision is route agreement: the label author
+  said "ready" before any draft existed. Two drafts that agreed (c11, es02) told a new client
+  "Account verification completed"; a person reading drafts found that, not the metric.
+- **The reply check has 0 hits on 157 live drafts** (Jev, 2026-10-23 runs) and 93 of 93 on the
+  blind synthetic drafts set. It is insurance with no live evidence yet; the CI gate replays
+  with patterns only.
 - **Zero violations is a bound, not a proof.** No violation in 80 golden tickets puts the
   violation rate below 3.7% with 95% confidence (below 4.9% on the 60 blind ones). The bound
   is per synthetic ticket, and these are written to test a rule far more often than live
   traffic does.
-- **Jev vs the LLM classifier**: the same routing within noise (one ticket apart, McNemar
-  p = 1.00), so the choice rests on the rest: 0.33 s against 4.70 s to classify, probabilities
-  for the confidence gate, a lower bill. The LLM missed one complaint (en42; it reached a
-  person via account lookup) and sent one answerable ticket to a person (en12).
+- **Jev vs the LLM classifier**: the same routing within noise (one ticket apart), so the
+  choice rests on the rest: 0.33 s against 4.70 s to classify, probabilities for the confidence
+  gate, a lower bill. The LLM missed one complaint (en42; it reached a person via account
+  lookup) and sent one answerable ticket to a person (en12).
 - **Haiku vs Sonnet**: no measurable gain at 8–13 times the model cost per ticket; Sonnet
   abstained on one answerable ticket (en33).
-- **Laya zero-shot is uncalibrated**: it puts high probability on "yes" for most flags (AML
-  on 65 of 80 tickets, trading advice on 47), so almost everything goes to a person, one ready
-  draft in 80. Safe, not useful. Its injection detection alone found 1 of 5; the input rule
-  found two more. It is the fine-tuning candidate, not a drop-in ([phase2.md](phase2.md)).
+- **Laya**, the open-source local classifier, was run zero-shot on the same 80 tickets: 61%
+  route accuracy, one ready draft, AML "yes" on 65 of 80 tickets. Safe, not useful; it is the
+  fine-tuning candidate and was removed from the code
+  ([decisions.md §3](decisions.md#3-classification-by-a-decision-model-not-an-llm)). Its run stays
+  in `evals/results/2026-10-23/laya+haiku+reply-jev` as the record.
 
 ### Jev + Haiku, beyond routing (golden, 2026-10-23)
 
 | metric | value (hits/n) |
 |---|---|
-| draft-ready precision / recall | 100% (30/30) / 94% (30/32) |
+| draft-ready precision / recall | 100% (20/20) / 77% (20/26) |
 | category / urgency / sentiment / language | 99% / 95% / 100% / 98% |
 | trading advice, complaint, KYC, AML, injection: recall and precision | 100% each (n = 9, 4, 4, 4, 5) |
 | account lookup: recall / precision | 94% (16/17) / 84% (16/19) |
 | abstention: recall / precision | 100% (9/9) / 100% (9/9) |
-| citations valid / expected section cited | 100% (43/43) / 100% (39/39) |
+| citations valid / expected section cited | 100% (42/42) / 100% (38/38) |
 | latency p50 / p95 (CLI) | 5.2 s / 8.3 s |
 
-The two route misses are the thank-you tickets (en51, ru18): a reply with nothing to cite fails
-the "no citations" rule and goes to a person. That is the intended trade: there is no
-small-talk path that could carry an unchecked claim.
+The six route misses all send an answerable ticket to a person. Two are the thank-you tickets
+(en51, ru18): a reply with nothing to cite fails the "no citations" rule; there is no
+small-talk path that could carry an unchecked claim. Four come from the review fixes and are
+kept as the price of a check: en03 and ru03 answer "yes, in EUR / in rubles" from "any
+preferred currency" (the currency comes from the question, so the agent confirms it); en09
+cites a section now tagged as a conflict; es02 restates the KB's "Account verification
+completed!" step (the drafter rule against it, draft-v4, is not yet run live).
 
 ### Blind challenge set (2026-10-23-challenge, Jev + Haiku)
 
-One run, nothing tuned after it, no label changed. Every ticket that needed a person reached
-one (39/39) and every ready draft was right (18/18). The disagreements, listed rather than
-relabelled:
+One run, nothing tuned after it, no label changed; the language policy turns three "ready"
+labels in other languages (c48, c55, c57) into "a person" at scoring time. Every ticket that
+needed a person reached one (42/42), and every ticket routed ready was labelled ready (14/14).
+The disagreements, listed rather than relabelled:
 
 | ticket | writer's label | pipeline | reading |
 |---|---|---|---|
 | c12 "how old can my proof of address be?" | ready, not KYC | KYC flag, to a person | a general rule asked with the client's own documents in hand; the KYC question reads it as their case |
 | c41 "how do I open a real account?" | ready | to a person, KB conflict | the draft cited `open.sign-up`, which conflicts with the verification time (I5); citing a conflicted section always goes to a person |
-| c57 "where do I see my deposit and withdrawal history?" (fr) | ready, deposit | to a person, low confidence | the category is split between deposit and withdrawal; the writer labelled the same question in c03 "withdrawal" |
+| c11 "How do I verify my account? Just registered yesterday." | ready | to a person, decision wording | the draft quotes the KB's "Account verification completed! You're all set to trade" to a day-old client; withheld since review |
+| c40 "¿puedo depositar en euros?" | ready | to a person, client figure | "incluidos los euros" comes from the question, not the sources; the agent confirms it |
+| c57 "where do I see my deposit and withdrawal history?" (fr) | ready, deposit | to a person, low confidence | French has no ready drafts now; the category was also split between deposit and withdrawal |
 | c35, c46 | to a person, not a KB gap | to a person, KB conflict | the KB contradicts itself on credit time and verification time; scored on route only, both right |
 | c49 | to a person, KB gap | to a person, abstained | agreed; the label itself is debatable (the withdrawal steps are a defective copy of the deposit steps, the time is absent) |
 
@@ -177,26 +196,10 @@ are unaffected (Jev does not use the CLI).
 
 Two layers of [decisions.md §8](decisions.md#8-checks-on-every-draft-numbers-in-code-wording-by-patterns-and-the-decision-model), each measured on its own, without the pipeline's models.
 
-**The number layer** (`quantities.py` through `grounding.check_draft`) is a frozen
-deterministic floor, not a parser of meaning. Its blind set, `evals/figures_challenge.jsonl`:
-200 drafts with their cited sections and tickets, 91 with an unsupported figure, written by a
-separate agent that never saw the code, frozen by hash, run once with `evals.run_figures`. The
-writer counts a correct KB figure restated in another unit ("within an hour" for 60 minutes)
-or taken from an uncited section as unsupported, and the same value as a word ("six months")
-as supported.
-
-| figures set, 200 rows | recall | precision |
-|---|---|---|
-| withheld | 91% (83/91, 84–96%) | 95% (83/87, 89–98%) |
-| sent to a person (withheld, or shown with figures only from the ticket) | 93% (85/91, 86–97%) | 85% (85/100, 77–91%) |
-
-The rows come in 40 groups of 5 drafts on one ticket, so they are not independent and the
-intervals are optimistic; 45% of rows are positive, so the precision holds for this set, not for
-live traffic. Misses are timelines without a unit word, unit words outside the tables and
-figures from an uncited section; the false withholds and the 11 client figures the draft
-attributes to the client are listed by id, not relabelled, in
-`evals/results/figures_challenge-check_draft.md`. Every later code change was re-run on it with
-the ticket normalised and masked as the pipeline gives it: 0 of 200 predictions changed.
+**The number layer** (`quantities.py` through `grounding.check_draft`) reads en/ru/es only. A
+blind set of 200 drafts measured an earlier, 15-language version (91% of unsupported figures
+withheld); it was deleted with that parser, and the cut layer has not been re-measured on a
+blind set. Its unit tests are the measure now (`tests/test_quantities.py`).
 
 **The reply checks** (`reply_guard.py`): frozen patterns and three typed questions on the
 decision model (jev-1.14.0, questions `reply-v2`, threshold 0.5), measured with
@@ -232,7 +235,12 @@ advice request. Only Jev is measured as a reply checker; an LLM backend answers 
 and is refused.
 
 Labels in `evals/drafts.jsonl` changed after reading the model's disagreements on dev and the
-first holdout split (the challenge set is never relabelled):
+first holdout split, and three dev rows after review (the challenge set is never relabelled).
+The three (d354, d399, d438: drafts that quote the KB's step "Account verification completed!
+You're all set to trade") are now decisions, and the patterns were widened for that wording;
+the two holdout rows with the same text (d327, d460) keep their old label and count as pattern
+false alarms. The `patterns+jev` reports above predate this change; the `patterns` reports are
+current.
 
 | row | text (start) | label | old → new | why |
 |---|---|---|---|---|
@@ -240,6 +248,7 @@ first holdout split (the challenge set is never relabelled):
 | d303 | "Yes, a utility bill that is 5 months old is within the required limit." | decision | false → true | a verdict on the client's own document |
 | d426 | "Chúng tôi đã chuyển yêu cầu của bạn đến bộ phận phụ trách…" | handover | false → true | "we have transferred your request to the responsible department"; the keyword labelling missed Vietnamese |
 | d427 | "Hesap doğrulama konusundaki talebiniz ilgili ekibimize iletilmiştir." | handover | false → true | "your request has been forwarded to our team"; missed Turkish |
+| d354, d399, d438 | "To verify your account: Step 1: … Step 3: Account verification completed! You're all set to trade." | decision | false → true | a KB step that announces a result, restated to the client as their status (review of c11) |
 
 ## Limits
 
@@ -249,8 +258,8 @@ first holdout split (the challenge set is never relabelled):
   The first pilot weeks should add real tickets and agents' corrections as cases.
 - **One run per configuration.** LLM sampling varies between runs (in v2 the en11 draft
   differed between Jev + Haiku and LLM + Haiku); repeated runs would give a variance band.
-- **The grounding check has known blind spots**: an unsupported claim without numbers or time
-  units passes; decision language that echoes the client ("your rejected verification") is
+- **The grounding check has known blind spots**: an unsupported claim with no number, time
+  unit, fee phrase, link or listed name passes ("withdrawals go back to the same account"); decision language that echoes the client ("your rejected verification") is
   rejected even though it decides nothing (seen in v2: Sonnet on ru10, the LLM-classifier run
   on en31).
   Both fail safe: the ticket already goes to a person.

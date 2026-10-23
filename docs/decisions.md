@@ -29,13 +29,18 @@ fake models (`tests/test_pipeline.py`).
 
 **Decision.** One request to a decision model answers nine typed `choice` questions: category,
 urgency, sentiment, trading advice, complaint, KYC case, AML case, injection, account lookup.
-Three backends share the `/v1/systemone` contract: Jev (hosted), Laya (open source, local) and
-an LLM baseline with structured output.
+Jev (hosted) is the backend; an LLM with structured output is the baseline it was measured
+against.
 **Why.** Typed answers cannot fall outside the option set; each answer carries a probability per
 option, which the thresholds use; a call takes about 0.3 s against 4.7 s for the LLM, at a lower
-price. Laya keeps tickets inside the perimeter and can be fine-tuned on our labels.
+price. This is one vendor: if Jev is down, every ticket gets a `classifier_error` card and no
+draft (§15).
 **Rejected.** Classifying inside the drafting call (no calibrated probabilities, and labels that
-depend on the drafting prompt); training our own classifier (no labelled tickets yet).
+depend on the drafting prompt); training our own classifier (no labelled tickets yet). Laya,
+the open-source local model on the same contract, was measured zero-shot on the golden set at
+61% route accuracy as run, with one ready draft in 80 (`evals/results/2026-10-23/laya+haiku+reply-jev`)
+and removed from the code: it is the fine-tuning candidate for data residency, not a fallback
+([phase2.md §5](phase2.md#5-classifier-from-zero-shot-to-fine-tuned)).
 
 ## 4. Asymmetric thresholds
 
@@ -47,9 +52,15 @@ held-out data ([phase2.md](phase2.md)).
 
 ## 5. Language is detected, not classified
 
-**Decision.** `lingua` over a closed list of 15 languages.
+**Decision.** `lingua` over a closed list of 15 languages. Ready drafts only in English,
+Russian and Spanish (`pipeline.READY_LANGUAGES`): a ticket in any other language gets its draft
+routed to a person (`unsupported_language`), and the fixed acknowledgements and the decline fall
+back to English.
 **Why.** Language is a property of the text, not a judgment: a local library is free, fast and
-reproducible. It picks the reply language and the fixed texts.
+reproducible. It picks the reply language and the fixed texts. The labelled cases, the fixed
+texts and the wording patterns exist for three languages; elsewhere a check would be silent
+rather than right. The evals apply the same policy to the labels (`metrics.expected_route`),
+so no label was rewritten.
 **Rejected.** A tenth decision-model question: more tokens and a probability nobody needs.
 
 ## 6. The whole KB in the prompt; no vector database in phase 1
@@ -73,20 +84,23 @@ backend does not enforce the schema.
 
 **Decision.** A draft is withheld when it cites nothing; when a number with its unit ("48
 hours", "$10"), a time word ("within the hour") or a fee or guarantee claim is in neither the
-cited sections nor the client's message; or when it gives trading advice, announces a decision
+cited sections nor the client's message; when it names a currency, payment method, country or
+instrument from a closed list that neither carries; when a link is not verbatim in a cited
+section; when a sourced figure is stated about deposits or withdrawals and no cited section
+gives it for that topic; or when it gives trading advice, announces a decision
 on the client's case, names a compliance check, or says the case was passed on. A figure taken
 only from the client's message ("3 days ago") stays visible and sends the ticket to a person
 (`client_figures`). If a check cannot run, the draft is withheld.
 **How.** Numbers are compared in code with their unit (`quantities.py`; its docstring lists
-what it reads and where it fails closed). Wording is checked by frozen patterns (`rules.py`) and
+what it reads and where it fails closed); links and names from closed lists (`terms.py`). Wording is checked by frozen patterns (`rules.py`) and
 by three typed questions about the reply on the decision model (`reply_guard.py`), asked only of
 a draft that passed the source check. The patterns also read the model's other text (the
 unanswered list, the abstain reason). Only a reply checker measured on the drafts set may be
 configured; `--reply-checker none` (patterns only) is recorded in every trace line.
 **Why.** These checks run on every draft, not only on tickets flagged as complaints, KYC or AML,
 so a missed flag does not let an outcome through. Measured on blind sets written by a separate
-agent: 91% of unsupported figures withheld and 93% sent to a person; the reply questions caught
-93 of 93 decisions, checks and handovers, the patterns alone 27
+agent: the reply questions caught 93 of 93 decisions, checks and handovers, the patterns alone
+27; in the live runs they have not fired on a single draft
 ([evals.md](evals.md#checks-on-drafts)). The patterns stay as a free floor that still runs when
 the model is off; they are not widened.
 **Rejected.** An LLM judge: a second generative model with its own errors, latency and cost,
@@ -141,7 +155,7 @@ PII handling.
 
 **Decision.** Haiku by default.
 **Why.** The cheapest model that keeps violations at 0 and route accuracy within the larger
-model's interval: Haiku 98%, Sonnet 96%, both 0 violations, Sonnet about ten times the cost.
+model's interval: Haiku 92%, Sonnet 91%, both 0 violations, Sonnet about ten times the cost.
 **Rejected.** Sonnet: nothing measurable for the price.
 
 ## 14. Evals written by us, with a holdout and blind sets
@@ -170,8 +184,26 @@ usage limit or five provider failures in a row instead of scoring them.
 **Why.** A vendor outage should cost the agents their drafts, not their tickets, and should not
 be scored as the co-pilot's quality.
 **Limits.** The budget is checked between calls, and HTTP and SDK timeouts are per phase, so a
-slow call can run past it; Laya runs in process and ignores it. Laya and the LLM classifier do
-not map their errors to the three kinds, so they are not retried, but still end as a card for a
-person. There is no ingest queue here; the length caps protect whatever feeds the co-pilot.
+slow call can run past it. The LLM classifier does not map its errors to the three kinds, so
+it is not retried, but still ends as a card for a person. There is no ingest queue here; the length caps protect whatever feeds the co-pilot.
 **Rejected.** Retrying permanent errors, the SDK's own retries (they would multiply ours), and a
 resilience framework.
+
+## 16. Data and vendors
+
+**Decision.** Two vendors receive ticket text after masking: TypeSafe (Jev, the classifier and
+the reply check) gets every ticket, because classification comes before routing, and every
+shown draft; Anthropic (the drafter) gets every ticket that is not an injection or a reserved
+case, with the whole KB as the system prompt. Masked first: emails, cards, IBANs, wallets,
+phones, account numbers, long digit runs and identity document numbers after a keyword
+(`masking.py`). **Not masked: names, addresses and dates of birth**; a KYC or complaint ticket
+carries them to both vendors. The trace line carries no text.
+**Not verified.** No DPA, retention period, sub-processor list or data region was reviewed for
+either vendor. That review, and the masking it asks for, is required before any real ticket is
+sent; shadow mode sends real tickets too, so vendor approval is the entry condition of stage 0
+([rollout.md](rollout.md#stages)). The CLI takes the ticket from stdin or a file, never argv
+(shell history, the process list), reads at most 80,001 characters, and starts the `claude`
+subprocess in a private temporary directory with only the variables it needs to authenticate.
+**Rejected.** Pattern-based name and address masking: it misses most names and mangles
+ordinary words. A named-entity model, or a classifier inside the perimeter (Laya fine-tuned,
+[phase2.md §5](phase2.md#5-classifier-from-zero-shot-to-fine-tuned)), is the phase-2 option.

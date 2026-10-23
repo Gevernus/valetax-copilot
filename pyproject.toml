@@ -10,7 +10,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-laya = ["laya>=0.4.13"]
 anthropic = ["anthropic>=0.70"]
 
 [project.scripts]
@@ -73,5 +72,5 @@ files = ["src", "tests", "evals"]
 python_version = "3.12"
 
 [[tool.mypy.overrides]]
-module = ["laya", "laya.*", "anthropic", "anthropic.*"]
+module = ["anthropic", "anthropic.*"]
 ignore_missing_imports = true

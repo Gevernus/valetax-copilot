@@ -40,13 +40,15 @@ _TRADING_ADVICE_REQUEST: Final = re.compile(
         r"\bshould i (buy|sell|go long|go short|open a (long|short)|trade|invest)"
         r"|\b(buy|sell) (now )?or (wait|hold|sell|buy)"
         r"|\bwhat (should|do you think) i (trade|buy|sell)"
-        r"|\b(trading )?signals?\b|\bprice (target|prediction|forecast)"
+        r"|\b(trading|trade|buy|sell|forex|fx|gold|crypto|vip) signals?\b|\bsignals? (to|for) (buy|sell|trade)"
+        r"|\bprice (target|prediction|forecast)"
         r"|\bwhich (pair|instrument|stock|coin|asset)s? (will|to)"
         r"|\bwhat leverage should\b|\bwhich leverage (is best|should)|\bbest leverage\b"
         r"|\bwill (gold|xau|eur\/?usd|bitcoin|btc|oil|the dollar|the price) (go|rise|fall|drop|move)"
         r"|стоит ли (покупать|продавать|купить|продать|входить)"
         r"|(купить|покупать) или (продать|продавать|ждать|подождать)"
-        r"|какое плечо (лучше|выбрать|поставить)|сигнал\w*|прогноз\w* (по|на|цен)"
+        r"|какое плечо (лучше|выбрать|поставить)|(торгов\w*|форекс\w*) сигнал\w*"
+        r"|сигнал\w* (на|для|к) (покупк|продаж|вход)\w*|прогноз\w* (по|на|цен)"
         r")"
     )
 )
@@ -74,6 +76,11 @@ _ADVICE_IN_DRAFT: Final = re.compile(
     r"|рекомендуем (вам )?(купить|продать|покупать|продавать)"
     r"|(сейчас )?(хорошее|удачное) время (для покупки|для продажи|покупать|продавать)"
     r"|(вероятно|скорее всего) (вырастет|упадет|упадёт)"
+    r"|\b(buying|selling|to buy|to sell)\b[^.!?\n]{0,40}\bis an? (good|great|excellent) (opportunity|idea|time)"
+    r"|\b(comprar|vender|invertir)\b[^.!?\n]{0,40}\bes (una |un )?(buena|excelente|gran|buen) (oportunidad|idea|momento)"
+    r"|\b(buen|mejor) momento para (comprar|vender|invertir)"
+    r"|\b(le |te )?(recomendamos|recomiendo|sugerimos|aconsejamos) (que )?(comprar|vender|invertir|compre|venda|invierta)"
+    r"|\b(probablemente|seguramente) (subirá|bajará|suba|baje)"
     r")"
 )
 
@@ -106,6 +113,17 @@ _DECISION_LANGUAGE: Final = re.compile(
     r"|reembolsad|cancelad)[ao]s?\b"
     r"|\bhemos (aprobado|rechazado|verificado|desbloqueado|bloqueado|reembolsado|cancelado)\b"
     r"|\b(reembolsaremos|devolveremos|aprobaremos)\b"
+    # A help-page step that announces a result, restated as this client's status: "Step 3:
+    # Account verification completed! You're all set to trade." Only at a sentence start, so
+    # "once verification is completed, you can trade" passes.
+    rf"|{_SENTENCE_START}((step|шаг|paso) \d+:\s*)?¡?((your|the) )?(account )?verification"
+    r"( is| has been)?( now)? complete(d)?\b(?!\s+(within|in|after|once|when)\b)"
+    rf"|{_SENTENCE_START}you('re| are)( now)? (all set|ready) to trade\b"
+    rf"|{_SENTENCE_START}((шаг) \d+:\s*)?(ваша )?верификаци\w*( аккаунта| сч[её]та)?( успешно)?"
+    r" (пройдена|завершена)(?!\s+(в течение|за|через|после)\b)"
+    rf"|{_SENTENCE_START}((paso) \d+:\s*)?¡?(la )?verificaci[oó]n( de (la |su )?cuenta)?"
+    r"( est[aá]| ha sido)? completada(?!\s+(en|dentro|tras|después)\b)"
+    rf"|{_SENTENCE_START}¡?ya (puede|podr[aá]|est[aá] (listo|lista) para) operar"
     r")"
 )
 

@@ -2,6 +2,7 @@
 
 import json
 import subprocess
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -128,6 +129,20 @@ def cli_error(text: str) -> str:
             TransientError,
         ),
         ({"code": 1, "out": "You've hit your limit"}, TransientError),
+        (
+            {
+                "code": 1,
+                "out": json.dumps(
+                    {
+                        "is_error": True,
+                        "api_error_status": 429,
+                        "api_error": "usage_limit_reached",
+                        "result": "You've hit your weekly limit",
+                    }
+                ),
+            },
+            UsageLimitError,
+        ),
         ({"code": 1, "err": "usage limit reached"}, TransientError),
     ],
 )
@@ -176,6 +191,20 @@ def test_every_backend_gets_the_time_left(monkeypatch: pytest.MonkeyPatch) -> No
     assert seen[0]["read"] == 5.0
 
 
+def test_the_cli_runs_in_a_private_dir_with_a_minimal_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("TYPESAFE_API_KEY", "dummy-for-tests")
+    monkeypatch.setenv("HOME", "/home/agent")
+    calls = cli_returning(monkeypatch, out=json.dumps({"structured_output": {}, "usage": {}}))
+    client = ClaudeCli("haiku")  # its directory lives as long as it does
+    client.complete("system", "user", {})
+    env, cwd = calls[0]["env"], Path(calls[0]["cwd"])
+    assert "TYPESAFE_API_KEY" not in env
+    assert env["HOME"] == "/home/agent"
+    assert cwd.stat().st_mode & 0o077 == 0  # nobody else can read or plant files in it
+
+
 def test_anthropic_client_does_not_retry_on_its_own(monkeypatch: pytest.MonkeyPatch) -> None:
     pytest.importorskip("anthropic")
     from copilot.llm import AnthropicApi
@@ -193,3 +222,18 @@ def test_anthropic_client_does_not_retry_on_its_own(monkeypatch: pytest.MonkeyPa
     with pytest.raises(TransientError):
         api.complete("system", "user", {}, timeout_s=9.0)
     assert seen["timeout"] == 9.0
+
+
+def test_a_reply_cut_at_max_tokens_is_permanent(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Three identical calls would stop at the same place: no retry.
+    pytest.importorskip("anthropic")
+    from types import SimpleNamespace
+
+    from copilot.llm import AnthropicApi
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "dummy-for-tests")
+    api = AnthropicApi("haiku")
+    cut = SimpleNamespace(stop_reason="max_tokens", content=[], usage=None)
+    monkeypatch.setattr(api._client.messages, "create", lambda **_: cut)
+    with pytest.raises(PermanentError):
+        api.complete("system", "user", {})

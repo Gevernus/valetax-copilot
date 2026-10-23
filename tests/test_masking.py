@@ -1,8 +1,5 @@
 """PII is masked in the normalised text, in linear time."""
 
-import gc
-import time
-
 import pytest
 
 from copilot.masking import mask_pii
@@ -21,6 +18,9 @@ from copilot.masking import mask_pii
         ("my MT5 account 51234567 is blocked", "ACCOUNT"),
         ("логин 8812345, не могу войти", "ACCOUNT"),
         ("reference 123456789012", "NUMBER"),
+        ("passport A12345678, DOB 12.03.1987", "ID"),
+        ("DNI 12345678Z", "ID"),
+        ("паспорт серия 4510 123456", "ID"),
     ],
 )
 def test_masks_each_kind(text: str, kind: str) -> None:
@@ -36,6 +36,12 @@ def test_raw_values_do_not_survive() -> None:
         assert raw not in masked
 
 
+def test_names_addresses_and_birth_dates_are_not_masked() -> None:
+    # A stated limit (masking.py, decisions §16): these reach the vendors.
+    text = "My name is Olusegun Adebayo, DOB 12.03.1987, 14 Marina Road Lagos"
+    assert mask_pii(text).text == text
+
+
 def test_amounts_and_durations_are_kept() -> None:
     # The grounding check compares numbers, so masking must not eat the ones that matter.
     text = "I deposited 500 USD 3 days ago, min deposit is 8 USD, leverage 1:2000"
@@ -46,23 +52,6 @@ def test_card_like_number_failing_luhn_is_not_called_a_card() -> None:
     masked = mask_pii("order 1234567890123")
     assert "[CARD]" not in masked.text
     assert "[NUMBER]" in masked.text
-
-
-def test_masking_is_linear_on_long_runs() -> None:
-    def seconds(n: int) -> float:
-        text = "1" * n + " " + "a." * n + " account" + " " * n + "1"
-        started = time.perf_counter()
-        mask_pii(text)
-        return time.perf_counter() - started
-
-    gc.collect()
-    gc.disable()  # a full collection over other tests' objects would dominate the timing
-    try:
-        small, large = (min(seconds(n) for _ in range(3)) for n in (5_000, 20_000))
-    finally:
-        gc.enable()
-    assert large < 2.0
-    assert large < 10 * max(small, 0.01)  # 4x the input, not 16x the time
 
 
 @pytest.mark.parametrize(

@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-node@v4  # renders the agent page's script in test_view.py
         with:
           node-version: "22"
-      - name: Install (the anthropic extra, so its tests run; laya pulls torch and is left out)
+      - name: Install (with the anthropic extra, so its tests run)
         run: uv sync --locked --extra anthropic
       - name: Lint
         run: |

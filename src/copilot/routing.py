@@ -25,6 +25,7 @@ class Reason(StrEnum):
     TRADING_ADVICE = "trading_advice"
     ACCOUNT_LOOKUP = "account_lookup"
     LOW_CONFIDENCE = "low_confidence"
+    UNSUPPORTED_LANGUAGE = "unsupported_language"
     # The draft is incomplete, contested or withheld.
     KB_GAP = "kb_gap"
     KB_CONFLICT = "kb_conflict"
@@ -48,6 +49,7 @@ CONSEQUENCE: dict[Reason, str] = {
     Reason.TRADING_ADVICE: "Asks for trading advice. Never answer that part; a draft, if any, ends with the fixed decline.",
     Reason.ACCOUNT_LOOKUP: "Needs the client's records (transaction, balance, status). Check them before replying.",
     Reason.LOW_CONFIDENCE: "Classifier is unsure about the topic. Read the ticket before using the draft.",
+    Reason.UNSUPPORTED_LANGUAGE: "Ready drafts are made in English, Russian and Spanish only; the wording checks are written for them. Read any draft against its sources before sending.",
     Reason.KB_GAP: "The help pages do not answer all of it. Fill in what is listed as unanswered.",
     Reason.KB_CONFLICT: "The cited help pages contradict each other. Confirm the current policy first.",
     Reason.TIPPING_OFF: "The draft mentions a compliance, fraud or security check; telling the client could be tipping-off. Withheld.",

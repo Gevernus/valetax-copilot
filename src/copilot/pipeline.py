@@ -2,7 +2,7 @@
 
 `Copilot.process` is the only entry point and never raises for a ticket: any failure becomes a
 card for a person (a usage limit is re-raised only when evals ask). Every stage reads one text,
-normalised and masked; the models never see the raw ticket and the trace never sees any text.
+normalised and masked (masking.py lists what it does not mask); the trace never sees any text.
 """
 
 import hashlib
@@ -14,7 +14,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from copilot import grounding, quantities, reply_guard, routing, rules
+from copilot import grounding, quantities, reply_guard, routing, rules, terms
 from copilot.classify import YES_NO, Answer, Classification, Classifier, Usage
 from copilot.classify.questions import REPLY, TICKET
 from copilot.draft import PROMPT_VERSION, Draft, Drafter, acknowledgement, trading_decline
@@ -33,6 +33,9 @@ from copilot.routing import CONSEQUENCE, Reason, Thresholds, label, route
 # beyond MAX_RAW_CHARS is not read at all.
 MAX_TICKET_CHARS = 20_000
 MAX_RAW_CHARS = 4 * MAX_TICKET_CHARS
+# Languages with labelled cases, fixed texts and wording patterns. A ticket in any other
+# language still gets a draft, routed to a person; its fixed texts fall back to English.
+READY_LANGUAGES = frozenset({"en", "ru", "es"})
 # Card fields the agent's export never carries: the model's raw reply.
 EVAL_ONLY = ("raw_reply",)
 _RESERVED = (Reason.AML, Reason.KYC, Reason.COMPLAINT)  # acknowledged by code, decided by a person
@@ -228,6 +231,8 @@ class Copilot:
                 "classify", lambda timeout: self.classifier.classify(ticket, timeout_s=timeout)
             )
         cases = self._cases(cls.answers, run.rule_hits)
+        if language not in READY_LANGUAGES:
+            cases.add(Reason.UNSUPPORTED_LANGUAGE)
         reserved = next((r for r in _RESERVED if r in cases), None)
         mode = None  # an injection gets no draft at all
         if Reason.PROMPT_INJECTION not in cases:
@@ -482,7 +487,7 @@ def _rules_version() -> str:
     Any edit to these files, a comment included, is a new version.
     """
     digest = hashlib.sha256()
-    for module in (rules, quantities, grounding, reply_guard, routing):
+    for module in (rules, quantities, terms, grounding, reply_guard, routing):
         digest.update(Path(str(module.__file__)).read_bytes())
     return digest.hexdigest()[:12]
 

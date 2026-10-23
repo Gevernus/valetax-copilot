@@ -9,7 +9,7 @@ from copilot.classify import MEASURED_REPLY_CHECKERS, make_classifier, make_repl
 from copilot.draft import Drafter
 from copilot.kb import DEFAULT_KB, load_kb
 from copilot.llm import make_llm
-from copilot.pipeline import Card, Copilot
+from copilot.pipeline import MAX_RAW_CHARS, Card, Copilot
 from copilot.trace import TraceWriter
 from copilot.view import render_page
 
@@ -65,16 +65,27 @@ def _print_list(title: str, items: list[str], bullet: str = "- ") -> None:
             print(f"  {bullet}{item}")
 
 
+def _read_ticket(path: Path | None) -> str:
+    """The ticket from a file or stdin, never argv (shell history, the process list).
+
+    At most one character past the pipeline's limit is read, so a huge input is refused as too
+    long without being held in memory.
+    """
+    if path is None:
+        return sys.stdin.read(MAX_RAW_CHARS + 1)
+    with path.open(encoding="utf-8", errors="replace") as f:
+        return f.read(MAX_RAW_CHARS + 1)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Command line: `run` one ticket, or `view` cards as a page."""
     parser = argparse.ArgumentParser(prog="copilot", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    run = sub.add_parser("run", help="process one ticket (text argument, --file, or stdin)")
-    run.add_argument("text", nargs="?")
-    run.add_argument("--file", type=Path)
+    run = sub.add_parser("run", help="process one ticket from --file or stdin")
+    run.add_argument("--file", type=Path, help="the ticket; stdin when absent")
     run.add_argument("--id", default="cli")
-    run.add_argument("--classifier", choices=["jev", "laya", "llm"], default="jev")
+    run.add_argument("--classifier", choices=["jev", "llm"], default="jev")
     run.add_argument("--llm", choices=["claude-cli", "anthropic"], default="claude-cli")
     run.add_argument("--model", default="haiku", help="haiku, sonnet or a full model id")
     run.add_argument(
@@ -96,12 +107,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"wrote {args.out} ({len(cards)} cards)")
         return 0
 
-    if args.file:
-        text = args.file.read_text()
-    elif args.text:
-        text = args.text
-    else:
-        text = sys.stdin.read()
+    text = _read_ticket(args.file)
     copilot = build_copilot(args.classifier, args.llm, args.model, args.reply_checker)
     card = copilot.process(args.id, text)
     TraceWriter(args.traces).write(card.trace())

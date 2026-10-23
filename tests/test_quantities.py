@@ -36,14 +36,12 @@ def q(*values: str, unit: str | None = None) -> Quantity:
         ("8€", q("8", unit="eur")),
         ("8 euros", q("8", unit="eur")),
         ("100 рублей", q("100", unit="rub")),
-        ("Rp 50", q("50", unit="idr")),
         # Multipliers.
         ("$10k", q("10000", unit="usd")),
         ("вывел 50 тысяч рублей", q("50000", unit="rub")),
         ("10 тыс. USD", q("10000", unit="usd")),
         ("1 млн", q("1000000")),
         ("10 Thousand USD", q("10000", unit="usd")),
-        ("3 juta", q("3000000")),
         ("3 млрд рублей", q("3000000000", unit="rub")),
     ],
 )
@@ -76,23 +74,18 @@ def test_ambiguous_separator_keeps_both_readings() -> None:
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        ("two business days", q("2", unit="business_day")),
-        ("twenty-four hours", q("24", unit="hour")),
-        ("one hundred dollars", q("100", unit="usd")),
-        ("one hundred and five dollars", q("105", unit="usd")),
-        ("в течение двух рабочих дней", q("2", unit="business_day")),
-        ("сорок восемь часов", q("48", unit="hour")),
-        ("тысяча долларов", q("1000", unit="usd")),
-        ("dos días hábiles", q("2", unit="business_day")),
-        ("treinta y dos horas", q("32", unit="hour")),
-        ("veinticuatro horas", q("24", unit="hour")),
-        ("dua puluh empat jam", q("24", unit="hour")),
-        ("dua belas hari", q("12", unit="day")),
-        ("seratus USD", q("100", unit="usd")),
+        ("two business days", q("two", unit="business_day")),
+        ("twenty-four hours", q("twenty four", unit="hour")),
+        ("в течение двух рабочих дней", q("двух", unit="business_day")),
+        ("treinta y dos horas", q("treinta y dos", unit="hour")),
+        ("en una hora", q("una", unit="hour")),
+        ("10 mil USD", q("10000", unit="usd")),  # a multiplier, not a word of its own
     ],
 )
-def test_number_words_before_a_unit(text: str, expected: Quantity) -> None:
+def test_number_words_before_a_unit_keep_their_words(text: str, expected: Quantity) -> None:
+    # The sources write digits, so a word is supported only by the same word from the client.
     assert quantities(text) == {expected}
+    assert not supported(expected, quantities("2 business days, 24 hours, 32 hours, 1 hour"))
 
 
 def test_number_words_without_a_unit_are_not_claims() -> None:
@@ -105,10 +98,8 @@ def test_number_words_without_a_unit_are_not_claims() -> None:
     [
         ("1-2 business days", {q("1", unit="business_day"), q("2", unit="business_day")}),
         ("1 to 3 days", {q("1", unit="day"), q("3", unit="day")}),
-        ("two to three business days", {q("2", unit="business_day"), q("3", unit="business_day")}),
-        # "и", "and", "y" join two numbers here; they are not one number.
-        ("два и три дня", {q("2", unit="day"), q("3", unit="day")}),
-        ("dos y tres días", {q("2", unit="day"), q("3", unit="day")}),
+        ("2 и 3 дня", {q("2", unit="day"), q("3", unit="day")}),
+        ("2 y 3 días", {q("2", unit="day"), q("3", unit="day")}),
         ("1 hour to 2 days", {q("1", unit="hour"), q("2", unit="day")}),
     ],
 )
@@ -152,8 +143,9 @@ def test_ambiguous_number_needs_the_same_readings() -> None:
         "The fee is 3 pounds.",
         "3  pounds",
         "3 more pounds",
-        "存款手续费为3英镑。",
-        "ค่าธรรมเนียมการฝาก 2 ปอนด์",
+        # Units of languages without ready drafts are unknown too: the draft is withheld.
+        "dalam 60 menit",
+        "innerhalb von 48 Stunden",
         # Next to a step word, a number with an unknown unit is still unknown, not a step.
         "The fee is 3 AUD per step.",
         "Комиссия 2 фунта за шаг.",
@@ -199,17 +191,7 @@ def test_list_markers_are_a_sequence(text: str, expected: set[Quantity]) -> None
         ("Вывод займёт полчаса.", {"hour"}),
         ("Withdrawals are processed the same business day.", {"business_day", "day"}),
         ("Withdrawals usually take a couple of days.", {"day"}),
-        ("提款将在一小时内处理。", {"hour"}),
-        ("Les retraits sont traités en une heure.", {"hour"}),
-        ("Die Auszahlung erfolgt am selben Tag.", {"day"}),
         ("El retiro se procesa en una hora.", {"hour"}),
-        ("Penarikan diproses dalam sehari.", {"day"}),
-        ("Para çekme işlemi bir saat içinde tamamlanır.", {"hour"}),
-        ("Rút tiền được xử lý trong một giờ.", {"hour"}),
-        ("निकासी एक घंटे में संसाधित होती है।", {"hour"}),
-        ("تتم معالجة السحب خلال ساعة.", {"hour"}),
-        ("تتم معالجة السحب خلال الأسبوع.", {"week"}),  # the article written into the word
-        ("تتم معالجة السحب في اليوم التالي.", {"day"}),
     ],
 )
 def test_a_time_unit_without_digits_is_still_a_claim(text: str, units: set[str]) -> None:
@@ -222,10 +204,6 @@ def test_a_time_unit_without_digits_is_still_a_claim(text: str, units: set[str])
         "Good day, thanks for your message.",
         "Buenos días, gracias por escribirnos.",
         "Добрый день! Добро пожаловать.",
-        "Bây giờ bạn có thể nạp tiền.",
-        "您今天可以登录会员区。",
-        "Silakan kirim dokumen hari ini.",
-        "يمكنك الإيداع اليوم.",
         "Support is available 24/7.",
         "Puede depositar a cualquier hora.",
         "Min. deposit",
@@ -262,60 +240,10 @@ def test_quantities_read_as_text(quantity: Quantity, text: str) -> None:
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        ("trong vòng 60 phút.", q("60", unit="minute")),
-        ("在60分钟内", q("60", unit="minute")),
-        ("存款60美元", q("60", unit="usd")),
-        ("من 8 USD، ويعتمد", q("8", unit="usd")),
-        ("خلال 48 ساعة", q("48", unit="hour")),
-        ("48 Stunden", q("48", unit="hour")),
-        ("48 heures", q("48", unit="hour")),
-        ("48 saat içinde", q("48", unit="hour")),
-        ("en fazla 6 aylık olması", q("6", unit="month")),
-        ("3 iş günü içinde", q("3", unit="business_day")),
-        ("3 dias úteis", q("3", unit="business_day")),
-        ("6 місяців", q("6", unit="month")),
-        ("48 घंटे", q("48", unit="hour")),
-        ("60 นาที", q("60", unit="minute")),
-    ],
-)
-def test_units_in_every_detected_language(text: str, expected: Quantity) -> None:
-    # A unit the tables cannot read makes the number unsupported, so every language
-    # `language.py` can return needs its units here.
-    assert quantities(text) == {expected}
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason="known limit: a time without a digit in Chinese or Thai, written with a numeral word "
-    "or without a separate unit word, is not read (quantities.py docstring)",
-)
-@pytest.mark.parametrize(
-    "text",
-    [
-        "一天内到账。",
-        "三天内处理。",
-        "一周内处理。",
-        "当天处理。",
-        "次日到账。",
-        "ภายในหนึ่งวัน",
-        "ภายในวันเดียวกัน",
-    ],
-)
-def test_digitless_chinese_and_thai_timelines(text: str) -> None:
-    assert time_units(text)
-
-
-@pytest.mark.parametrize(
-    ("text", "expected"),
-    [
         ("Step 2: Select a channel.", {q("2", unit="step")}),
         ("Шаг №2: выберите", {q("2", unit="step")}),
-        ("الخطوة 1: سجل الدخول", {q("1", unit="step")}),
-        ("第1步：登录", {q("1", unit="step")}),
-        ("ขั้นตอนที่ 1 เข้าสู่ระบบ", {q("1", unit="step")}),
         ("the 1st step", {q("1", unit="step")}),
         ("2-й шаг: выберите способ оплаты", {q("2", unit="step")}),
-        ("Langkah ke-2: pilih saluran", {q("2", unit="step")}),
         ("Follow steps 1-4 below.", {q("1", unit="step"), q("4", unit="step")}),
         ("Шаги 1–4 описаны ниже.", {q("1", unit="step"), q("4", unit="step")}),
         # A count of steps is a different claim from a step's number.

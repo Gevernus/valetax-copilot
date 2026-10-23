@@ -49,7 +49,7 @@ def main() -> None:
     """Run the checkers over a drafts set and write the report."""
     parser = argparse.ArgumentParser(prog="evals.run_drafts")
     parser.add_argument("--set", choices=list(SETS), default="drafts")
-    parser.add_argument("--classifier", choices=["jev", "laya", "llm"])
+    parser.add_argument("--classifier", choices=["jev", "llm"])
     parser.add_argument("--workers", type=int, default=8)
     args = parser.parse_args()
     rows = load_drafts(args.set)

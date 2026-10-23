@@ -6,17 +6,18 @@ docs/decisions.md before changing behaviour.
 ## Commands
 
 ```bash
-uv sync --all-extras                       # laya pulls torch; omit the extra to skip it
+uv sync --all-extras                       # the anthropic extra: the production LLM path
 uv run pytest                              # unit tests, no network
 uv run ruff check . && uv run ruff format --check . && uv run mypy
-uv run copilot run "ticket text"           # needs TYPESAFE_API_KEY for the default jev classifier
+echo "ticket text" | uv run copilot run     # needs TYPESAFE_API_KEY for the default jev classifier
 uv run python -m evals.run run --classifier jev --model haiku
 uv run python -m evals.run run --classifier jev --model haiku --set tickets_challenge --date <dir>-challenge
 uv run python -m evals.run report --date <dir>   # re-score saved cards, no model calls
 uv run python -m evals.run replay --date <dir>   # saved model outputs through current code, no network
+uv run python -m evals.run replay --date <dir> --write   # keep a deliberate route change; list it in the commit
 uv run python -m evals.gate 2026-10-23 2026-10-23-challenge   # CI gate: no violation, no accuracy loss
 uv run python -m evals.headline --golden <dir> --challenge <dir>-challenge --update-doc   # docs/evals.md table
-uv run python -m evals.business_case --date <dir> --update-doc   # dir with all four configs
+uv run python -m evals.business_case --date <dir> --update-doc   # dir with all three configs
 ```
 
 The drafter runs through the `claude` CLI by default; `llm.ClaudeCli` isolates it from the
@@ -32,8 +33,8 @@ log or write them, and never put them in a test fixture.
   stage reads the text from `normalise.py`, never the raw ticket; drafts are normalised too, so
   the shown text is the checked text.
 - `src/copilot/errors.py`: the three provider errors (transient, permanent, usage limit) and the
-  per-ticket budget; Jev, the claude CLI and the Anthropic API raise only these (Laya and the
-  LLM classifier do not, and are not retried). `Copilot.process` returns a card for a person on
+  per-ticket budget; Jev, the claude CLI and the Anthropic API raise only these (the LLM
+  classifier does not, and is not retried). `Copilot.process` returns a card for a person on
   any failure; only evals ask it to raise a usage limit (`raise_usage_limit=True`).
 - `src/copilot/routing.py`: the reasons (in order of severity) and thresholds. A new reason
   needs a `Reason` member in its group, a `CONSEQUENCE` text, and a pipeline test that raises
@@ -52,8 +53,6 @@ log or write them, and never put them in a test fixture.
 - `evals/drafts.jsonl`: labelled drafts for the reply checks; `uv run python -m evals.run_drafts
   [--classifier jev]`. Tune on `split: dev` only; the holdout hash is pinned in `tests/test_evals.py`.
   `evals/drafts_challenge.jsonl` is blind: run it, never tune on it or relabel it.
-- `evals/figures_challenge.jsonl`: blind set for the number layer alone, `uv run python -m
-  evals.run_figures`; same rule: run it, never tune on it or relabel it.
 
 ## Rules for changes
 

@@ -144,6 +144,33 @@ def test_decision_in_an_answer_is_withheld() -> None:
     assert "reserved_wording" in card.reasons
 
 
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Step 3: Account verification completed! You're all set to trade.",
+        "Paso 3: ¡Verificación de cuenta completada! Ya puede operar.",
+        "Шаг 3: Верификация аккаунта пройдена!",
+    ],
+)
+def test_a_completion_step_restated_as_the_clients_status_is_withheld(reply: str) -> None:
+    # The KB's own verification step, copied verbatim, tells a new client they are verified.
+    llm = FakeLlm(reply=reply, citations=["verify.steps"])
+    card = make(FakeClassifier(category="verification"), llm).process(
+        "t", "How do I verify my account? Just registered yesterday."
+    )
+    assert card.reply is None
+    assert "reserved_wording" in card.reasons
+
+
+def test_when_can_i_trade_cites_a_conflicted_section() -> None:
+    llm = FakeLlm(
+        reply="You can begin trading immediately once your balance has been updated.",
+        citations=["funding.available-for-trading"],
+    )
+    card = make(FakeClassifier(), llm).process("t", "Once my deposit is credited, can I trade?")
+    assert card.reasons == ["kb_conflict"]
+
+
 def test_figures_only_the_client_gave_go_to_a_person(capsys: pytest.CaptureFixture[str]) -> None:
     llm = FakeLlm(
         reply="Your request from 3 days ago is in queue and in the midst of getting processed.",
@@ -158,6 +185,88 @@ def test_figures_only_the_client_gave_go_to_a_person(capsys: pytest.CaptureFixtu
     assert "FROM THE CLIENT'S MESSAGE, NOT IN THE SOURCES:\n  - 3 days" in capsys.readouterr().out
     assert card.trace()["client_figures"] == 1
     assert "3 days" not in str(card.trace())
+
+
+@pytest.mark.parametrize(
+    ("reply", "citation", "problem"),
+    [
+        (
+            "Log in at https://valetax-members.com/login or email help@valetax-support.net.",
+            "funding.how-to-deposit",
+            "links not in cited sections: help@valetax-support.net, "
+            "https://valetax-members.com/login",
+        ),
+        ("Yes, you can deposit in Russian rubles.", "funding.currencies", "RUB"),
+        ("You can also fund by credit card or Skrill.", "funding.how-to-deposit", "Skrill, card"),
+        ("We accept deposits from Nigeria via bank transfer.", "funding.how-to-deposit", "Nigeria"),
+        (
+            "The minimum withdrawal is 8 USD.",
+            "funding.min-deposit",
+            "8 USD stated about a withdrawal; no cited section gives it for one",
+        ),
+        ("Comprar oro es una buena oportunidad.", "funding.how-to-deposit", "trading advice"),
+    ],
+)
+def test_claims_without_digits_are_withheld(reply: str, citation: str, problem: str) -> None:
+    # Probes from the review: each was routed "draft ready" before the closed-list checks.
+    llm = FakeLlm(reply=reply, citations=[citation])
+    card = make(FakeClassifier(), llm).process("t", "How can I deposit?")
+    assert card.route == "human"
+    assert card.reasons == ["grounding_failed"]
+    assert card.reply is None
+    assert any(problem in p for p in card.problems), card.problems
+
+
+def test_a_name_only_the_client_gave_goes_to_a_person_with_the_draft() -> None:
+    llm = FakeLlm(reply="Yes, including rubles.", citations=["funding.currencies"])
+    card = make(FakeClassifier(), llm).process("t", "Можно ли пополнять счёт в рублях?")
+    assert card.reasons == ["client_figures"]
+    assert card.client_figures == ["RUB"]
+    assert card.reply == "Yes, including rubles."
+
+
+def test_the_kb_link_passes() -> None:
+    reply = "Visit www.valetax.com and click on 'Create Account'."
+    card = make(FakeClassifier(), FakeLlm(reply=reply, citations=["open.steps"])).process(
+        "t", "How do I open an account?"
+    )
+    assert card.route == "auto"
+
+
+def test_other_languages_never_get_a_ready_draft() -> None:
+    llm = FakeLlm(
+        reply="Para contas reais, precisamos de um comprovante de identificação.",
+        citations=["open.documents"],
+    )
+    card = make(FakeClassifier(category="account_opening"), llm).process(
+        "t", "Quais documentos preciso para abrir uma conta?"
+    )
+    assert card.language == "pt"
+    assert card.route == "human"
+    assert card.reasons == ["unsupported_language"]
+    assert card.reply is not None  # shown to the agent, not marked ready
+
+
+def test_fixed_texts_fall_back_to_english() -> None:
+    card = make(FakeClassifier(yes={"complaint": 0.9}), FakeLlm()).process(
+        "t", "أريد تقديم شكوى بخصوص السحب"
+    )
+    assert card.reasons == ["complaint", "unsupported_language"]
+    assert card.reply == ACKNOWLEDGEMENT["complaint"]["en"]
+
+
+@pytest.mark.parametrize(
+    ("text", "advice"),
+    [
+        ("Do you give trading signals?", True),
+        ("Can you send me gold signals?", True),
+        ("Дайте торговые сигналы", True),
+        ("The app shows no signal and won't load my deposit page", False),
+        ("Приложение пишет: нет сигнала", False),
+    ],
+)
+def test_signals_are_advice_only_in_a_trading_sense(text: str, advice: bool) -> None:
+    assert rules.asks_trading_advice(text) is advice
 
 
 def test_trading_advice_gets_the_fixed_decline_even_if_the_model_misses_it() -> None:
@@ -291,7 +400,9 @@ def test_reply_questions_withhold_a_paraphrased_decision() -> None:
 
 
 def test_reply_questions_pass_a_clean_draft() -> None:
-    card = with_reply_checker(FakeReplyChecker(), FakeLlm(**MIN_DEPOSIT)).process("t", "Min?")
+    card = with_reply_checker(FakeReplyChecker(), FakeLlm(**MIN_DEPOSIT)).process(
+        "t", "What is the minimum deposit?"
+    )
     assert card.route == "auto"
 
 
@@ -373,7 +484,9 @@ def test_reply_check_status_per_branch() -> None:
         "t", "?"
     )
     assert abstained.trace()["reply_check"] == {"status": "skipped: abstained"}
-    checked = with_reply_checker(FakeReplyChecker(), FakeLlm(**MIN_DEPOSIT)).process("t", "Min?")
+    checked = with_reply_checker(FakeReplyChecker(), FakeLlm(**MIN_DEPOSIT)).process(
+        "t", "What is the minimum deposit?"
+    )
     assert checked.trace()["reply_check"]["status"] == "checked"
     assert "input_tokens" in checked.trace()["reply_check"]
 

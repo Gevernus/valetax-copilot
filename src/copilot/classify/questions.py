@@ -9,7 +9,7 @@ from typing import Any, Final
 # Bump on any change to a question, an option or a description; it goes into every trace line.
 QUESTIONS_VERSION: Final = "questions-v2"
 
-# The question each option set answers; Laya requires it, Jev accepts it.
+# The question each option set answers, sent with the options.
 INSTRUCTIONS: Final[dict[str, str]] = {
     "category": "Which topic is this support ticket mainly about?",
     "urgency": "How urgent is this ticket for the client?",
@@ -94,7 +94,7 @@ class QuestionSet:
     options: dict[str, dict[str, str]]
 
     def systemone(self) -> dict[str, dict[str, Any]]:
-        """The questions in the /v1/systemone request format shared by Jev and Laya."""
+        """The questions in Jev's /v1/systemone request format."""
         return {
             name: {"type": "choice", "instructions": self.instructions[name], "criteria": options}
             for name, options in self.options.items()

@@ -1,18 +1,21 @@
 """Deterministic check of a draft against the sections it cites. No model involved.
 
 A draft fails when it cites nothing or an unknown section; when a number with its unit or
-currency ("48 hours", "$10"), a time unit ("within the hour") or a fee/guarantee claim appears
-in neither the cited sections nor the client's message; or when it gives trading advice. Only
-the cited sections support policy: what the draft takes from the client's message alone is
-listed in `client_figures`, and a person checks it. What a reply must not say whatever the
+currency ("48 hours", "$10"), a time unit ("within the hour"), a fee/guarantee claim or a listed
+name (a currency, payment method, country or instrument: terms.py) appears in neither the cited
+sections nor the client's message; when a link is not verbatim in the cited sections; when a
+figure is stated about deposits or withdrawals and no cited section gives it for that topic; or
+when it gives trading advice. Only the cited sections support policy: what the draft takes
+from the client's message alone is listed in `client_figures`, and a person checks it. What a reply must not say whatever the
 sources say (a decision, a compliance check, a handover) is reply_guard.py.
 """
 
+import re
 from dataclasses import dataclass
 
-from copilot import quantities, rules
+from copilot import quantities, rules, terms
 from copilot.draft import Draft
-from copilot.kb import KnowledgeBase
+from copilot.kb import KnowledgeBase, Section
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,7 +41,8 @@ def check_draft(draft: Draft, kb: KnowledgeBase, ticket: str) -> GroundingResult
     unknown = [c for c in draft.citations if c not in kb.sections]
     if unknown:
         problems.append(f"unknown sections cited: {', '.join(unknown)}")
-    sources = " ".join(kb.sections[c].text for c in draft.citations if c in kb.sections)
+    cited = [kb.sections[c] for c in draft.citations if c in kb.sections]
+    sources = " ".join(s.text for s in cited)
     if not sources:
         problems.append("no citations")
 
@@ -69,6 +73,51 @@ def check_draft(draft: Draft, kb: KnowledgeBase, ticket: str) -> GroundingResult
     if unsupported:
         problems.append(f"unsupported policy claims: {', '.join(unsupported)}")
 
+    named, named_by_client = _names(reply, cited, ticket)
+    problems += named
+    from_client += named_by_client
+    problems += _off_topic(reply, cited, in_sources)
+
     if rules.gives_trading_advice(reply):
         problems.append("reply contains trading advice")
     return GroundingResult(tuple(problems), tuple(from_client))
+
+
+def _names(reply: str, cited: list[Section], ticket: str) -> tuple[list[str], list[str]]:
+    """Links and listed names the cited sections do not carry; names only the client gave."""
+    problems = []
+    sources = " ".join(s.text for s in cited)
+    links = terms.unsupported_links(reply, " ".join([sources, *(u for s in cited for u in s.urls)]))
+    if links:
+        problems.append(f"links not in cited sections: {', '.join(links)}")
+    named = sorted(terms.names(reply) - terms.names(sources))
+    by_client = [n for n in named if n in terms.names(ticket)]
+    if unnamed := [n for n in named if n not in by_client]:
+        problems.append(
+            "currencies, payment methods, countries or instruments not in cited sections: "
+            + ", ".join(unnamed)
+        )
+    return problems, by_client
+
+
+def _off_topic(reply: str, cited: list[Section], in_sources: set[quantities.Quantity]) -> list[str]:
+    """A sourced figure stated about deposits or withdrawals, from a section about neither.
+
+    "The minimum withdrawal is 8 USD" citing the minimum-deposit answer: the figure is in the
+    sources, the topic is not. Read per sentence; a section's topic includes its title.
+    """
+    problems = []
+    for sentence in re.split(r"(?<=[.!?;])\s+|\n", reply):
+        figures = [
+            q
+            for q in quantities.quantities(sentence)
+            if q.unit not in (None, "step", "steps") and quantities.supported(q, in_sources)
+        ]
+        for q, topic in ((q, t) for q in figures for t in sorted(terms.topics(sentence))):
+            if not any(
+                topic in terms.topics(f"{s.title} {s.text}")
+                and quantities.supported(q, quantities.quantities(s.text))
+                for s in cited
+            ):
+                problems.append(f"{q} stated about a {topic}; no cited section gives it for one")
+    return problems

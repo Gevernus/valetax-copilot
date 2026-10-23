@@ -2,23 +2,23 @@
 
 `quantities(text)` returns every number with the unit or currency bound to it; `supported`
 says whether a claim has the same value and unit in the evidence. "8", "8.00" and "8,0" are one
-value; "two business days" equals "2 business days"; "3 days" is not "3 hours", "$10" is not
-"10 USDT" or "10%", and a bare "8" is not "8 USD". A separator that reads differently by locale
-("1,000") keeps both readings, and only the same readings support it.
+value; "3 days" is not "3 hours", "$10" is not "10 USDT" or "10%", and a bare "8" is not "8 USD".
+A separator that reads differently by locale ("1,000") keeps both readings, and only the same
+readings support it.
 
-Read: digits with any thousands separator and multipliers ("10k", "50 тысяч"); currencies as
-symbols or codes on either side and as words after the number; time units, the main currency
-words and percent in every language `language.py` detects; spelled-out numbers below a million
-in English, Russian, Spanish and Indonesian, counted only before a unit; ranges ("1-2 days")
-bind the unit to both ends. A step's number ("Step 4") and a count of steps ("3 simple steps")
-have their own units, so the help page's steps never stand behind an amount.
+Read, in English, Russian and Spanish (the languages with ready drafts): digits with any
+thousands separator and multipliers ("10k", "50 тысяч"); currencies as symbols or codes on
+either side and as words after the number; time units, percent, lots and pips; ranges ("1-2
+days") bind the unit to both ends. A step's number ("Step 4") and a count of steps ("3 simple
+steps") have their own units, so the help page's steps never stand behind an amount. A number
+written as a word before a unit ("two business days") keeps the word as its value: the sources
+write digits, so only the client's own words can stand behind it.
 
 Fails closed: a number followed by any word the tables do not know ("3 pounds", "2 trading
-days", "3 AUD per step") has the unit "unknown" and nothing supports it.
+days", "60 menit") has the unit "unknown" and nothing supports it.
 
 `time_units` finds time words without a digit ("within the hour"), apart from greetings and
-idioms. Not read: Chinese and Thai times without a digit (strict xfail in the tests). Measured
-limits: docs/evals.md, the figures set.
+idioms.
 """
 
 import re
@@ -50,79 +50,35 @@ class Quantity:
         return f"{value} {label}"
 
 
-# Letters of the scripts that separate words with spaces. A unit word must not run into one of
-# them ("hours" in "hourslong"); Chinese and Thai are written without spaces ("60分钟内").
-_LETTER: Final = (
-    r"A-Za-z\u00c0-\u024f\u1e00-\u1eff\u0400-\u04ff\u0620-\u064a\u066e-\u06d3\u0900-\u0963"
-)
+# Latin and Cyrillic letters: a unit word must not run into one ("hours" in "hourslong").
+_LETTER: Final = r"A-Za-zÀ-ɏЀ-ӿ"
 _START, _END = rf"(?<![{_LETTER}\d])", rf"(?![{_LETTER}])"
 
-
-# Arabic writes the article into the word ("الساعة", "خلال الأسبوع"): a time word may take it.
-_ARTICLE: Final = "(?:ال)?"
-
-
 # Canonical time unit -> (words that are a time claim anywhere, "within the hour"; words that
-# count only right after a number), for every language `language.py` detects. Abbreviations,
-# Turkish suffixed stems and words that also mean something else ("năm" is also five, "天" is
-# in "今天", today) are in the second group: "48h" is a duration, "Min. deposit" is not.
+# count only right after a number: "48h" is a duration, "Min. deposit" is not).
 _TIME: Final = {
-    "minute": (
-        r"minutes?|minuten?|минут[аыу]?|хвилин\w*|minutos?|menit|minit|dakika|phút|دقيقة|دقائق"
-        r"|دقيقتين|मिनट|นาที|分钟|分鐘",
-        r"mins?|dakika\w*",
-    ),
-    "hour": (
-        r"hours?|heures?|stunden?|час(?:а|ов|ам|ами)?|пол(?:у)?часа|годин\w*|horas?|jam|sejam|saat"
-        r"|giờ|ساعة|ساعات|ساعتين|घंटे|घंटा|घंटों|ชั่วโมง|小时|小時",
-        r"hrs?|h|saat\w*|tiếng",
-    ),
+    "minute": (r"minutes?|минут[аыу]?|minutos?", r"mins?"),
+    "hour": (r"hours?|час(?:а|ов|ам|ами)?|пол(?:у)?часа|horas?", r"hrs?|h"),
     "business_day": (
         r"(?:business|working|banking) days?|рабоч\w+ (?:дн(?:я|ей|и|ям)|день|сут\w+)"
-        r"|робоч\w+ дн\w*|d[ií]as? (?:h[aá]biles|laborables|úteis|uteis)|hari (?:kerja|bekerja)"
-        r"|jours? ouvr(?:és|ables?)|werktagen?|arbeitstagen?|iş gün\w*|ngày làm việc|أيام عمل"
-        r"|يوم عمل|कार्य दिवस|วันทำการ|个工作日|工作日",
+        r"|d[ií]as? (?:h[aá]biles|laborables)",
         "",
     ),
-    "day": (
-        r"(?:calendar )?days?|jours?|journée|tag|tages|tagen?|tage|дн(?:я|ей|и|ям|ями|ях|ів)|день|сутк\w*|суток"
-        r"|доб(?:а|и|у|ою)|d[ií]as?|hari|sehari|gün|ngày|يوم|أيام|ايام|يومين|दिन|दिनों",
-        r"gün\w*|วัน|天|日",
-    ),
-    "week": (
-        r"weeks?|semaines?|wochen?|недел\w*|тижн\w*|тиждень|semanas?|minggu|hafta|tuần|أسبوع"
-        r"|أسابيع|सप्ताह|हफ्ते|สัปดาห์|星期|seminggu",
-        r"hafta\w*|周",
-    ),
-    "month": (
-        r"months?|mois|monate?n?|monat|месяц\w*|місяц\w*|місяць|mes(?:es)?|bulan|sebulan|tháng"
-        r"|شهر|أشهر|شهور|महीने|महीना|เดือน|个月",
-        r"ay\w*|月",
-    ),
-    "year": (
-        r"years?|ans|années?|jahre?n?|год(?:а|у|ом)?|лет|рок(?:и|у|ів)?|años?|anos?|tahun"
-        r"|setahun|yıl|سنة|سنوات|أعوام|साल|वर्ष",
-        r"yıl\w*|năm|عام|ปี|年",
-    ),
+    "day": (r"(?:calendar )?days?|дн(?:я|ей|и|ям|ями|ях)|день|сутк\w*|суток|d[ií]as?", ""),
+    "week": (r"weeks?|недел\w*|semanas?", ""),
+    "month": (r"months?|месяц\w*|mes(?:es)?", ""),
+    "year": (r"years?|год(?:а|у|ом)?|лет|años?", ""),
 }
 # Canonical currency -> (symbols and codes, before or after the number; words, after it).
 _CURRENCY: Final = {
     "usdt": (r"usdt", r"tether"),
-    "usd": (
-        r"us\$|\$|usd",
-        r"us dollars?|dollars?|доллар\w*|долар\w*|d[oó]lar(?:es)?|đô la|đô|دولار|دولارات|डॉलर"
-        r"|ดอลลาร์|美元|美金",
-    ),
-    "eur": (r"€|eur", r"euros?|евро|євро|يورو|यूरो|ยูโร|欧元|歐元"),
-    "rub": (r"₽|rub|руб\.?", r"рубл\w*|roubles?|rubles?"),
-    "idr": (r"rp\.?|idr", r"rupiah"),
+    "usd": (r"us\$|\$|usd", r"us dollars?|dollars?|доллар\w*|d[oó]lar(?:es)?"),
+    "eur": (r"€|eur", r"euros?|евро"),
+    "rub": (r"₽|rub|руб\.?", r"рубл\w*|roubles?|rubles?|rublos?"),
     "gbp": (r"£|gbp", r"pounds? sterling"),
 }
 _OTHER: Final = {
-    "percent": (
-        r"%|٪|percent|per cent|pour ?cent|prozent|процент\w*|відсот\w*|por ciento|por cento"
-        r"|persen|peratus|phần trăm|في المئة|بالمئة|प्रतिशत|เปอร์เซ็นต์"
-    ),
+    "percent": r"%|percent|per cent|процент\w*|por ciento",
     "lot": r"lots?|лот(?:а|ов|ы)?|lotes?",
     "pip": r"pips?",
 }
@@ -131,70 +87,60 @@ _LABELS: Final = {"minute": "minutes", "hour": "hours", "business_day": "busines
                   "lot": "lots", "pip": "pips", "steps": "steps"}  # fmt: skip
 
 _UNIT_WORDS: Final = {
-    **{
-        name: _ARTICLE + "(?:" + "|".join(p for p in pair if p) + ")"
-        for name, pair in _TIME.items()
-    },
+    **{name: "|".join(p for p in pair if p) for name, pair in _TIME.items()},
     **{name: f"{codes}|{words}" for name, (codes, words) in _CURRENCY.items()},
     **_OTHER,
 }
-# Right after a number: "48 hours", "48h", "24-hour", "10 %", "10 $", "60分钟".
+# Right after a number: "48 hours", "48h", "24-hour", "10 %", "10 $".
 _UNIT_AFTER: Final = re.compile(
-    r"(?i)[ \u00a0-]?(?:" + "|".join(f"(?P<{n}>{w})" for n, w in _UNIT_WORDS.items()) + rf"){_END}"
+    r"(?i)[  -]?(?:" + "|".join(f"(?P<{n}>{w})" for n, w in _UNIT_WORDS.items()) + rf"){_END}"
 )
 # A unit the tables do not know, which no source can then support: a currency sign or an
 # upper-case code ("₹2", "2 AUD", "2 BTC"); any other unknown word after the number is caught by
 # `_unknown_unit` below.
-_SIGN: Final = r"[\u00a2-\u00a5\u0e3f\u20a0-\u20cf]"
-_UNKNOWN_AFTER: Final = re.compile(rf"[ \u00a0]?{_SIGN}|[ \u00a0]?[A-Z]{{3,4}}(?![A-Za-z])")
-_UNKNOWN_BEFORE: Final = re.compile(rf"(?:{_SIGN}|(?<![A-Za-z])[A-Z]{{3,4}})[ \u00a0]?$")
+_SIGN: Final = r"[¢-¥฿₠-⃏]"
+_UNKNOWN_AFTER: Final = re.compile(rf"[  ]?{_SIGN}|[  ]?[A-Z]{{3,4}}(?![A-Za-z])")
+_UNKNOWN_BEFORE: Final = re.compile(rf"(?:{_SIGN}|(?<![A-Za-z])[A-Z]{{3,4}})[  ]?$")
 _TIME_ANYWHERE: Final = {
-    name: re.compile(rf"(?i){_START}{_ARTICLE}(?:{words}){_END}")
-    for name, (words, _) in _TIME.items()
+    name: re.compile(rf"(?i){_START}(?:{words}){_END}") for name, (words, _) in _TIME.items()
 }
 # Greetings and idioms with a time word that state no timeline: "good day", "24 hours a day".
 _IDIOM: Final = re.compile(
-    r"(?i)\b(?:good|nice|great|lovely|wonderful) day\b|\bbuen(?:os)? d[ií]as?\b|\bbom dia\b"
-    r"|\bдобр(?:ый|ого) (?:день|дня)\b|\bхорошего дня\b|\bгарного дня\b|\bhari ini\b"
-    r"|\bb(?:ây|ao) giờ\b|\bguten tag\b|\bbonne journée\b|\b(?:a|en|em) (?:cualquier|qualquer) hora\b|\bany time\b"
-    r"|\b(?:wait|just) a (?:minute|moment)\b|(?<!نفس )(?<!ذات )(?<!خلال )(?<!نهاية )\bاليوم\b(?!\s+(?:التالي|نفسه))"
+    r"(?i)\b(?:good|nice|great|lovely|wonderful) day\b|\bbuen(?:os)? d[ií]as?\b"
+    r"|\bдобр(?:ый|ого) (?:день|дня)\b|\bхорошего дня\b|\b(?:a|en) cualquier hora\b|\bany time\b"
+    r"|\b(?:wait|just) a (?:minute|moment)\b"
     r"|(?<=\d)(?:\s+[\w-]+)?\s+(?:a|per|each) (?:day|week|month|hour|year)\b"
 )
 # A whitelist: the only words that may follow a number without making it a claim about
-# something else (function words and ordinal endings). Any other word right after a number, in
-# any script ("3 pounds", "2 cycles"), is a unit the tables do not know.
+# something else (function words and ordinal endings). Any other word right after a number
+# ("3 pounds", "2 cycles") is a unit the tables do not know.
 _BARE_NEXT: Final = frozenset(
     "and or to of in on at for from with by per up is are was were will can may the a an "
     "depending st nd rd th и или в на до от по для с из й я е го ый ая ое ой y o de en para "
-    "por con e ou em com dan atau di ke untuk dari ve veya và hoặc et à pour und oder bis zu "
-    "für von er re ème".split()
+    "por con".split()
 )
-# Steps: a step's number ("Step 2", "Шаг 2", "第2步", "the 2nd step") and a count of steps ("3
-# simple steps") have their own units, so the help page's "Step 4" never stands behind "the
-# minimum deposit is 4".
-_STEP_PLURALS: Final = r"steps|шаги|шагов|кроки|кроків|pasos|passos|étapes|schritte|etapas"
-_STEP_WORDS: Final = (
-    rf"{_STEP_PLURALS}|step|шага?|крок|paso|passo|étape|schritt|etapa|langkah|adım\w*|bước"
-    r"|الخطوة|चरण|ขั้นตอนที่"
-)
+# Steps: a step's number ("Step 2", "Шаг 2", "the 2nd step") and a count of steps ("3 simple
+# steps") have their own units, so the help page's "Step 4" never stands behind "the minimum
+# deposit is 4".
+_STEP_PLURALS: Final = r"steps|шаги|шагов|pasos"
+_STEP_WORDS: Final = rf"{_STEP_PLURALS}|step|шага?|paso"
 _STEP_ADJECTIVES: Final = (
     r"simple|easy|quick|short|few|following|прост\w+|лёгк\w+|легк\w+|быстр\w+|sencill\w+"
-    r"|fácil\w*|simples|rápid\w+|mudah|sederhana|kolay|basit|đơn giản|einfach\w*|rapides?"
+    r"|fácil\w*|rápid\w+"
 )
-# Before the number: the step word, then "#", "№", "thứ" or "ke-".
-_STEP_BEFORE: Final = re.compile(rf"(?i)(?:{_STEP_WORDS})[^\S\n]*(?:#|№|thứ[^\S\n]+|ke-)?[^\S\n]*$")
+_STEP_BEFORE: Final = re.compile(rf"(?i)(?:{_STEP_WORDS})[^\S\n]*(?:#|№)?[^\S\n]*$")
 # The end of a range after a plural step word ("steps 1-4"). A currency sign or code after it
-# still wins ("steps 1-4 AUD"); a currency word does not ("steps 1-4 pounds" reads as steps).
+# still wins ("steps 1-4 AUD").
 _STEP_RANGE_BEFORE: Final = re.compile(
-    rf"(?i)(?:{_STEP_PLURALS})[^\S\n]*\d+[^\S\n]*(?:-|–|—|to|до|a|hingga)[^\S\n]*$"
+    rf"(?i)(?:{_STEP_PLURALS})[^\S\n]*\d+[^\S\n]*(?:-|–|—|to|до|a)[^\S\n]*$"
 )
 # After the number: an ordinal ending, at most one adjective (or two joined by "and") from the
-# closed list, then the step word. Nothing else may stand between, so "3 AUD per step" or "4 at
-# step 3" is not a step.
+# closed list, then the step word. Nothing else may stand between, so "3 AUD per step" is not
+# a step.
 _STEP_AFTER: Final = re.compile(
     rf"(?i)(?P<ord>st|nd|rd|th|-?й)?(?:[^\S\n]+(?:{_STEP_ADJECTIVES})"
-    rf"(?:[^\S\n]+(?:and|и|y|e|dan|ve|và|et|und)[^\S\n]+(?:{_STEP_ADJECTIVES}))?)?"
-    rf"[^\S\n]*(?:{_STEP_WORDS}|步)(?![^\W\d_])"
+    rf"(?:[^\S\n]+(?:and|и|y)[^\S\n]+(?:{_STEP_ADJECTIVES}))?)?"
+    rf"[^\S\n]*(?:{_STEP_WORDS})(?![^\W\d_])"
 )
 # Digits inside names, not amounts.
 _NOT_A_CLAIM: Final = re.compile(r"(?i)\b(?:24/7|2fa|3ds)\b")
@@ -203,116 +149,39 @@ _NEXT_WORD: Final = re.compile(r"[^\S\n]*-?([^\W\d_]+)")
 _PREFIX_CODES: Final = {name: codes for name, (codes, _) in _CURRENCY.items()}
 _SYMBOL: Final = re.compile(r"[^\W\d]")  # a prefix with no letter in it is a symbol: "$", "€"
 _MULTIPLIERS: Final = {
-    "thousand": (r"k|thousands?|тыс\.?|тысяч\w*|mil|ribu", 10**3),
-    "million": (r"millions?|mln|millones|millón|млн\.?|миллион\w*|juta", 10**6),
-    "billion": (r"billions?|bn|миллиард\w*|млрд\.?|miliar", 10**9),
+    "thousand": (r"k|thousands?|тыс\.?|тысяч\w*|mil", 10**3),
+    "million": (r"millions?|mln|millones|millón|млн\.?|миллион\w*", 10**6),
+    "billion": (r"billions?|bn|миллиард\w*|млрд\.?", 10**9),
 }
 _NUMBER: Final = re.compile(
     rf"(?i)(?:{_START}(?P<pre>"
     + "|".join(f"(?P<pre_{n}>{c})" for n, c in _PREFIX_CODES.items())
-    + rf")[ \u00a0]?|(?<![{_LETTER}\d_.,:]))"
-    r"(?P<num>\d{1,3}(?:[\u00a0\u202f ]\d{3})+(?!\d)|\d+:\d+|\d+(?:[.,]\d+)*)"
-    r"(?:[ \u00a0]?(?:"
+    + rf")[  ]?|(?<![{_LETTER}\d_.,:]))"
+    r"(?P<num>\d{1,3}(?:[   ]\d{3})+(?!\d)|\d+:\d+|\d+(?:[.,]\d+)*)"
+    r"(?:[  ]?(?:"
     + "|".join(f"(?P<x_{n}>{p})" for n, (p, _) in _MULTIPLIERS.items())
     + rf"){_END})?"
+)
+# Number words, counted only right before a unit. The drafter is told to write digits, so a
+# word is kept as written and compared as text ("two business days").
+_NUMBER_WORD: Final = (
+    r"one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty"
+    r"|forty|fifty|sixty|hundred|thousand"
+    r"|од(?:ин|н\w+)|дв[аеу]\w*|тр[иеё]\w*|четыр\w+|пят\w+|шест\w+|сем\w+|восем\w+|девят\w+"
+    r"|десят\w+|двадцат\w+|тридцат\w+|сорок\w*|сто|тысяч\w*"
+    r"|uno?|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|quince|veinte"
+    r"|veinti\w+|treinta|cuarenta|cien|ciento|mil"
+)
+_WORD_RUN: Final = re.compile(
+    rf"(?i)(?<![\w-])(?:{_NUMBER_WORD})(?:(?:[ -]|\s+(?:and|y)\s+)(?:{_NUMBER_WORD}))*(?![\w-])"
 )
 # "1. Log in. 2. Select" or "1) Visit": list numbering at a line start or after a sentence,
 # stripped only as a sequence 1, 2, ... of at least two ("1) …; 2) …" too). A marker after ":"
 # may only start one, so "Minimum deposit: 4." after a list, "Fee: 1." or "(3)" stays a figure.
 _LIST_MARKER: Final = re.compile(r"(?m)(?:^|(?<=[.!?:;]))[ \t]*(?P<n>\d{1,2})[.)](?=\s)")
 # Between two numbers, these make a range or a list, so a unit after the second one applies to
-# the first too: "1-2 days", "two to three days", "два и три дня".
-_RANGE: Final = re.compile(r"(?i)\s*(?:-|–|—|to|or|and|y|o|a|и|или|до|hingga|sampai|atau|dan)\s*")
-
-
-def _number_words() -> dict[str, tuple[int, str]]:
-    """Number words: word -> (value, how it combines).
-
-    "add" adds to the running number, "mul" multiplies the last word ("two hundred", "dua
-    puluh"), "teen" adds ten ("dua belas"), "big" closes a group of thousands.
-    """
-    add: dict[int, str] = {
-        0: "zero cero nol",
-        1: "one uno un una satu один одна одно одного одной одному одну одним одном",
-        2: "two dos dua два две двух двум двумя двое",
-        3: "three tres tiga три трёх трех трём трем тремя трое",
-        4: "four cuatro empat четыре четырёх четырех четырём четырем четырьмя четверо",
-        5: "five cinco lima пять пяти пятью",
-        6: "six seis enam шесть шести шестью",
-        7: "seven siete tujuh семь семи семью",
-        8: "eight ocho delapan восемь восьми восемью",
-        9: "nine nueve sembilan девять девяти девятью",
-        10: "ten diez sepuluh десять десяти десятью",
-        11: "eleven once sebelas",
-        12: "twelve doce",
-        13: "thirteen trece",
-        14: "fourteen catorce",
-        15: "fifteen quince",
-        16: "sixteen dieciséis dieciseis",
-        17: "seventeen diecisiete",
-        18: "eighteen dieciocho",
-        19: "nineteen diecinueve",
-        20: "twenty veinte",
-        21: "veintiuno veintiún veintiuna",
-        22: "veintidós veintidos",
-        23: "veintitrés veintitres",
-        24: "veinticuatro",
-        25: "veinticinco",
-        26: "veintiséis veintiseis",
-        27: "veintisiete",
-        28: "veintiocho",
-        29: "veintinueve",
-        30: "thirty treinta",
-        40: "forty cuarenta сорок сорока",
-        50: "fifty cincuenta пятьдесят пятидесяти",
-        60: "sixty sesenta шестьдесят шестидесяти",
-        70: "seventy setenta семьдесят семидесяти",
-        80: "eighty ochenta восемьдесят восьмидесяти",
-        90: "ninety noventa девяносто девяноста",
-        100: "cien ciento seratus сто ста",
-        1000: "seribu",
-    }
-    # Russian 11-19, 20 and 30 decline alike: двадцать, двадцати, двадцатью.
-    for value, word in [(11, "одиннадцать"), (12, "двенадцать"), (13, "тринадцать"),
-                        (14, "четырнадцать"), (15, "пятнадцать"), (16, "шестнадцать"),
-                        (17, "семнадцать"), (18, "восемнадцать"), (19, "девятнадцать"),
-                        (20, "двадцать"), (30, "тридцать")]:  # fmt: skip
-        add[value] = f"{add.get(value, '')} {word} {word[:-1]}и {word}ю"
-    words = {w: (v, "add") for v, ws in add.items() for w in ws.split()}
-    words |= dict.fromkeys(["hundred", "ratus"], (100, "mul"))
-    words |= {"puluh": (10, "mul"), "belas": (10, "teen")}
-    big = ["thousand", "mil", "ribu", "тысяча", "тысячи", "тысяч", "тысячу", "тысячей"]
-    words |= dict.fromkeys(big, (1000, "big"))
-    return words
-
-
-_WORDS: Final = _number_words()
-_WORD: Final = "|".join(sorted(map(re.escape, _WORDS), key=len, reverse=True))
-# "and" joins inside one number only after hundred or thousand ("one hundred and five"); "y"
-# only after Spanish tens ("treinta y dos"). Anywhere else they join two numbers.
-_JOIN: Final = (
-    r"(?:[ -]|(?:(?<=hundred)|(?<=thousand))\s+and\s+"
-    r"|(?:(?<=treinta)|(?<=cuarenta)|(?<=cincuenta)|(?<=sesenta)|(?<=setenta)|(?<=ochenta)"
-    r"|(?<=noventa))\s+y\s+)"
-)
-_WORD_RUN: Final = re.compile(rf"(?i)(?<!\w)(?:{_WORD})(?:{_JOIN}(?:{_WORD}))*(?!\w)")
-
-
-def _words_value(run: str) -> int:
-    total = current = last = 0
-    for word in re.findall(r"\w+", run.lower()):
-        if word not in _WORDS:
-            continue  # "and", "y"
-        value, kind = _WORDS[word]
-        if kind == "add":
-            current, last = current + value, value
-        elif kind == "mul":
-            current, last = current - last + (last or 1) * value, 0
-        elif kind == "teen":
-            current, last = current + value, 0
-        else:
-            total, current, last = total + (current or 1) * value, 0, 0
-    return total + current
+# the first too: "1-2 days", "два и три дня".
+_RANGE: Final = re.compile(r"(?i)\s*(?:-|–|—|to|or|and|y|o|a|и|или|до)\s*")
 
 
 def _canonical(d: Decimal) -> str:
@@ -321,7 +190,7 @@ def _canonical(d: Decimal) -> str:
 
 def _readings(raw: str) -> set[Decimal] | None:
     """Every value the digits can mean, or None if they are not one number ("1,2,3")."""
-    raw = re.sub(r"[\u00a0\u202f ]", "", raw)
+    raw = re.sub(r"[   ]", "", raw)
     seps = re.findall(r"[.,]", raw)
     groups = re.split(r"[.,]", raw)
     if not seps:
@@ -344,15 +213,15 @@ def _readings(raw: str) -> set[Decimal] | None:
 def _step_unit(text: str, start: int, end: int) -> str | None:
     """The step unit of a number, if any.
 
-    "step" for a step's number ("Step 2", "第2步", "the 2nd step"), "steps" for a count of steps
-    ("3 simple steps"); each supports only its own kind.
+    "step" for a step's number ("Step 2", "the 2nd step"), "steps" for a count of steps ("3
+    simple steps"); each supports only its own kind.
     """
     if _STEP_BEFORE.search(text[max(0, start - 24) : start]):
         return "step"
     m = _STEP_AFTER.match(text, end)
     if m is None:
         return None
-    return "step" if m.group("ord") or text[start - 1 : start] == "第" else "steps"
+    return "step" if m.group("ord") else "steps"
 
 
 def _currency_like(text: str, start: int, end: int) -> bool:
@@ -398,7 +267,6 @@ class _Token(NamedTuple):
     end: int
     values: frozenset[str]
     unit: str | None
-    spelled: bool = False
 
 
 def _digit_tokens(text: str) -> list[_Token]:
@@ -437,24 +305,24 @@ def _digit_tokens(text: str) -> list[_Token]:
 
 
 def _word_tokens(text: str, digits: list[_Token]) -> list[_Token]:
-    # Digits and their multiplier are blanked, so "10 Thousand USD" is not also "thousand USD".
-    parts, pos = [], 0
-    for t in digits:
-        if t.start >= pos:  # the parts of "1,2,3" share one span
-            parts += [text[pos : t.start], "\0" * (t.end - t.start)]
-            pos = t.end
-    out: list[_Token] = []
-    for m in _WORD_RUN.finditer("".join([*parts, text[pos:]])):
-        values = frozenset({str(_words_value(m.group()))})
-        out.append(_Token(m.start(), m.end(), values, _unit_after(text, m.end()), spelled=True))
+    """Number words right before a unit, the words themselves as the value.
+
+    A word inside a digit token ("10 mil USD") is its multiplier, not a number of its own.
+    """
+    out = []
+    for m in _WORD_RUN.finditer(text):
+        unit = _unit_after(text, m.end())
+        if unit is not None and not any(t.start <= m.start() < t.end for t in digits):
+            words = " ".join(re.findall(r"[^\W\d_]+", m.group().lower()))
+            out.append(_Token(m.start(), m.end(), frozenset({words}), unit))
     return out
 
 
 def quantities(text: str) -> set[Quantity]:
     """Every number in the text with the unit or currency attached to it.
 
-    Numbered-list markers are formatting, and spelled-out numbers count only before a unit ("one
-    of our agents").
+    Numbered-list markers are formatting, and number words count only before a unit ("one of
+    our agents" is not a claim).
     """
     text = _NOT_A_CLAIM.sub(" ", _strip_list_markers(text))
     digits = _digit_tokens(text)
@@ -463,11 +331,7 @@ def quantities(text: str) -> set[Quantity]:
         a, b = tokens[i], tokens[i + 1]
         if a.unit is None and b.unit and _RANGE.fullmatch(text, a.end, b.start):
             tokens[i] = a._replace(unit=b.unit)
-    return {
-        Quantity(t.values, t.unit)
-        for t in tokens
-        if t.unit or not t.spelled  # a spelled-out number without a unit is not a claim
-    }
+    return {Quantity(t.values, t.unit) for t in tokens}
 
 
 def supported(claim: Quantity, evidence: set[Quantity]) -> bool:

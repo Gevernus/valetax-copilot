@@ -5,12 +5,12 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel, Field, StringConstraints, ValidationError
 
-from copilot.errors import TransientError
+from copilot.errors import PermanentError, TransientError
 from copilot.kb import KnowledgeBase
 from copilot.llm import Llm, LlmResult
 from copilot.normalise import normalise
 
-PROMPT_VERSION = "draft-v3"
+PROMPT_VERSION = "draft-v4"
 
 
 class Draft(BaseModel):
@@ -18,8 +18,9 @@ class Draft(BaseModel):
 
     The length caps are ours, checked here and not sent with the schema, since a provider may
     reject or rewrite them. They sit at two to six times the longest answers in the saved runs, so
-    they stop runaway output, not normal answers. An answer over a cap fails validation: a
-    transient error, retried, then a draft_error for a person.
+    they stop runaway output, not normal answers. An answer over a cap is a permanent error, not
+    retried (the same prompt runs away again): a draft_error for a person. Any other schema
+    break is transient.
     """
 
     abstain: bool
@@ -51,7 +52,10 @@ never invent values.
 6. Write in the client's language (given as an ISO code), short and polite, no greeting line and no \
 signature. Copy numbers exactly as the knowledge base writes them, in digits.
 7. Answer only what the client asked. Do not add facts they did not ask about.
-8. If the knowledge base does not answer the client's main question, set `abstain` to true, explain \
+8. A help-page step that announces a result ("Account verification completed! You're all set to \
+trade.") describes the page, not this client. Never restate a step as something that has \
+happened to this client; say what the client does and what happens next.
+9. If the knowledge base does not answer the client's main question, set `abstain` to true, explain \
 why in `abstain_reason`, and leave `reply` empty.
 """
 
@@ -106,7 +110,9 @@ class Drafter:
         result = self._llm.complete(self._system, user, self._schema, timeout_s=timeout_s)
         try:
             draft = Draft.model_validate(result.data)
-        except ValidationError:
+        except ValidationError as e:
+            if any(err["type"] in ("string_too_long", "too_long") for err in e.errors()):
+                raise PermanentError("the draft is over a length cap") from None
             # A sampled answer that breaks the schema usually comes out right on the next call.
             raise TransientError("the draft does not match the schema") from None
         # The text the checks read is the text the agent sees: invisible characters cannot hide

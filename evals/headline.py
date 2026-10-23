@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Any, Final
 
 from copilot.kb import KnowledgeBase, load_kb
-from evals.business_case import CONFIGS, RECOMMENDED, run_dir, split
-from evals.metrics import compute, discordant, fmt, mcnemar, read_jsonl, zero_failure_upper
+from evals.business_case import CONFIGS, run_dir, split
+from evals.metrics import compute, fmt, read_jsonl, zero_failure_upper
 from evals.run import load_labels
 
 DOC: Final = Path(__file__).resolve().parents[1] / "docs" / "evals.md"
@@ -39,7 +39,7 @@ def _route_accuracy(
 
 
 def headline_table(golden: str, challenge: str) -> str:
-    """The headline table of docs/evals.md, with the Jev-vs-LLM McNemar line."""
+    """The headline table of docs/evals.md."""
     kb = load_kb()
     labels, blind = load_labels(), load_labels("tickets_challenge")
     lines = [
@@ -91,21 +91,6 @@ def headline_table(golden: str, challenge: str) -> str:
         f"{golden_m[k]['latency_ms']['total']['p50'] / 1000:.1f}"
     ))  # fmt: skip
 
-    jev, llm = (golden_cards[k] for k in (RECOMMENDED, "llm+haiku"))
-    ok = {
-        k: {c["ticket_id"]: not c.get("error") and labels[c["ticket_id"]]["route"] == c["route"]
-            for c in cards}
-        for k, cards in (("jev", jev), ("llm", llm))
-    }  # fmt: skip
-    ids = sorted(ok["jev"])
-    a, b = [ok["jev"][t] for t in ids], [ok["llm"][t] for t in ids]
-    only_a, only_b = discordant(a, b)
-    lines += [
-        "",
-        f"Jev vs the LLM classifier (both with Haiku), route right on the same {len(ids)} golden "
-        f"tickets: {sum(a)} vs {sum(b)}; right for one "
-        f"only: Jev {only_a}, LLM {only_b}; exact McNemar p = {mcnemar(a, b):.2f}.",
-    ]
     return "\n".join(lines)
 
 

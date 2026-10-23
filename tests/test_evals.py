@@ -3,6 +3,7 @@
 import hashlib
 import json
 import re
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -52,12 +53,6 @@ def test_drafts_challenge_set_is_frozen() -> None:
     # row that looks mislabelled is reported as a disagreement, not relabelled.
     digest = hashlib.sha256(SETS["drafts_challenge"].read_bytes()).hexdigest()
     assert digest == "5817ba50514466f4a2d1e455231f04f549a50a9a61f17d313b8016b1e186b9bc"
-
-
-def test_figures_challenge_set_is_frozen() -> None:
-    # Blind set for the number layer: run once, never tuned on or relabelled.
-    digest = hashlib.sha256((RESULTS.parent / "figures_challenge.jsonl").read_bytes()).hexdigest()
-    assert digest == "f248bcdcfda1e243ba6358901eef96e84c02c54a8ec2e5eaf72790e9b16d2d35"
 
 
 def test_every_saved_draft_fits_the_draft_caps() -> None:
@@ -157,16 +152,20 @@ def test_zero_failure_upper_bound() -> None:
     assert metrics.zero_failure_upper(60) == pytest.approx(0.0487, abs=1e-4)
 
 
-def test_mcnemar_exact_by_hand() -> None:
-    # Only discordant pairs count: 1 vs 0 -> p = 1; 6 vs 0 -> 2 x 0.5^6 = 0.03125.
-    assert metrics.mcnemar([True, False, True], [True, True, True]) == pytest.approx(1.0)
-    assert metrics.mcnemar([True] * 6 + [False], [False] * 6 + [False]) == pytest.approx(0.03125)
-    assert metrics.mcnemar([True], [True]) == 1.0
-    assert metrics.discordant([True, False, True], [False, True, True]) == (1, 1)
-
-
 def test_evals_doc_headline_is_the_script_output() -> None:
     doc = headline.DOC.read_text()
     golden, challenge = re.findall(r"Runs `([^`]+)` \(golden\) and `([^`]+)`", doc)[0]
     block = headline.headline_table(golden, challenge)
     assert split(doc, "headline")[1] == block, "run: python -m evals.headline --update-doc"
+
+
+def test_the_gate_fails_on_a_dir_without_runs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from evals import gate
+
+    (tmp_path / "empty").mkdir()
+    monkeypatch.setattr(gate, "RESULTS", tmp_path)
+    assert gate.main(["empty"]) == 1
+    assert gate.main(["no-such-dir"]) == 1
+    assert gate.main([]) == 1

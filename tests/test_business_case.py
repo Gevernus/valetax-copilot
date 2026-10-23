@@ -54,32 +54,31 @@ def test_doc_tables_are_the_script_output() -> None:
         assert bc.split(DOC, name)[1] == block, "run: python -m evals.business_case --update-doc"
 
 
-def test_doc_headline_matches_the_script() -> None:
-    headline = DOC.split("\n\n")[1].replace("\n", " ")
+def test_break_even_counts_the_reading_of_the_other_cards() -> None:
+    # 10,000 tickets, 25% ready, $5 a contact: 7,500 cards x $5 x 15/600 = $937.50 a month.
+    assert bc.reading_cost(10_000, 5.0, 0.25) == pytest.approx(937.5)
     rec = bc.config(DATE, bc.RECOMMENDED)
-    per_ready = rec.threshold()
-    # Rounded up: at the threshold the pilot does not lose money; a cent less, it does.
-    assert rec.net(1.0, per_ready) >= 0 > rec.net(1.0, per_ready - 0.01)
-    base = bc.COST_PER_CONTACT["base"]
-    for figure in (
-        f"${per_ready:.2f} of agent time",
-        f"({per_ready / base:.0%} of a ${base:.0f}",
-        f"about ${rec.model_month:.0f} a month",
-        f"about ${bc.FIXED:,.0f}",
-    ):
-        assert figure in headline, figure
+    for share in (None, bc.LOW_READY):
+        per_ready = rec.threshold(share)
+        ready = share or rec.ready
+
+        # Rounded up: at the threshold the co-pilot does not lose money; a cent less, it does.
+        def net(saving: float, ready: float = ready) -> float:
+            cost = rec.cost_month + bc.reading_cost(bc.TICKETS_PER_MONTH, 5.0, ready)
+            return bc.TICKETS_PER_MONTH * ready * saving - cost
+
+        assert net(per_ready) >= 0 > net(per_ready - 0.01)
 
 
 def test_recommendation_holds_in_the_run_shown() -> None:
     # "moves the total by less than a fifth. No configuration had a violation; ... the best
-    # routing, a classifier as fast as the local Laya and over ten times faster than the LLM
-    # classifier" (as fast: the same p50 at the table's 0.1 s).
+    # routing, a classifier over ten times faster than the LLM classifier".
     words = " ".join(DOC.split())
     for claim in (
         "moves the total by less than a fifth",
         "No configuration had a violation",
         "the best routing",
-        "as fast as the local Laya and over ten times faster than the LLM classifier",
+        "a classifier over ten times faster than the LLM classifier",
     ):
         assert claim in words, claim
     runs = {key: bc.config(DATE, key) for key in bc.CONFIGS}
@@ -90,7 +89,6 @@ def test_recommendation_holds_in_the_run_shown() -> None:
         assert c.metrics["violations"]["count"] == 0
         assert rec.metrics["route"]["accuracy"]["value"] >= c.metrics["route"]["accuracy"]["value"]
     classify = {k: c.metrics["latency_ms"]["classify"]["p50"] / 1000 for k, c in runs.items()}
-    assert f"{classify[bc.RECOMMENDED]:.1f}" == f"{classify['laya+haiku']:.1f}"
     assert classify["llm+haiku"] > 10 * classify[bc.RECOMMENDED]
 
 
@@ -103,8 +101,18 @@ def test_doc_inputs_are_the_script_assumptions() -> None:
         f"${bc.FIXED:,.0f} a month: VM ${bc.HOSTING:.0f}, an engineer {bc.ENGINEER_H} h a week "
         f"at ${bc.ENGINEER_RATE:.0f}, the support lead {bc.LEAD_H} h a week at "
         f"${bc.LEAD_RATE:.0f}, 52/12 weeks a month",
-        f"${bc.LAYA_HOST:.0f} host",
+        f'{bc.READ_SECONDS} s per "needs a person" card, of a {bc.HANDLING_SECONDS // 60}-minute '
+        f"contact ({bc.READ_SHARE:.1%} of its cost)",
+        f"${bc.INTEGRATION:,.0f}: {bc.INTEGRATION_H} h at ${bc.INTEGRATION_RATE:.0f}",
         " / ".join(f"${v:.0f}" for v in bc.COST_PER_CONTACT.values()),
         " / ".join(f"{v:.0%}" for v in bc.TIME_SAVED_READY.values()),
     ):
         assert text in DOC, text
+
+
+def test_rollout_break_even_is_the_scripts() -> None:
+    rollout = " ".join((bc.DOC.parent / "rollout.md").read_text().split())
+    rec, base = bc.config(DATE, bc.RECOMMENDED), bc.COST_PER_CONTACT["base"]
+    at, low = rec.threshold() / base, rec.threshold(bc.LOW_READY) / base
+    claim = f"b is {at:.0%} of a contact at {rec.ready:.0%} ready (the golden set) and {low:.0%} "
+    assert claim + f"at {bc.LOW_READY:.0%}" in rollout

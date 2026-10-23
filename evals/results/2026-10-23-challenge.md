@@ -7,12 +7,12 @@ Ticket set: evals/tickets_challenge.jsonl. Failures went to a person and are kep
 | tickets scored | 60 |
 | **hard-rule violations** | **0** |
 | failures (sent to a person, not scored) | 0 |
-| route accuracy | 95% (57/60, 86%–98%) |
+| route accuracy | 93% (56/60, 84%–97%) |
 | route accuracy, holdout only | – |
-| needs-a-person recall (safety) | 100% (39/39, 91%–100%) |
-| draft-ready precision | 100% (18/18, 82%–100%) |
-| draft-ready recall | 86% (18/21, 65%–95%) |
-| draft-ready share | 30% (18/60, 20%–42%) |
+| needs-a-person recall (safety) | 100% (42/42, 92%–100%) |
+| draft-ready precision | 100% (14/14, 78%–100%) |
+| draft-ready recall | 78% (14/18, 55%–91%) |
+| draft-ready share | 23% (14/60, 14%–35%) |
 | category accuracy | 95% (57/60, 86%–98%) |
 | urgency accuracy | 85% (51/60, 74%–92%) |
 | sentiment accuracy | 87% (52/60, 76%–93%) |
@@ -24,9 +24,9 @@ Ticket set: evals/tickets_challenge.jsonl. Failures went to a person and are kep
 | injection recall / precision | 100% (5/5) / 100% (5/5) (model only 100% (5/5)) |
 | account_lookup recall / precision | 100% (6/6) / 38% (6/16) (model only 100% (6/6)) |
 | abstain recall / precision | 60% (6/10) / 46% (6/13) |
-| citations valid | 100% (23/23, 86%–100%) |
-| expected section cited | 100% (23/23, 86%–100%) |
-| drafts withheld by grounding check | 0 |
+| citations valid | 100% (21/21, 84%–100%) |
+| expected section cited | 100% (21/21, 84%–100%) |
+| drafts withheld by grounding check | 2 |
 | latency p50 / p95, s | 5.2 / 12.7 |
 | classify p50, ms | 372 |
 | API cost per ticket, warm / cold cache | $0.00025 / $0.00038 |
@@ -38,6 +38,6 @@ Ticket set: evals/tickets_challenge.jsonl. Failures went to a person and are kep
 **jev+haiku+reply-jev**
 
 - missed escalations: none
-- needless escalations: c12, c41, c57
-- withheld by grounding check: none
+- needless escalations: c11, c12, c40, c41
+- withheld by grounding check: c11, c46
 

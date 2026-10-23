@@ -13,5 +13,45 @@
     "drafter": {
       "system": 1924
     }
-  }
+  },
+  "replayed": [
+    {
+      "rules": "8bfaca719602",
+      "changed": [
+        "c40"
+      ]
+    },
+    {
+      "rules": "8efefbf57d68",
+      "changed": [
+        "c46",
+        "c47",
+        "c48",
+        "c49",
+        "c50",
+        "c51",
+        "c52",
+        "c53",
+        "c54",
+        "c55",
+        "c56",
+        "c57",
+        "c58",
+        "c59",
+        "c60"
+      ]
+    },
+    {
+      "rules": "aa2af668d236",
+      "changed": [
+        "c46"
+      ]
+    },
+    {
+      "rules": "950dec5f06f4",
+      "changed": [
+        "c11"
+      ]
+    }
+  ]
 }

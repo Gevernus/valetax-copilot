@@ -100,20 +100,16 @@ def make_reply_checker(name: str) -> Classifier | None:
 
 
 def make_classifier(name: str, questions: QuestionSet = TICKET) -> Classifier:
-    """A classifier backend by name: jev, laya or llm."""
+    """A classifier backend by name: jev or llm."""
     if name == "jev":
         from copilot.classify.jev import JevClassifier
 
         return JevClassifier(questions)
-    if name == "laya":
-        from copilot.classify.laya_local import LayaClassifier
-
-        return LayaClassifier(questions)
     if name == "llm":
         from copilot.classify.llm import LlmClassifier
 
         return LlmClassifier(questions=questions)
-    raise ValueError(f"unknown classifier {name!r}; expected jev, laya or llm")
+    raise ValueError(f"unknown classifier {name!r}; expected jev or llm")
 
 
 __all__ = [
