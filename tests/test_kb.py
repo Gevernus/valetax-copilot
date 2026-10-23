@@ -1,5 +1,6 @@
 """The KB loads with stable ids, tagged conflicts, and the defect kept out of the prompt."""
 
+from copilot import terms
 from copilot.kb import load_kb
 
 
@@ -23,6 +24,21 @@ def test_conflicting_sections_are_marked() -> None:
     assert kb.has_conflict("funding.credit-time")
     assert kb.has_conflict("withdraw.steps")  # I7
     assert not kb.has_conflict("funding.min-deposit")  # a gap, not a conflict
+
+
+def test_speed_words_sit_only_in_the_kbs_conflicts() -> None:
+    # terms.CONTESTED: a speed claim is a conflict whatever it cites, because the KB says
+    # "instant" or "immediately" only here (I1 on the deposit page, I5, I7). A new one is a review.
+    kb = load_kb()
+    speedy = {s.id for s in kb.sections.values() if "speed" in terms.policy_words(s.text)}
+    assert speedy == {
+        "deposit.steps",  # I1: the intro's "instant" funding methods
+        "funding.credit-time",
+        "funding.available-for-trading",
+        "withdraw.steps",
+        "open.sign-up",
+    }
+    assert all(kb.has_conflict(s) for s in speedy - {"deposit.steps"})
 
 
 def test_defective_section_is_not_shown_to_the_drafter() -> None:

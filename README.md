@@ -21,17 +21,22 @@ Full tables with intervals:
 | | golden set, 80 tickets | blind set, 60 tickets |
 |---|---|---|
 | hard-rule violations | 0 (95% upper bound 3.7%) | 0 (≤ 4.9%) |
-| tickets that need a person and reached one (other languages always do) | 54 of 54 | 42 of 42 |
-| route accuracy | 92% (85–96%); held-out 20: 90% | 93% (84–97%) |
-| routed ready, and the label also says ready (route agreement, not a review of the text) | 20 of 20 | 14 of 14 |
-| reply check on the decision model: hits on live drafts / on the blind synthetic set | 0 of 157 | 93 of 93 |
+| tickets that need a person and reached one (other languages always do) | 56 of 56 | 44 of 44 |
+| route accuracy | 94% (86–97%); held-out 20: 90% | 97% (89–99%) |
+| routed ready, and the label also says ready (route agreement, not a review of the text) | 19 of 19 | 14 of 14 |
 | API cost per ticket, warm / cold cache | $0.00031 / $0.00049 | |
 
-The reply check has never fired on a live draft: it is insurance, measured on synthetic
-positives, and the pilot decides whether it stays. The checks on a draft read numbers with their units, time words, fee and guarantee phrases,
-links, and names from closed lists (currencies, payment methods, countries, instruments). A
-claim without any of these ("withdrawals go back to the same account") is not checked by code:
-the drafter's rules and the agent who reads every card cover it.
+The reply check on the decision model has fired on 0 of the 157 drafts it read in the
+2026-10-23 live runs, and caught 93 of 93 decisions, compliance checks and handovers on a
+separate blind synthetic set of drafts
+([`evals/results/drafts_challenge-patterns+jev.md`](evals/results/drafts_challenge-patterns+jev.md)):
+insurance measured on synthetic positives, and the pilot decides whether it stays.
+
+The checks on a draft read numbers with their units, time words, fee and guarantee phrases,
+fee, limit and speed words, links, and names from closed lists (currencies, payment methods,
+messengers, countries, instruments). A claim without any of these ("withdrawals go back to the
+same account") is not checked by code: the drafter's rules and the agent who reads every card
+cover it.
 
 Sonnet adds nothing measurable at 8–13 times the model cost; the LLM classifier routes the same
 within noise at 4.7 s against 0.33 s. Is it worth running: [docs/business-case.md](docs/business-case.md).
@@ -65,8 +70,8 @@ flowchart LR
     m --> l[language<br/>lingua]
     c --> d{injection or<br/>complaint, KYC, AML?}
     d -->|no| g[draft from the whole KB<br/>cites section ids or abstains]
-    g --> k[source check: figures, fees,<br/>links, closed-list names<br/>reply check: decision, compliance, handover]
-    k --> r[routing: 19 reasons<br/>ready only in en, ru, es]
+    g --> k[source check: figures, fees, limits, speed,<br/>links, closed-list names<br/>reply check: decision, compliance, handover]
+    k --> r[routing: 19 reasons<br/>ready only in en, ru, in the ticket's language]
     d -->|yes: no draft, or a fixed text by code| r
     r --> card([card: reasons first,<br/>draft, sources])
     r --> tr[(trace line, no text)]

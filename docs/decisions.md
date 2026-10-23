@@ -38,7 +38,8 @@ draft (§15).
 **Rejected.** Classifying inside the drafting call (no calibrated probabilities, and labels that
 depend on the drafting prompt); training our own classifier (no labelled tickets yet). Laya,
 the open-source local model on the same contract, was measured zero-shot on the golden set at
-61% route accuracy as run, with one ready draft in 80 (`evals/results/2026-10-23/laya+haiku+reply-jev`)
+61% route accuracy as run (49/80) and 71% (57/80) replayed on the current code, with one ready
+draft in 80 (`evals/results/2026-10-23/laya+haiku+reply-jev`)
 and removed from the code: it is the fine-tuning candidate for data residency, not a fallback
 ([phase2.md §5](phase2.md#5-classifier-from-zero-shot-to-fine-tuned)).
 
@@ -49,16 +50,27 @@ rest; a category below 0.5 goes to a person as low confidence (`routing.Threshol
 **Why.** A missed trading-advice or AML case costs more than an extra ticket for an agent.
 **Rejected.** One global threshold. The values are hand-set; phase 2 fits them per question on
 held-out data ([phase2.md](phase2.md)).
+**Trade-off.** A flag is wired by hand in five places (its question in `classify/questions.py`,
+its field in `routing.Thresholds`, its `routing.Reason`, the mapping in `pipeline._cases`, the
+scorer in `evals/metrics.py`): explicit rather than generic, so a new flag needs a pipeline test
+that raises it. The thresholds are calibrated to jev-1.14.0; a new Jev version re-runs the
+golden set before it is used.
 
 ## 5. Language is detected, not classified
 
-**Decision.** `lingua` over a closed list of 15 languages. Ready drafts only in English,
-Russian and Spanish (`pipeline.READY_LANGUAGES`): a ticket in any other language gets its draft
-routed to a person (`unsupported_language`), and the fixed acknowledgements and the decline fall
-back to English.
+**Decision.** `lingua` over a closed list of 15 languages; a text in a script none of them uses
+(Korean, Hebrew, Greek) is `und`, and a short Latin or Cyrillic text gets the best guess
+("Min deposit?" is English; a plain-ASCII text close to English is English). Ready drafts only
+in English and Russian (`language.READY_LANGUAGES`), and only when every sentence of the draft
+is in the ticket's language and script (`language.written_in`): any other ticket, and a draft
+with a clause in another language, goes to a person with the draft (`unsupported_language`).
+A clause counts as a language from four words; a shorter foreign fragment ("Conta aprovada.") is
+left to the lexicons and the reply check, because under four words the detector guesses and
+would withhold names such as "Create Account". Spanish waits in the shadow stage until it has 30 labelled cases
+([rollout.md](rollout.md)); its fixed texts are written, other languages fall back to English.
 **Why.** Language is a property of the text, not a judgment: a local library is free, fast and
 reproducible. It picks the reply language and the fixed texts. The labelled cases, the fixed
-texts and the wording patterns exist for three languages; elsewhere a check would be silent
+texts and the wording patterns exist for these languages; elsewhere a check would be silent
 rather than right. The evals apply the same policy to the labels (`metrics.expected_route`),
 so no label was rewritten.
 **Rejected.** A tenth decision-model question: more tokens and a probability nobody needs.
@@ -85,14 +97,22 @@ backend does not enforce the schema.
 **Decision.** A draft is withheld when it cites nothing; when a number with its unit ("48
 hours", "$10"), a time word ("within the hour") or a fee or guarantee claim is in neither the
 cited sections nor the client's message; when it names a currency, payment method, country or
-instrument from a closed list that neither carries; when a link is not verbatim in a cited
-section; when a sourced figure is stated about deposits or withdrawals and no cited section
+instrument from a closed list that neither carries; when it uses a fee, minimum, limit or speed
+word ("a small fee", "a daily limit", "within the hour") and no cited section uses one from the
+same lexicon; when a link is not verbatim in a cited section; when a sourced figure is stated
+about deposits or withdrawals (in its sentence, or else in the ticket) and no cited section
 gives it for that topic; or when it gives trading advice, announces a decision
 on the client's case, names a compliance check, or says the case was passed on. A figure taken
 only from the client's message ("3 days ago") stays visible and sends the ticket to a person
 (`client_figures`). If a check cannot run, the draft is withheld.
 **How.** Numbers are compared in code with their unit (`quantities.py`; its docstring lists
-what it reads and where it fails closed); links and names from closed lists (`terms.py`). Wording is checked by frozen patterns (`rules.py`) and
+what it reads and where it fails closed); links, names and the fee, minimum, limit and speed
+lexicons from closed lists (`terms.py`): the KB states no fee and no limit but the minimum
+deposit, so the lexicons are a closed world over it, and a ticket that asks for one of them (or for the minimum withdrawal, or how
+long a withdrawal takes) is a gap read on the ticket (`terms.kb_gaps`), so no wording of the
+draft can make it ready. It says "instant" or "immediately" only
+inside its conflicts (I1, I5, I7), so a speed claim sends the draft to a person as a conflict
+whichever section it cites (`terms.CONTESTED`), and the deposit steps stay citable. Wording is checked by frozen patterns (`rules.py`) and
 by three typed questions about the reply on the decision model (`reply_guard.py`), asked only of
 a draft that passed the source check. The patterns also read the model's other text (the
 unanswered list, the abstain reason). Only a reply checker measured on the drafts set may be
@@ -102,7 +122,12 @@ so a missed flag does not let an outcome through. Measured on blind sets written
 agent: the reply questions caught 93 of 93 decisions, checks and handovers, the patterns alone
 27; in the live runs they have not fired on a single draft
 ([evals.md](evals.md#checks-on-drafts)). The patterns stay as a free floor that still runs when
-the model is off; they are not widened.
+the model is off. They were widened once (the completion step, "Account verification
+completed!" restated as the client's status) and are otherwise frozen: any further miss
+becomes a dev row in `evals/drafts.jsonl`.
+**What the checks cannot prove.** A paraphrased claim with none of the words above, in a reply
+to a question the KB does answer, passes. No lexicon closes that; the control is the product's
+shape: a co-pilot, no auto-send, an agent reads every card ([evals.md](evals.md#limits)).
 **Rejected.** An LLM judge: a second generative model with its own errors, latency and cost,
 and no probabilities.
 
@@ -155,7 +180,7 @@ PII handling.
 
 **Decision.** Haiku by default.
 **Why.** The cheapest model that keeps violations at 0 and route accuracy within the larger
-model's interval: Haiku 92%, Sonnet 91%, both 0 violations, Sonnet about ten times the cost.
+model's interval: Haiku 94%, Sonnet 92%, both 0 violations, Sonnet about ten times the cost.
 **Rejected.** Sonnet: nothing measurable for the price.
 
 ## 14. Evals written by us, with a holdout and blind sets
@@ -194,10 +219,15 @@ resilience framework.
 **Decision.** Two vendors receive ticket text after masking: TypeSafe (Jev, the classifier and
 the reply check) gets every ticket, because classification comes before routing, and every
 shown draft; Anthropic (the drafter) gets every ticket that is not an injection or a reserved
-case, with the whole KB as the system prompt. Masked first: emails, cards, IBANs, wallets,
-phones, account numbers, long digit runs and identity document numbers after a keyword
-(`masking.py`). **Not masked: names, addresses and dates of birth**; a KYC or complaint ticket
-carries them to both vendors. The trace line carries no text.
+case, with the whole KB as the system prompt. Masked first, and only this (`masking.py`):
+emails; card numbers of 13–19 digits that pass the Luhn check, with at most one separator
+character between two digits; IBANs in any case, with at most one space or hyphen between
+groups; TRON, EVM and bc1 wallets; phones with a "+" right before the first digit; 5+ digits
+right after an account, login or ID keyword; any run of 7+ digits; passport, DNI, NIE and
+national-id tokens right after the keyword. Nothing else. **Not masked: names, addresses and dates of
+birth**, local phone formats, other wallet formats, national numbers without a keyword (CPF,
+Aadhaar, PAN, SSN) and a passport number written apart from its series; a KYC or complaint
+ticket carries them to both vendors. The trace line carries no text.
 **Not verified.** No DPA, retention period, sub-processor list or data region was reviewed for
 either vendor. That review, and the masking it asks for, is required before any real ticket is
 sent; shadow mode sends real tickets too, so vendor approval is the entry condition of stage 0

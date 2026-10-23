@@ -18,7 +18,7 @@ open = "https://valetax.com/how-to-open-an-account/"
 verify = "https://valetax.com/how-to-verify-account/"
 
 [issues]
-I1 = "conflict"   # deposit credit time: "instant" vs "within 60 minutes"
+I1 = "conflict"   # deposit credit time: "instant" (FAQ and page intro) vs "within 60 minutes"
 I2 = "defect"     # withdrawal steps are the deposit steps
 I3 = "gap"        # verification page has no document list or timeline
 I4 = "gap"        # minimum deposit depends on account type; account-types page not in KB

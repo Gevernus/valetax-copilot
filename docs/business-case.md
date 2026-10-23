@@ -1,7 +1,7 @@
 # Business case
 
 <!-- generated:headline -->
-**A ready draft must save at least $0.61 of agent time (12% of a $5 contact) for the co-pilot to pay for itself** at the share of ready drafts on the golden set (25%, an authored mix, not a forecast). **If only 15% of live tickets get one, it must save $1.10 (22%).** The base hypothesis, 35% of a $5 contact, is $1.75. Costs a month: models about $4, people and hosting about $570, reading the cards that need a person about $938 (15 s of a 10-minute contact each); once, the help-desk integration, about $8,000.
+**A ready draft must save at least $0.65 of agent time (13% of a $5 contact) for the co-pilot to pay for itself** at the share of ready drafts on the golden set (24%, an authored mix, not a forecast). **If only 15% of live tickets get one, it must save $1.10 (22%).** The base hypothesis, 35% of a $5 contact, is $1.75. Costs a month: models about $4, people and hosting about $570, reading the cards that need a person about $953 (15 s of a 10-minute contact each); once, the help-desk integration, about $8,000.
 <!-- /generated -->
 
 The pilot measures the live share of ready drafts and the time they save; this is a success
@@ -18,13 +18,13 @@ Run `2026-10-23`, with the reply check. Model cost at 10,000 tickets a month, al
 
 | configuration | violations | route accuracy | ready | p50 classify / end to end (CLI) | model $ a month | total $ a month |
 |---|---|---|---|---|---|---|
-| **Jev + Haiku** (recommended) | 0 | 92% | 25% | 0.3 s / 5.2 s | $3.71 ($4.89) | $1,511 |
-| Jev + Sonnet | 0 | 91% | 24% | 0.6 s / 6.5 s | $38.19 ($62.82) | $1,561 |
-| LLM classifier + Haiku | 0 | 91% | 24% | 4.7 s / 10.8 s | $5.54 ($7.44) | $1,529 |
+| **Jev + Haiku** (recommended) | 0 | 94% | 24% | 0.3 s / 5.2 s | $3.71 ($4.89) | $1,527 |
+| Jev + Sonnet | 0 | 92% | 22% | 0.6 s / 6.5 s | $38.19 ($62.82) | $1,577 |
+| LLM classifier + Haiku | 0 | 91% | 21% | 4.7 s / 10.8 s | $5.54 ($7.44) | $1,560 |
 <!-- /generated -->
 
 - **Sonnet** adds nothing measurable here at a much higher model bill.
-- **The LLM classifier** routes within one ticket of Jev (no significant difference, see
+- **The LLM classifier** routes within noise of Jev (two tickets apart, see
   [evals.md](evals.md#results)) but missed one complaint flag (the ticket still reached a
   person via account lookup), is slower, and gives no probabilities to gate on.
 
@@ -50,11 +50,11 @@ save some too, but are left out rather than guessed.
 <!-- generated:sensitivity -->
 | cost of a contact | low: 15% saved | base: 35% saved | high: 50% saved |
 |---|---|---|---|
-| low $2 | −$199 | $801 | $1,551 |
-| base $5 | $364 | $2,864 | $4,739 |
-| high $10 | $1,301 | $6,301 | $10,051 |
+| low $2 | −$242 | $708 | $1,420 |
+| base $5 | $254 | $2,629 | $4,411 |
+| high $10 | $1,083 | $5,833 | $9,395 |
 
-The $8,000 integration pays back in 2.8 months in the base case, never in a cell below zero.
+The $8,000 integration pays back in 3.0 months in the base case, never in a cell below zero.
 <!-- /generated -->
 
 The pilot measures handling time on ready-draft tickets against a control group randomised by

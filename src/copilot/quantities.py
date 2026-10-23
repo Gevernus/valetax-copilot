@@ -6,10 +6,9 @@ value; "3 days" is not "3 hours", "$10" is not "10 USDT" or "10%", and a bare "8
 A separator that reads differently by locale ("1,000") keeps both readings, and only the same
 readings support it.
 
-Read, in English, Russian and Spanish (the languages with ready drafts): digits with any
-thousands separator and multipliers ("10k", "50 тысяч"); currencies as symbols or codes on
-either side and as words after the number; time units, percent, lots and pips; ranges ("1-2
-days") bind the unit to both ends. A step's number ("Step 4") and a count of steps ("3 simple
+Read, in English, Russian and Spanish: digits with any thousands separator and multipliers
+("10k", "50 тысяч"); currencies as symbols or codes on either side and as words after the
+number; time units, percent, lots and pips; ranges ("1-2 days") bind the unit to both ends. A step's number ("Step 4") and a count of steps ("3 simple
 steps") have their own units, so the help page's steps never stand behind an amount. A number
 written as a word before a unit ("two business days") keeps the word as its value: the sources
 write digits, so only the client's own words can stand behind it.

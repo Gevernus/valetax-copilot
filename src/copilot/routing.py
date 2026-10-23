@@ -9,6 +9,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 
+from copilot.language import READY_LANGUAGES
+
 
 class Reason(StrEnum):
     """Why a ticket needs a person."""
@@ -49,7 +51,7 @@ CONSEQUENCE: dict[Reason, str] = {
     Reason.TRADING_ADVICE: "Asks for trading advice. Never answer that part; a draft, if any, ends with the fixed decline.",
     Reason.ACCOUNT_LOOKUP: "Needs the client's records (transaction, balance, status). Check them before replying.",
     Reason.LOW_CONFIDENCE: "Classifier is unsure about the topic. Read the ticket before using the draft.",
-    Reason.UNSUPPORTED_LANGUAGE: "Ready drafts are made in English, Russian and Spanish only; the wording checks are written for them. Read any draft against its sources before sending.",
+    Reason.UNSUPPORTED_LANGUAGE: f"Ready drafts are made only in {' and '.join(READY_LANGUAGES.values())}, and only in the client's language; the wording checks are written for these. Read any draft against its sources before sending.",
     Reason.KB_GAP: "The help pages do not answer all of it. Fill in what is listed as unanswered.",
     Reason.KB_CONFLICT: "The cited help pages contradict each other. Confirm the current policy first.",
     Reason.TIPPING_OFF: "The draft mentions a compliance, fraud or security check; telling the client could be tipping-off. Withheld.",

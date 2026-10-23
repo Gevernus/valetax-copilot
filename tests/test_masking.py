@@ -11,7 +11,15 @@ from copilot.masking import mask_pii
         ("write to john.doe+fx@mail.example.com please", "EMAIL"),
         ("card 4111 1111 1111 1111 was charged", "CARD"),
         ("card 4111-1111-1111-1111 was charged", "CARD"),
+        ("card 4111.1111.1111.1111 was charged", "CARD"),
+        ("card\n4111\n1111\n1111\n1111\nwas charged", "CARD"),
         ("IBAN DE89 3704 0044 0532 0130 00", "IBAN"),
+        ("iban de89 3704 0044 0532 0130 00", "IBAN"),
+        ("card4111111111111111 was charged", "CARD"),
+        ("btc BC1QAR0SRRR7XFKVY5L643LYDNW9RE59GTZZWF5MDQ", "WALLET"),
+        ("тел+7 916 123 45 67", "PHONE"),
+        ("transaction ref TX12345678", "NUMBER"),
+        ("IBAN DE89-3704-0044-0532-0130-00", "IBAN"),
         ("sent to TQrZ8tKfjaBZXBu9FMbVVkVpS9QS2T5u7K yesterday", "WALLET"),
         ("wallet 0x52908400098527886E0F7030069857D2E4169EE7", "WALLET"),
         ("call me at +62 812 3456 7890", "PHONE"),
@@ -34,6 +42,11 @@ def test_raw_values_do_not_survive() -> None:
     masked = mask_pii(text).text
     for raw in ("51234567", "4111111111111111", "a@b.co", "7946"):
         assert raw not in masked
+
+
+def test_a_word_shaped_like_an_iban_is_kept() -> None:
+    text = "see en12 this text here"
+    assert mask_pii(text).text == text
 
 
 def test_names_addresses_and_birth_dates_are_not_masked() -> None:

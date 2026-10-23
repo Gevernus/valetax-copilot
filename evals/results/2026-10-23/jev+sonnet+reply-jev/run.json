@@ -49,6 +49,39 @@
         "en09",
         "es02"
       ]
+    },
+    {
+      "rules": "53823e1eead1",
+      "changed": [
+        "es01",
+        "es02",
+        "es03",
+        "es04"
+      ]
+    },
+    {
+      "rules": "991a0600c913",
+      "changed": [
+        "en02",
+        "en37",
+        "ru02"
+      ]
+    },
+    {
+      "rules": "40a18b9600ea",
+      "changed": []
+    },
+    {
+      "rules": "9cbb0bd17502",
+      "changed": [
+        "en02",
+        "en37",
+        "ru02"
+      ]
+    },
+    {
+      "rules": "0bad28a56659",
+      "changed": []
     }
   ]
 }

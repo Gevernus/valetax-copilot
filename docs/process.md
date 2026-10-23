@@ -10,10 +10,7 @@ The brief's 3–5 hours is closer to my directing time than to the wall clock.
   the eval gate green.
 - **Review**: each chunk went through an independent review panel (critic, reviewer, a
   skeptic scoring each finding), and the whole repository through two adversarial reviews at
-  the end. Their confirmed findings were fixed, not argued away: closed-list checks on drafts,
-  the language gate, the completion-step rule, ID masking, the vendor paragraph, the cost of
-  the cards that need a person, and a scope cut (a 15-language number parser, a second local
-  classifier, a blind number set and a significance test were removed).
+  the end. Their confirmed findings were fixed, not argued away.
 - **Evals**: the golden set was written and labelled by hand; the blind ticket and drafts sets
   were written by a separate agent that never saw the code, frozen by hash before one run.
 

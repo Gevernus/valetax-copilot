@@ -5,18 +5,19 @@ The four help pages as fetched on 2026-10-22, read line by line before sectionin
 a **conflict** as a reason to send any draft that cites the section to a person, a
 **defect** (content known to be wrong) as something the drafter must not see, and a **gap**
 as something to abstain on. These are also the content fixes with the highest
-return: on the golden set, 4 of 80 tickets (en08, en26, en32, ru15: deposit, account-opening
-and verification times) go to a person for no other reason than I1 or I5 (on the blind set,
-c35, c46 and c41), and every "how do I withdraw" ticket goes there because of I2.
+return: on the golden set, 5 of 80 tickets (en08: deposit time; en09: when funds can be
+traded; en26, en32, ru15: account-opening and verification times) go to a person for no other
+reason than I1 or I5 (on the blind set c35), and every "how do I withdraw" ticket goes there
+because of I2.
 
 | id | kind | where | what the pages say | effect on the co-pilot |
 |---|---|---|---|---|
-| I1 | conflict | deposit FAQ (also on the withdrawal page) | "Deposits are instant! You will be able to view your updated account balance within 60 minutes." The page intro also promises "instant" funding methods. | Instant or up to an hour? A deposit-time answer cites `funding.credit-time` and goes to a person. |
+| I1 | conflict | deposit FAQ (also on the withdrawal page) | "Deposits are instant! You will be able to view your updated account balance within 60 minutes." The page intro also promises "instant" funding methods. | Instant or up to an hour? Tagged on `funding.credit-time`. The intro's "instant" is held at the claim: any draft that says "instant", "immediately" or "within the hour" goes to a person as a conflict, whichever section it cites (`terms.CONTESTED`), so the deposit steps stay citable. |
 | I2 | defect | withdrawal page, steps | The four steps are the deposit steps: step 3 "Enter your account details and amount **to deposit**", step 4 "Start Trading!". Step 2 lacks the "Withdraw" button the deposit page names for deposits. | There is no withdrawal procedure in the KB. The section is kept out of the prompt; "How do I withdraw?" abstains and goes to a person. |
 | I3 | gap | verification page | 76 words, three steps. No document list, no formats, no timeline, no rejection reasons. The document list and the 48-hour figure live on the account-opening page. | Verification questions are answered from `open.documents` and `open.time`; the drafter has to cross pages. |
 | I4 | gap | deposit FAQ, account-opening FAQ | "The minimum deposit starts from 8 USD, depending on the account type." The per-account amounts are on the Account types page, which is linked but not part of the KB. | "8 USD" is a floor, not an answer for a named account; "minimum for ECN?" abstains. |
-| I5 | conflict | account-opening FAQ; funding FAQ | "Opening a live account allows you to begin trading immediately" and "You can begin trading immediately once your balance has been updated" vs "Account opening and document verification will be completed within 48 hours", and live accounts require proof of identity and address. | Account-opening, verification time and "when can I trade" answers go to a person. The funding FAQ line was tagged after review (a ready draft quoted it); the tags are hand-set, so a missed tag is a missed conflict. |
-| I6 | gap | all pages | Nothing on fees or commissions, payment methods by country, deposit or withdrawal limits, withdrawal processing time, a minimum withdrawal, demo accounts, or login and password help. | These are among the most common real questions. The drafter abstains; the grounding check rejects any fee or time it invents anyway. |
+| I5 | conflict | account-opening FAQ; funding FAQ | "Opening a live account allows you to begin trading immediately" and "You can begin trading immediately once your balance has been updated" vs "Account opening and document verification will be completed within 48 hours", and live accounts require proof of identity and address. | Account-opening, verification time and "when can I trade" answers go to a person. The funding FAQ line is tagged too (a ready draft quoted it); the tags are hand-set, so a missed tag is a missed conflict. |
+| I6 | gap | all pages | Nothing on fees or commissions, payment methods by country, deposit or withdrawal limits, withdrawal processing time, a minimum withdrawal, demo accounts, or login and password help. | These are among the most common real questions. A ticket that asks about fees, limits, the minimum withdrawal or the withdrawal time is a gap read on the ticket (`terms.kb_gaps`) and goes to a person; the grounding check also rejects any fee, limit or time a draft invents. |
 | I7 | conflict | withdrawal page intro vs funding FAQ | "We've made fund withdrawals easy and instant" vs a "pending" status that means "in queue … Once approved, you will be notified", and "Should you not receive your funds within 24 hours, please reach out". | Tagged on `withdraw.steps` only; the FAQ answers themselves are consistent. |
 
 Smaller defects, kept verbatim in the KB so a citation matches the live page:

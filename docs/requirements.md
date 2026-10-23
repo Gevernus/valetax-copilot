@@ -15,10 +15,10 @@ not built).
 | Classify: language | `language.py` (lingua, 15 languages) | golden 98% (78/80), blind 100% (60/60) | done |
 | Draft grounded in the KB, with citations | `draft.py` (citations are an enum of section ids), `grounding.py` | citations valid 100% (42/42), an expected section cited 100% (38/38); `test_grounding.py` | done |
 | Abstain when the KB does not cover it | `Draft.abstain` and `unanswered`, routed as `kb_gap` | golden abstention recall and precision 100% (9/9); blind 60% / 46% under the writer's different convention ([evals.md](evals.md#blind-challenge-set-2026-10-23-challenge-jev--haiku)) | done |
-| Route to a human whenever required | `routing.py` (19 reasons in three groups), `pipeline.py` (`READY_LANGUAGES`: en, ru, es) | needs-a-person recall 54/54 golden, 42/42 blind; route accuracy 92% / 93% | done |
+| Route to a human whenever required | `routing.py` (19 reasons in three groups), `language.py` (`READY_LANGUAGES`: en, ru; the draft in the ticket's language) | needs-a-person recall 56/56 golden, 44/44 blind; route accuracy 94% / 97% | done |
 | Rule 1: no trading advice; detect and decline politely | `rules.asks_trading_advice`, the `trading_advice` question, `draft.TRADING_DECLINE` appended by code, `rules.gives_trading_advice` on drafts | 0 violations on 140 tickets; flag recall 9/9; `test_pipeline.py` (decline survives a withheld draft, a missed flag) | done; advice inside a draft is checked by a pattern only |
 | Rule 2: never decide a complaint, KYC or AML outcome | the drafter does not run for them; `draft.ACKNOWLEDGEMENT` (fixed texts); `reply_guard.py` (patterns + decision-model questions on every draft) | 0 violations; flags 4/4 each; reply checks: 93/93 on the blind synthetic drafts set (`evals/results/drafts_challenge-patterns+jev.md`), 0 hits on 157 live drafts; the completion-step pattern (`test_pipeline.py`) | done |
-| Rule 3: never invent policy, fees or timelines | `grounding.check_draft` with `quantities.py`; fee and guarantee patterns; abstention | 0 violations; `test_grounding.py`, `test_quantities.py`, the probe sentences in `test_pipeline.py` (links, currencies, payment methods, countries, a figure moved to another topic) | partial: a claim with no number, time word, fee wording, link or listed name passes ([evals.md](evals.md#limits)) |
+| Rule 3: never invent policy, fees or timelines | `grounding.check_draft` with `quantities.py`; fee, limit and speed lexicons (`terms.py`); abstention | 0 violations; `test_grounding.py`, `test_quantities.py`, the probe sentences in `test_pipeline.py` (links, currencies, payment methods, countries, fees, limits, speed, a figure moved to another topic) | partial: a claim with no number, time word, fee, limit or speed word, link or listed name passes ([evals.md](evals.md#limits)) |
 | Use the KB as it is, gaps and contradictions included | `kb/valetax.toml` (verbatim, 20 sections), issue tags `conflict` / `defect` / `gap` | [kb-issues.md](kb-issues.md) (7 issues); `test_kb.py`; conflicted sections route to a person | done |
 | Phase 1: running for agents fast | `cli.py` (`copilot run`), `view.py` + `agent_view.html` (static page) | `test_view.py`; README "Run it" | done; the help-desk integration is a stand-in |
 | Phase 2: scale with volume and a growing KB/SOPs | — | [rollout.md](rollout.md#scaling-triggers): a threshold per trigger (volume, KB size, language, category, labels, model change); [phase2.md](phase2.md): what each builds (retrieval, fine-tuning, model routing, KB ownership) | plan |
@@ -28,7 +28,7 @@ not built).
 | Built with an agentic coding tool | Claude Code | [CLAUDE.md](../CLAUDE.md) is the guide it worked from | done |
 | Mocks and stubs explained | `llm.AnthropicApi` (production path) | written against the SDK docs, not run live (no API key); its error mapping is tested with real SDK exceptions (`test_providers.py`); evals ran the drafter through the `claude` CLI ([decisions.md §11](decisions.md#11-claude-subscription-cli-for-development-the-api-for-production)) | done, stated |
 
-## What the review call cares about
+## Beyond the brief
 
 | topic | where | proof | status |
 |---|---|---|---|

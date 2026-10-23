@@ -10,7 +10,7 @@ from copilot.kb import KnowledgeBase
 from copilot.llm import Llm, LlmResult
 from copilot.normalise import normalise
 
-PROMPT_VERSION = "draft-v4"
+PROMPT_VERSION = "draft-v3"
 
 
 class Draft(BaseModel):
@@ -52,10 +52,7 @@ never invent values.
 6. Write in the client's language (given as an ISO code), short and polite, no greeting line and no \
 signature. Copy numbers exactly as the knowledge base writes them, in digits.
 7. Answer only what the client asked. Do not add facts they did not ask about.
-8. A help-page step that announces a result ("Account verification completed! You're all set to \
-trade.") describes the page, not this client. Never restate a step as something that has \
-happened to this client; say what the client does and what happens next.
-9. If the knowledge base does not answer the client's main question, set `abstain` to true, explain \
+8. If the knowledge base does not answer the client's main question, set `abstain` to true, explain \
 why in `abstain_reason`, and leave `reply` empty.
 """
 

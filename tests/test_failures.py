@@ -431,5 +431,27 @@ def test_the_cli_takes_the_ticket_from_stdin_or_a_file_only(
     huge = tmp_path / "t.txt"
     huge.write_text("x" * (MAX_RAW_CHARS * 3))
     assert len(cli._read_ticket(huge)) == MAX_RAW_CHARS + 1  # read is bounded, then refused
-    monkeypatch.setattr("sys.stdin", io.StringIO("y" * (MAX_RAW_CHARS * 2)))
+    stdin = io.TextIOWrapper(io.BytesIO("я".encode() * (MAX_RAW_CHARS * 2)))
+    monkeypatch.setattr("sys.stdin", stdin)
     assert len(cli._read_ticket(None)) == MAX_RAW_CHARS + 1
+
+
+def test_bad_bytes_on_stdin_are_replaced_not_raised(monkeypatch: pytest.MonkeyPatch) -> None:
+    stdin = io.TextIOWrapper(io.BytesIO(b"min deposit? \xff\xfe"), errors="strict")
+    monkeypatch.setattr("sys.stdin", stdin)
+    assert cli._read_ticket(None) == "min deposit? \ufffd\ufffd"
+
+
+def test_the_card_is_printed_when_the_trace_cannot_be_written(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        cli, "build_copilot", lambda *_: build(FakeClassifier(), FakeLlm(**MIN_DEPOSIT))
+    )
+    monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(b"Min deposit?")))
+    blocked = tmp_path / "file"
+    blocked.write_text("")
+    assert cli.main(["run", "--traces", str(blocked / "traces.jsonl")]) == 0
+    out, err = capsys.readouterr()
+    assert "ROUTE: AUTO" in out
+    assert "trace not written" in err

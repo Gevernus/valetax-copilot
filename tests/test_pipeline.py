@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from evals.run_drafts import RESULTS
 
-from copilot import cli, pipeline, rules
+from copilot import cli, pipeline, rules, terms
 from copilot.classify import (
     MEASURED_REPLY_CHECKERS,
     Answer,
@@ -17,6 +17,7 @@ from copilot.classify import (
 from copilot.classify.questions import QUESTIONS, REPLY, TICKET, YES_NO
 from copilot.draft import ACKNOWLEDGEMENT, TRADING_DECLINE, Drafter
 from copilot.kb import load_kb
+from copilot.language import detect_language
 from copilot.llm import LlmResult, LlmUsage
 from copilot.pipeline import Copilot
 
@@ -196,6 +197,21 @@ def test_figures_only_the_client_gave_go_to_a_person(capsys: pytest.CaptureFixtu
             "links not in cited sections: help@valetax-support.net, "
             "https://valetax-members.com/login",
         ),
+        (
+            "Deposit at Valetax-Payments.com in your Member Area.",
+            "funding.how-to-deposit",
+            "links not in cited sections: valetax-payments.com",
+        ),
+        ("Message @valetax_desk to deposit.", "funding.how-to-deposit", "@valetax_desk"),
+        # look-alikes: Cyrillic "a" and "x", a Greek omicron, a Cyrillic "p" in the scheme
+        (
+            "Log in at valet\u0430\u0445.com to deposit.",
+            "funding.how-to-deposit",
+            "valet\u0430\u0445.com",
+        ),
+        ("Log in at valetax.c\u03bfm to deposit.", "funding.how-to-deposit", "valetax.c\u03bfm"),
+        ("Go to htt\u0440s://valetax.com/deposit.", "funding.how-to-deposit", "htt\u0440s://"),
+        ("You can also deposit through our WhatsApp.", "funding.how-to-deposit", "WhatsApp"),
         ("Yes, you can deposit in Russian rubles.", "funding.currencies", "RUB"),
         ("You can also fund by credit card or Skrill.", "funding.how-to-deposit", "Skrill, card"),
         ("We accept deposits from Nigeria via bank transfer.", "funding.how-to-deposit", "Nigeria"),
@@ -212,21 +228,187 @@ def test_claims_without_digits_are_withheld(reply: str, citation: str, problem: 
     llm = FakeLlm(reply=reply, citations=[citation])
     card = make(FakeClassifier(), llm).process("t", "How can I deposit?")
     assert card.route == "human"
-    assert card.reasons == ["grounding_failed"]
+    assert "grounding_failed" in card.reasons  # the Spanish one is also in the wrong language
     assert card.reply is None
     assert any(problem in p for p in card.problems), card.problems
 
 
+@pytest.mark.parametrize(
+    ("ticket", "reply", "citation", "problem"),
+    [
+        # fees, limits and speed: the KB states none of them outside a conflicted section
+        ("Are there fees for withdrawals?", "A small processing fee is charged on each withdrawal.", "funding.how-to-deposit", "fee"),
+        ("Есть комиссия за вывод?", "Да, за вывод взимается небольшая комиссия.", "funding.how-to-deposit", "fee"),
+        ("Do you charge for deposits?", "Deposits are subject to a commission set by your payment provider.", "funding.how-to-deposit", "fee"),
+        ("Is there a max withdrawal?", "There is a daily withdrawal limit depending on your account type.", "funding.min-deposit", "limit"),
+        ("Is there a max deposit?", "There is no maximum deposit amount.", "funding.how-to-deposit", "limit"),
+        ("How long does a withdrawal take?", "Withdrawals are usually processed within the hour.", "funding.withdrawal-not-received", "speed"),
+        ("How long does a withdrawal take?", "Withdrawals usually take a few hours.", "funding.withdrawal-not-received", "speed"),
+        ("How long does a withdrawal take?", "Withdrawals are processed the same day.", "funding.currencies", "speed"),
+        ("Сколько идет вывод?", "Вывод обычно занимает несколько часов.", "funding.withdrawal-not-received", "speed"),
+        ("How long does verification take?", "Verification usually takes a couple of days.", "funding.currencies", "speed"),
+        ("Есть комиссия за вывод?", "За вывод взимается небольшая плата.", "funding.how-to-deposit", "fee"),
+        ("Any fees to withdraw?", "Withdrawals cost nothing.", "funding.how-to-deposit", "fee"),
+        ("Any fees to withdraw?", "A small amount is deducted from each withdrawal.", "funding.how-to-deposit", "fee"),
+        ("Is there a max deposit?", "Deposits are unlimited.", "funding.how-to-deposit", "limit"),
+        ("Is there a max deposit?", "There is no restriction on the deposit size.", "funding.how-to-deposit", "limit"),
+        ("Есть лимит на депозит?", "Пополнение безлимитное.", "funding.how-to-deposit", "limit"),
+        ("Есть лимит на депозит?", "Сумма депозита неограниченна.", "funding.how-to-deposit", "limit"),
+        ("How long does a withdrawal take?", "Withdrawals are processed quickly.", "funding.withdrawal-pending", "speed"),
+        ("Сколько идёт вывод?", "Вывод обрабатывается оперативно.", "funding.withdrawal-pending", "speed"),
+        ("What is the minimum withdrawal?", "The minimum deposit starts from 8 USD. The same minimum applies to withdrawals.", "funding.min-deposit", "withdrawal"),
+        # a deposit figure for a withdrawal, the topic in the reply or only in the ticket
+        ("What is the minimum withdrawal?", "The minimum is 8 USD, depending on the account type.", "funding.min-deposit", "withdrawal"),
+        ("What is the minimum payout?", "The minimum payout is 8 USD.", "funding.min-deposit", "withdrawal"),
+        ("What is the minimum withdrawal?", "You can take money out from 8 USD.", "funding.min-deposit", "withdrawal"),
+        ("Минимум для снятия?", "Минимум для снятия — 8 USD.", "funding.min-deposit", "withdrawal"),
+    ],
+)  # fmt: skip
+def test_fees_limits_speed_and_topic_are_a_closed_world(
+    ticket: str, reply: str, citation: str, problem: str
+) -> None:
+    category = next(iter(sorted(terms.topics(ticket))), "other")  # the classifier's reading
+    card = make(
+        FakeClassifier(category=category), FakeLlm(reply=reply, citations=[citation])
+    ).process("t", ticket)
+    assert "grounding_failed" in card.reasons  # a speed claim is also a conflict
+    assert card.reply is None
+    assert any(problem in p for p in card.problems), card.problems
+
+
+@pytest.mark.parametrize(
+    ("ticket", "category", "reply"),
+    [
+        ("Есть комиссия?", "withdrawal", "Вывод доступен в Member Area."),
+        ("Fees?", "deposit", "Log in to your member area and select the payment option."),
+        ("Is withdrawal free?", "withdrawal", "Log in to your member area."),
+        ("Max deposit?", "deposit", "Log in to your member area and select the deposit size."),
+        ("Лимит на вывод?", "withdrawal", "Вывод доступен в Member Area."),
+        ("How long is a withdrawal?", "withdrawal", "You will receive it today."),
+        ("Сколько идёт вывод?", "withdrawal", "Средства поступят сегодня."),
+        ("Когда придут деньги?", "withdrawal", "Средства поступят скоро."),
+        ("Are withdrawals instant?", "withdrawal", "Log in to your member area."),
+        ("How little can I pull from my balance?", "withdrawal", "Log in to your member area."),
+        ("Минимальная сумма вывода?", "withdrawal", "Вывод доступен в Member Area."),
+    ],
+)
+def test_a_question_the_kb_never_answers_is_a_gap_whatever_the_draft(
+    ticket: str, category: str, reply: str
+) -> None:
+    llm = FakeLlm(reply=reply, citations=["funding.how-to-deposit"])
+    card = make(FakeClassifier(category=category), llm).process("t", ticket)
+    assert "kb_gap" in card.reasons
+
+
+@pytest.mark.parametrize(
+    ("ticket", "category"),
+    [
+        ("Min deposit?", "deposit"),
+        ("I want to withdraw later, but what's the minimum deposit?", "deposit"),
+        ("Do you have swap-free accounts?", "account_opening"),
+        ("What is the maximum leverage?", "account_opening"),
+        ("Withdrawal not received", "withdrawal"),
+    ],
+)
+def test_a_question_the_kb_answers_is_not_a_gap(ticket: str, category: str) -> None:
+    assert terms.kb_gaps(ticket, category) == []
+
+
+@pytest.mark.parametrize(
+    "ticket",
+    [
+        "I deposited 100 USD last week. What is the least I can take out?",
+        "How little can I pull from my balance?",
+        "Я пополнил счёт на 100 USD. Сколько минимум можно вывести?",
+    ],
+)
+def test_a_deposit_figure_answering_a_withdrawal_question_is_withheld(ticket: str) -> None:
+    llm = FakeLlm(
+        reply="The minimum is 8 USD, depending on the account type.",
+        citations=["funding.min-deposit"],
+    )
+    card = make(FakeClassifier(category="withdrawal"), llm).process("t", ticket)
+    assert "grounding_failed" in card.reasons, card.problems
+
+
+@pytest.mark.parametrize(
+    ("ticket", "reply", "citation"),
+    [
+        ("Deposits instant?", "Deposits are instant.", "deposit.steps"),
+        ("How fast is a withdrawal?", "Withdrawals are instant.", "deposit.steps"),
+        ("Как быстро зачисляется депозит?", "Пополнение происходит мгновенно.", "deposit.steps"),
+        ("When can I trade?", "You can begin trading immediately.", "open.steps"),
+    ],
+)
+def test_a_speed_claim_is_a_conflict_whatever_it_cites(
+    ticket: str, reply: str, citation: str
+) -> None:
+    card = make(FakeClassifier(), FakeLlm(reply=reply, citations=[citation])).process("t", ticket)
+    assert "kb_conflict" in card.reasons
+
+
+@pytest.mark.parametrize(
+    ("ticket", "reply"),
+    [
+        (
+            "How do I deposit money into my trading account?",
+            "Log in to your Member Area, click on the Deposit button and select your preferred "
+            "payment channel, then enter your account details and the amount to deposit.",
+        ),
+        (
+            "Как пополнить счёт?",
+            "Войдите в Member Area, нажмите кнопку Deposit, выберите платёжный канал и введите "
+            "данные счёта и сумму пополнения.",
+        ),
+    ],
+)
+def test_the_deposit_steps_without_a_speed_claim_are_ready(ticket: str, reply: str) -> None:
+    llm = FakeLlm(reply=reply, citations=["deposit.steps", "funding.how-to-deposit"])
+    card = make(FakeClassifier(), llm).process("t", ticket)
+    assert card.route == "auto", (card.reasons, card.problems)
+
+
+@pytest.mark.parametrize(
+    ("ticket", "reply", "citation"),
+    [
+        ("Min deposit?", MIN_DEPOSIT["reply"], "funding.min-deposit"),
+        ("Какой минимальный депозит?", "Минимальный депозит — от 8 USD, в зависимости от типа счёта.", "funding.min-deposit"),
+        ("What is the maximum leverage?", "We offer up to 1:2000 depending on account types.", "open.leverage"),
+        ("Какое максимальное кредитное плечо?", "Максимальное кредитное плечо — 1:2000, в зависимости от типа счёта.", "open.leverage"),
+        ("How old can my utility bill be?", "The bill must not be older than 6 months.", "open.documents"),
+        ("I have not received my withdrawal yet.", "If you do not receive your funds within 24 hours, please contact our support team.", "funding.withdrawal-not-received"),
+        ("Хочу потом вывести деньги. Какой минимальный депозит?", "Минимальный депозит — от 8 USD, в зависимости от типа счёта.", "funding.min-deposit"),
+        ("Как открыть счёт?", "Счёт открывается за 3 быстрых и простых шага: зайдите на www.valetax.com и нажмите 'Create Account'.", "open.steps"),
+        ("How do I open an account?", "Visit www.valetax.com and click 'Create Account'. Right after registration you get access to your Member Area.", "open.steps"),
+    ],
+)  # fmt: skip
+def test_what_the_kb_says_about_limits_and_time_passes(
+    ticket: str, reply: str, citation: str
+) -> None:
+    # The classifier's category, as it reads these tickets.
+    category = {
+        "withdrawal": "withdrawal",
+        "минимальный депозит": "deposit",
+        "Min deposit": "deposit",
+    }
+    found = next((c for k, c in category.items() if k in ticket), "account_opening")
+    card = make(FakeClassifier(category=found), FakeLlm(reply=reply, citations=[citation])).process(
+        "t", ticket
+    )
+    assert card.route == "auto", card.problems
+
+
 def test_a_name_only_the_client_gave_goes_to_a_person_with_the_draft() -> None:
-    llm = FakeLlm(reply="Yes, including rubles.", citations=["funding.currencies"])
+    llm = FakeLlm(reply="Да, в том числе в рублях.", citations=["funding.currencies"])
     card = make(FakeClassifier(), llm).process("t", "Можно ли пополнять счёт в рублях?")
     assert card.reasons == ["client_figures"]
     assert card.client_figures == ["RUB"]
-    assert card.reply == "Yes, including rubles."
+    assert card.reply == "Да, в том числе в рублях."
 
 
-def test_the_kb_link_passes() -> None:
-    reply = "Visit www.valetax.com and click on 'Create Account'."
+@pytest.mark.parametrize("link", ["www.valetax.com", "WWW.Valetax.com"])
+def test_the_kb_link_passes_in_any_case(link: str) -> None:
+    reply = f"Visit {link} and click on 'Create Account'."
     card = make(FakeClassifier(), FakeLlm(reply=reply, citations=["open.steps"])).process(
         "t", "How do I open an account?"
     )
@@ -245,6 +427,72 @@ def test_other_languages_never_get_a_ready_draft() -> None:
     assert card.route == "human"
     assert card.reasons == ["unsupported_language"]
     assert card.reply is not None  # shown to the agent, not marked ready
+
+
+@pytest.mark.parametrize(
+    ("ticket", "reply", "language"),
+    [
+        ("안녕하세요, 최소 입금액은 얼마인가요?", MIN_DEPOSIT["reply"], "und"),
+        ("Min deposit?", "O depósito mínimo começa em 8 USD.", "en"),
+        ("Min deposit?", "Die Mindesteinzahlung beginnt bei 8 USD.", "en"),
+        ("How to withdraw?", "Para retirar, inicie sesión en su Member Area.", "en"),
+    ],
+)
+def test_a_draft_is_ready_only_in_the_tickets_ready_language(
+    ticket: str, reply: str, language: str
+) -> None:
+    llm = FakeLlm(reply=reply, citations=["funding.min-deposit"])
+    card = make(FakeClassifier(), llm).process("t", ticket)
+    assert card.language == language  # a script outside the list is undetermined, not English
+    assert card.reasons == ["unsupported_language"]
+    assert card.reply == reply  # shown to the agent, not marked ready
+
+
+@pytest.mark.parametrize(
+    "tail",
+    [
+        "Recomendo comprar ouro agora, o preço vai subir.",  # Portuguese advice
+        "现在买黄金，价格会上涨。",  # Chinese advice
+        "출금은 수수료 없이 즉시 처리됩니다.",  # Korean: no fee, instant
+        "Sua conta foi aprovada e o saque está liberado.",  # Portuguese decision
+        "Ваш счёт одобрен.",
+    ],
+)
+def test_a_clause_in_another_language_makes_the_draft_not_ready(tail: str) -> None:
+    llm = FakeLlm(reply=f"{MIN_DEPOSIT['reply']} {tail}", citations=MIN_DEPOSIT["citations"])
+    card = make(FakeClassifier(), llm).process("t", "What is the minimum deposit?")
+    assert "unsupported_language" in card.reasons
+
+
+def test_an_english_sentence_in_a_russian_reply_is_not_ready_names_and_links_are_fine() -> None:
+    names = "Зайдите на www.valetax.com и нажмите 'Create Account', затем войдите в Member Area."
+    card = make(
+        FakeClassifier(category="account_opening"), FakeLlm(reply=names, citations=["open.steps"])
+    ).process("t", "Как открыть счёт?")
+    assert card.route == "auto", card.reasons
+    english = f"{names} Your account has been approved for trading."
+    card = make(
+        FakeClassifier(category="account_opening"), FakeLlm(reply=english, citations=["open.steps"])
+    ).process("t", "Как открыть счёт?")
+    assert "unsupported_language" in card.reasons
+
+
+@pytest.mark.parametrize(
+    ("text", "code"),
+    [
+        ("Min deposit?", "en"),
+        ("How to withdraw?", "en"),
+        ("hi", "en"),  # plain ASCII, English within a hair of the best guess
+        ("Can I pay in EUR?", "en"),
+        ("Berapa deposit minimum?", "ms"),  # plain ASCII, but clearly not English
+        ("Сколько идет вывод?", "ru"),
+        ("안녕하세요, 최소 입금액은 얼마인가요?", "und"),
+        ("שלום, מה ההפקדה המינימלית?", "und"),
+        ("Γεια σας, ποια είναι η ελάχιστη κατάθεση;", "und"),
+    ],
+)
+def test_short_latin_text_gets_a_guess_other_scripts_are_undetermined(text: str, code: str) -> None:
+    assert detect_language(text) == code
 
 
 def test_fixed_texts_fall_back_to_english() -> None:
@@ -358,7 +606,11 @@ def test_a_broken_check_withholds_the_draft(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_a_russian_amount_in_the_ticket_does_not_break_the_card() -> None:
-    card = make(FakeClassifier(), FakeLlm(**MIN_DEPOSIT)).process(
+    llm = FakeLlm(
+        reply="Минимальный депозит — от 8 USD, в зависимости от типа счёта.",
+        citations=["funding.min-deposit"],
+    )
+    card = make(FakeClassifier(), llm).process(
         "t", "Хочу внести 50 тысяч рублей, какой минимальный депозит?"
     )
     assert card.route == "auto"

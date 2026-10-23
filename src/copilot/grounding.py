@@ -3,14 +3,14 @@
 A draft fails when it cites nothing or an unknown section; when a number with its unit or
 currency ("48 hours", "$10"), a time unit ("within the hour"), a fee/guarantee claim or a listed
 name (a currency, payment method, country or instrument: terms.py) appears in neither the cited
-sections nor the client's message; when a link is not verbatim in the cited sections; when a
-figure is stated about deposits or withdrawals and no cited section gives it for that topic; or
-when it gives trading advice. Only the cited sections support policy: what the draft takes
+sections nor the client's message; when a link is not verbatim in the cited sections; when it
+uses a fee, limit or speed word and no cited section uses one from the same lexicon; when a
+figure is stated about deposits or withdrawals (in its sentence, or else in the ticket) and no
+cited section gives it for that topic; or when it gives trading advice. Only the cited sections support policy: what the draft takes
 from the client's message alone is listed in `client_figures`, and a person checks it. What a reply must not say whatever the
 sources say (a decision, a compliance check, a handover) is reply_guard.py.
 """
 
-import re
 from dataclasses import dataclass
 
 from copilot import quantities, rules, terms
@@ -30,8 +30,14 @@ class GroundingResult:
         return not self.problems
 
 
-def check_draft(draft: Draft, kb: KnowledgeBase, ticket: str) -> GroundingResult:
-    """Check a draft against the sections it cites and the client's message."""
+def check_draft(
+    draft: Draft, kb: KnowledgeBase, ticket: str, category: str = ""
+) -> GroundingResult:
+    """Check a draft against the sections it cites and the client's message.
+
+    `category` is the classifier's: a withdrawal question asked without the word still makes a
+    deposit figure off-topic.
+    """
     if draft.abstain:
         return GroundingResult(())
     reply = draft.reply
@@ -76,7 +82,9 @@ def check_draft(draft: Draft, kb: KnowledgeBase, ticket: str) -> GroundingResult
     named, named_by_client = _names(reply, cited, ticket)
     problems += named
     from_client += named_by_client
-    problems += _off_topic(reply, cited, in_sources)
+    if words := sorted(terms.policy_words(reply) - terms.policy_words(sources)):
+        problems.append(f"fee, limit or speed words not in cited sections: {', '.join(words)}")
+    problems += _off_topic(reply, cited, in_sources, terms.asked(ticket, category))
 
     if rules.gives_trading_advice(reply):
         problems.append("reply contains trading advice")
@@ -94,30 +102,46 @@ def _names(reply: str, cited: list[Section], ticket: str) -> tuple[list[str], li
     by_client = [n for n in named if n in terms.names(ticket)]
     if unnamed := [n for n in named if n not in by_client]:
         problems.append(
-            "currencies, payment methods, countries or instruments not in cited sections: "
+            "currencies, payment methods, messengers, countries or instruments not in cited sections: "
             + ", ".join(unnamed)
         )
     return problems, by_client
 
 
-def _off_topic(reply: str, cited: list[Section], in_sources: set[quantities.Quantity]) -> list[str]:
+def _off_topic(
+    reply: str, cited: list[Section], in_sources: set[quantities.Quantity], asked: set[str]
+) -> list[str]:
     """A sourced figure stated about deposits or withdrawals, from a section about neither.
 
     "The minimum withdrawal is 8 USD" citing the minimum-deposit answer: the figure is in the
-    sources, the topic is not. Read per sentence; a section's topic includes its title.
+    sources, the topic is not. A section's topic includes its title. Two readings, both must
+    hold: the figure's own sentence ("the minimum withdrawal is 8 USD"), and, for a figure
+    from a section about one topic, the reply's claim sentences (those with a figure or a fee,
+    minimum, limit or speed word) or, when they name no topic, the ticket (`asked`): "8 USD.
+    The same minimum applies to withdrawals", or "The minimum is 8 USD" to "what is the least I
+    can take out?". A sentence that only mentions withdrawals ("history of deposits and
+    withdrawals") does not count.
     """
-    problems = []
-    for sentence in re.split(r"(?<=[.!?;])\s+|\n", reply):
-        figures = [
-            q
-            for q in quantities.quantities(sentence)
-            if q.unit not in (None, "step", "steps") and quantities.supported(q, in_sources)
-        ]
-        for q, topic in ((q, t) for q in figures for t in sorted(terms.topics(sentence))):
-            if not any(
-                topic in terms.topics(f"{s.title} {s.text}")
-                and quantities.supported(q, quantities.quantities(s.text))
-                for s in cited
-            ):
-                problems.append(f"{q} stated about a {topic}; no cited section gives it for one")
+    problems: list[str] = []
+    claims = [
+        s for s in terms.sentences(reply) if quantities.quantities(s) or terms.policy_words(s)
+    ]
+    whole = set().union(*(terms.topics(s) for s in claims)) or asked
+    for sentence in terms.sentences(reply):
+        said = terms.topics(sentence)
+        for q in quantities.quantities(sentence):
+            if q.unit in (None, "step", "steps") or not quantities.supported(q, in_sources):
+                continue
+            given: set[str] = set().union(
+                *(
+                    terms.topics(f"{s.title} {s.text}")
+                    for s in cited
+                    if quantities.supported(q, quantities.quantities(s.text))
+                )
+            )
+            missing = (said - given) | (whole - given if given else set())
+            problems += [
+                f"{q} stated about a {topic}; no cited section gives it for one"
+                for topic in sorted(missing)
+            ]
     return problems

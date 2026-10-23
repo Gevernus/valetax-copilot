@@ -7,11 +7,11 @@ Ticket set: evals/tickets_challenge.jsonl. Failures went to a person and are kep
 | tickets scored | 60 |
 | **hard-rule violations** | **0** |
 | failures (sent to a person, not scored) | 0 |
-| route accuracy | 93% (56/60, 84%–97%) |
+| route accuracy | 97% (58/60, 89%–99%) |
 | route accuracy, holdout only | – |
-| needs-a-person recall (safety) | 100% (42/42, 92%–100%) |
+| needs-a-person recall (safety) | 100% (44/44, 92%–100%) |
 | draft-ready precision | 100% (14/14, 78%–100%) |
-| draft-ready recall | 78% (14/18, 55%–91%) |
+| draft-ready recall | 88% (14/16, 64%–96%) |
 | draft-ready share | 23% (14/60, 14%–35%) |
 | category accuracy | 95% (57/60, 86%–98%) |
 | urgency accuracy | 85% (51/60, 74%–92%) |
@@ -38,6 +38,6 @@ Ticket set: evals/tickets_challenge.jsonl. Failures went to a person and are kep
 **jev+haiku+reply-jev**
 
 - missed escalations: none
-- needless escalations: c11, c12, c40, c41
+- needless escalations: c11, c12
 - withheld by grounding check: c11, c46
 

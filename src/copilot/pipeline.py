@@ -14,14 +14,14 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from copilot import grounding, quantities, reply_guard, routing, rules, terms
+from copilot import grounding, language, quantities, reply_guard, routing, rules, terms
 from copilot.classify import YES_NO, Answer, Classification, Classifier, Usage
 from copilot.classify.questions import REPLY, TICKET
 from copilot.draft import PROMPT_VERSION, Draft, Drafter, acknowledgement, trading_decline
 from copilot.errors import Budget, ProviderError, RetryPolicy, UsageLimitError
 from copilot.grounding import check_draft
 from copilot.kb import KnowledgeBase
-from copilot.language import detect_language
+from copilot.language import detect_language, written_in
 from copilot.llm import LlmUsage
 from copilot.masking import Masked, mask_pii
 from copilot.normalise import normalise
@@ -33,9 +33,9 @@ from copilot.routing import CONSEQUENCE, Reason, Thresholds, label, route
 # beyond MAX_RAW_CHARS is not read at all.
 MAX_TICKET_CHARS = 20_000
 MAX_RAW_CHARS = 4 * MAX_TICKET_CHARS
-# Languages with labelled cases, fixed texts and wording patterns. A ticket in any other
-# language still gets a draft, routed to a person; its fixed texts fall back to English.
-READY_LANGUAGES = frozenset({"en", "ru", "es"})
+# A ticket outside READY_LANGUAGES (language.py) still gets a draft, routed to a person; its
+# fixed texts fall back to English where they are not written.
+READY_LANGUAGES = frozenset(language.READY_LANGUAGES)
 # Card fields the agent's export never carries: the model's raw reply.
 EVAL_ONLY = ("raw_reply",)
 _RESERVED = (Reason.AML, Reason.KYC, Reason.COMPLAINT)  # acknowledged by code, decided by a person
@@ -237,11 +237,18 @@ class Copilot:
         mode = None  # an injection gets no draft at all
         if Reason.PROMPT_INJECTION not in cases:
             mode = Mode.ACKNOWLEDGE if reserved else Mode.ANSWER
-        checked = self._draft(ticket, language, run) if mode is Mode.ANSWER else _Checked()
+        category = cls.answers["category"].choice
+        checked = (
+            self._draft(ticket, language, category, run) if mode is Mode.ANSWER else _Checked()
+        )
         draft = checked.draft
         cited = [c for c in (draft.citations if draft else []) if c in self.kb.sections]
-        if any(self.kb.has_conflict(c) for c in cited):
+        if any(self.kb.has_conflict(c) for c in cited) or _contested(draft):
             checked.reasons.add(Reason.KB_CONFLICT)
+        if mode is Mode.ANSWER and terms.kb_gaps(ticket, category):
+            checked.reasons.add(Reason.KB_GAP)  # asked what no section answers, whatever the draft
+        if draft and not draft.abstain and not written_in(draft.reply, language):
+            checked.reasons.add(Reason.UNSUPPORTED_LANGUAGE)  # not in the client's language
         reasons = route(cases | checked.reasons)
 
         parts: list[str] = []
@@ -306,7 +313,7 @@ class Copilot:
         }
         return {reason for reason, hit in flagged.items() if hit}
 
-    def _draft(self, ticket: str, language: str, run: "_Run") -> _Checked:
+    def _draft(self, ticket: str, language: str, category: str, run: "_Run") -> _Checked:
         """Draft from the KB, then check the draft. A provider failure is a reason, not a raise."""
         out = _Checked()
         with run.stage("draft"):
@@ -328,7 +335,7 @@ class Copilot:
             out.reasons.add(Reason.KB_GAP)
         with run.stage("check"):
             try:
-                self._check(draft, ticket, run, out)
+                self._check(draft, ticket, category, run, out)
             except UsageLimitError:
                 raise
             except Exception as e:  # noqa: BLE001 - a check that cannot run withholds
@@ -342,12 +349,12 @@ class Copilot:
             out.reasons.add(Reason.KB_GAP)  # a withheld draft's list is not shown to fill in
         return out
 
-    def _check(self, draft: Draft, ticket: str, run: "_Run", out: _Checked) -> None:
+    def _check(self, draft: Draft, ticket: str, category: str, run: "_Run", out: _Checked) -> None:
         """The source check, then what the reply must not say.
 
         Patterns run on every draft; the REPLY questions only on a draft that could still be shown.
         """
-        check = check_draft(draft, self.kb, ticket)
+        check = check_draft(draft, self.kb, ticket, category)
         problems = list(check.problems)
         if problems:
             out.reasons.add(Reason.GROUNDING_FAILED)
@@ -406,6 +413,11 @@ class Copilot:
             versions=self.versions, attempts=dict(run.budget.attempts), error=record,
             ticket=run.ticket,
         )  # fmt: skip
+
+
+def _contested(draft: Draft | None) -> bool:
+    """A shown claim the KB makes only inside a conflict ("deposits are instant")."""
+    return bool(draft and not draft.abstain and terms.policy_words(draft.reply) & terms.CONTESTED)
 
 
 def _read(text: str, run: "_Run") -> Masked | None:

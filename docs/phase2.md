@@ -28,7 +28,7 @@ business case pays for; who reads which sample is in [rollout.md](rollout.md#wee
    hard-rule violations stay at 0 and route accuracy does not drop outside its interval.
 5. **Grow the holdout**: one in four new cases goes to the holdout split nobody tunes on.
 
-The goal from the hiring call is that the head of support runs steps 1–2 alone: the cases are
+The goal is that the head of support runs steps 1–2 alone: the cases are
 plain JSON lines and the KB is a TOML file.
 
 ## 3. KB as owned content
@@ -60,7 +60,8 @@ retrieval misses.
 
 - Trigger: 2,000 agent-confirmed labels, 4–8 weeks of pilot ([rollout.md](rollout.md#scaling-triggers)).
 - Fine-tune Laya, the open-source model on Jev's `/v1/systemone` contract, on them. Zero-shot it
-  was measured at 61% route accuracy with one ready draft in 80, and its backend was removed from
+  was measured at 61% route accuracy as run (71% replayed on the current code) with one ready
+  draft in 80, and its backend was removed from
   phase 1 ([decisions.md §3](decisions.md#3-classification-by-a-decision-model-not-an-llm)); its
   README reports 0.362 → 0.766 accuracy from fine-tuning on another typed-decision workload.
 - Fit per-question thresholds on held-out data instead of the hand-set ones in

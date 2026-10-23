@@ -4,8 +4,8 @@ A plan: nothing here has run on live traffic. The starting numbers are the evals
 ([evals.md](evals.md)) and the break-even of the business case
 ([business-case.md](business-case.md)). **The break-even b moves with the live share of ready
 drafts**: a ready draft must save the month's cost (models, people and hosting, and the reading
-of every other card) divided by the number of ready drafts. At a $5 contact, b is 12% of a
-contact at 25% ready (the golden set) and 22% at 15%; every saving limit below is b at the share
+of every other card) divided by the number of ready drafts. At a $5 contact, b is 13% of a
+contact at 24% ready (the golden set) and 22% at 15%; every saving limit below is b at the share
 measured live. At 10,000 tickets a month the team gets about 2,300 tickets a week.
 
 **Zero is a bound.** No violation in N reviewed drafts puts the rate below 1 − 0.05^(1/N) with
@@ -63,7 +63,7 @@ saving ≥ b at the live share keeps it; below b stops it or changes the configu
 | volume | 429s > 1% of calls or p95 > 15 s (likely past ~30k tickets a month) | a queue and workers before the drafter; a daily cap under the monthly budget, past which cards come without a draft; Batch API at half price for nightly re-scoring and eval runs. The model bill is not the trigger: 50k a month is ~$25 | [phase2.md §6](phase2.md#6-cost-and-model-routing) |
 | KB and SOP size | prompt > 30k tokens (now ~2k), or "expected section cited" on golden < 95% (now 38/38) | hybrid retrieval, narrowed by category; switch only at recall@10 ≥ 95% of expected sections, and the same gate after every KB change | [§4](phase2.md#4-retrieval-when-the-kb-stops-fitting) |
 | KB authors | a second author or > 50 sections | an owner and a review-by date per section; CI fails on a cited section past its date | [§3](phase2.md#3-kb-as-owned-content) |
-| language | ready drafts only in English, Russian and Spanish (`pipeline.READY_LANGUAGES`; any other language goes to a person with the draft). Labelled cases, golden + blind: English 77, Russian 30, Spanish 10; Spanish stays `shadow` until it has 30. Any other language over 2% of traffic | 30 cases with ≥ 5 reserved-topic traps, a run, then the language joins | [evals.md](evals.md) |
+| language | ready drafts only in English and Russian (`language.READY_LANGUAGES`; any other language, and a draft not in the ticket's language, goes to a person with the draft). Labelled cases, golden + blind: English 77, Russian 30, Spanish 10; Spanish is in `shadow` until it has 30. Any other language over 2% of traffic | 30 cases with ≥ 5 reserved-topic traps, a run, then the language joins | [evals.md](evals.md) |
 | category | a topic outside the four pages over 2% of tickets ("other" share, agent tags) | KB sections first, 30 labelled cases with traps, then drafts | [§3](phase2.md#3-kb-as-owned-content) |
 | labelled tickets | ≥ 2,000 agent-confirmed labels (4–8 weeks of pilot) | fine-tune Laya; per-question thresholds on held-out real tickets; switch only at must-route recall 100% and route accuracy within Jev's interval | [§5](phase2.md#5-classifier-from-zero-shot-to-fine-tuned) |
 | model, prompt, KB or threshold change; a Jev deprecation (30–60 days notice) | any | a new golden and blind run: 0 violations, needs-a-person recall 100%, route accuracy not below the current interval; then a week of paired shadow, old and new on the same tickets. Code-only changes pass `evals/gate.py` in CI | [evals.md](evals.md#reproduce) |

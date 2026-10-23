@@ -69,10 +69,12 @@ def _read_ticket(path: Path | None) -> str:
     """The ticket from a file or stdin, never argv (shell history, the process list).
 
     At most one character past the pipeline's limit is read, so a huge input is refused as too
-    long without being held in memory.
+    long without being held in memory. Both ways decode UTF-8 the same: a bad byte becomes
+    U+FFFD whatever the locale, never an exception or a surrogate sent to a vendor.
     """
     if path is None:
-        return sys.stdin.read(MAX_RAW_CHARS + 1)
+        raw = sys.stdin.buffer.read(4 * (MAX_RAW_CHARS + 1))  # UTF-8: at most 4 bytes a character
+        return raw.decode("utf-8", errors="replace")[: MAX_RAW_CHARS + 1]
     with path.open(encoding="utf-8", errors="replace") as f:
         return f.read(MAX_RAW_CHARS + 1)
 
@@ -110,11 +112,16 @@ def main(argv: list[str] | None = None) -> int:
     text = _read_ticket(args.file)
     copilot = build_copilot(args.classifier, args.llm, args.model, args.reply_checker)
     card = copilot.process(args.id, text)
-    TraceWriter(args.traces).write(card.trace())
     if args.json:
         _print_json(card)
     else:
         _print_card(card)
+    try:  # the agent has the card; a trace that cannot be written is reported, not raised
+        TraceWriter(args.traces).write(card.trace())
+    except OSError as e:
+        print(
+            f"trace not written to {args.traces}: {e.strerror or type(e).__name__}", file=sys.stderr
+        )
     return 0
 
 

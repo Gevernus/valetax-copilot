@@ -1,7 +1,10 @@
 """A draft's figures and fee claims must be in the sections it cites."""
 
+import time
+
 import pytest
 
+from copilot import terms
 from copilot.draft import Draft
 from copilot.grounding import check_draft
 from copilot.kb import KnowledgeBase, load_kb
@@ -72,10 +75,17 @@ def test_number_bound_to_another_unit_fails(kb: KnowledgeBase) -> None:
 
 
 def test_policy_claim_echoed_from_ticket_is_marked(kb: KnowledgeBase) -> None:
+    d = draft("Your deposit is guaranteed.", "funding.how-to-deposit")
+    result = check_draft(d, kb, "your agent said my deposit is guaranteed, right?")
+    assert result.ok
+    assert result.client_figures == ("guaranteed",)
+
+
+def test_a_fee_word_from_the_client_is_still_withheld(kb: KnowledgeBase) -> None:
+    # Fees are a closed world: the client asking about one does not let the draft state one.
     d = draft("Deposits are free of charge.", "funding.how-to-deposit")
     result = check_draft(d, kb, "your agent said deposits are free of charge, right?")
-    assert result.ok
-    assert result.client_figures == ("free of charge",)
+    assert any("fee" in p for p in result.problems)
 
 
 def test_invented_time_without_a_digit_fails(kb: KnowledgeBase) -> None:
@@ -94,6 +104,49 @@ def test_time_unit_in_other_language_is_matched(kb: KnowledgeBase) -> None:
 def test_fee_claim_fails(kb: KnowledgeBase) -> None:
     d = draft("Deposits are free of charge.", "funding.how-to-deposit")
     assert not check_draft(d, kb, "are there fees?").ok
+
+
+@pytest.mark.parametrize(
+    "link",
+    [
+        "valetax.co",  # a prefix of the KB's domain, not the domain
+        "etax.com",
+        "valetax.com/pay",  # not under a KB page
+        "valetax.com/how-to-deposit/../../evil",
+        "валетакс.com",  # other letters before a Latin top-level domain
+        "оплата-валетакс.рф",
+        "valetax-pay\u3002net",  # an ideographic full stop
+    ],
+)
+def test_a_link_counts_only_as_a_kb_link_or_its_path_prefix(kb: KnowledgeBase, link: str) -> None:
+    result = check_draft(draft(f"Deposit at {link} today.", "funding.how-to-deposit"), kb, "how?")
+    assert any("links not in cited sections" in p for p in result.problems), result.problems
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Visit www.valetax.com and log in.",
+        "See https://valetax.com/how-to-deposit/ for the steps.",
+        "Log in at valetax.com.",
+        "Войдите в кабинет, т.е. в Member Area.",
+    ],
+)
+def test_kb_links_and_abbreviations_pass(kb: KnowledgeBase, reply: str) -> None:
+    result = check_draft(draft(reply, "funding.how-to-deposit", "open.steps"), kb, "how?")
+    assert not [p for p in result.problems if "links" in p], result.problems
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Войдите в личный кабинет.Затем выберите способ оплаты и сумму.",
+        "Log in to your Member Area.Затем выберите способ оплаты.",
+    ],
+)
+def test_words_joined_by_a_full_stop_are_not_a_link(kb: KnowledgeBase, reply: str) -> None:
+    # A look-alike domain mixes scripts inside one part; whole words in two scripts do not.
+    assert check_draft(draft(reply, "funding.how-to-deposit"), kb, "как пополнить счёт?").ok
 
 
 def test_unknown_or_missing_citation_fails(kb: KnowledgeBase) -> None:
@@ -186,3 +239,15 @@ def test_open_steps_count_is_supported(kb: KnowledgeBase) -> None:
 )
 def test_product_names_with_digits_are_not_claims(kb: KnowledgeBase, reply: str) -> None:
     assert check_draft(draft(reply, "funding.min-deposit"), kb, "min deposit?").ok
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["a" * 8000, "a-" * 4000, "a." * 4000, "a@" * 4000, "a.a-" * 2000, "a:/" * 2666, "aé" * 4000],
+)
+def test_link_and_name_scans_are_linear_on_adversarial_text(text: str) -> None:
+    # Twice the reply cap; a backtracking pattern took minutes on "a-" * 2000.
+    started = time.perf_counter()
+    terms.unsupported_links(text, "")
+    terms.names(text), terms.policy_words(text), terms.topics(text)
+    assert time.perf_counter() - started < 1.0

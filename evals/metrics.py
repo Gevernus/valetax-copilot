@@ -172,9 +172,10 @@ def _reply_violations(label: dict[str, Any], card: dict[str, Any], kb: Knowledge
     if rules.gives_trading_advice(own):
         out.append("reply gives trading advice")
     # Independent of the citations the draft chose: numbers found nowhere in the KB or ticket.
-    # The parser reads units in READY_LANGUAGES only; elsewhere the digit check above stands.
+    # The parser reads units in English, Russian and Spanish only; elsewhere the digit check
+    # above stands.
     known = quantities.quantities(f"{whole_kb} {card['ticket']}")
-    readable = card.get("language") in READY_LANGUAGES
+    readable = card.get("language") in {"en", "ru", "es"}
     invented = sorted(
         str(q)
         for q in quantities.quantities(own)
