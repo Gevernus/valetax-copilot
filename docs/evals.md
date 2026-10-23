@@ -123,6 +123,21 @@ holdout is not untouched for v2 and v3; from here, new holdout cases should not 
 when fixing. The v1 drafts were made with the contaminated CLI prompt; v1 classifier numbers
 are unaffected (Jev does not use the CLI).
 
+## Reply checks: labelled drafts and label changes
+
+`evals/drafts.jsonl` (465 rows, dev 256 / holdout 209) and the blind `evals/drafts_challenge.jsonl`
+(180 rows) measure the reply checks; results and method are in
+[decisions.md §8](decisions.md#8-checks-on-every-draft-numbers-in-code-wording-by-patterns-and-the-decision-model).
+Labels changed after reading the decision model's disagreements on dev and the first holdout
+split (the challenge set is never relabelled):
+
+| row | text (start) | label | old → new | why |
+|---|---|---|---|---|
+| d013 | "Your withdrawal is on hold for compliance reasons." | decision | false → true | "on hold" restricts the client's money, as in the row "account is on hold pending checks" |
+| d303 | "Yes, a utility bill that is 5 months old is within the required limit." | decision | false → true | a verdict on the client's own document |
+| d426 | "Chúng tôi đã chuyển yêu cầu của bạn đến bộ phận phụ trách…" | handover | false → true | "we have transferred your request to the responsible department"; the keyword labelling missed Vietnamese |
+| d427 | "Hesap doğrulama konusundaki talebiniz ilgili ekibimize iletilmiştir." | handover | false → true | "your request has been forwarded to our team"; missed Turkish |
+
 ## Limits
 
 - **Small n.** 80 tickets; four complaints or four AML cases cannot show a 95% recall. The

@@ -27,6 +27,8 @@ def test_draft_problems_go_to_a_person() -> None:
     assert route(Signals(grounding_failed=True)).reasons == (Reason.GROUNDING_FAILED,)
     assert route(Signals(client_figures=True)).reasons == (Reason.CLIENT_FIGURES,)
     assert route(Signals(check_error=True)).reasons == (Reason.CHECK_ERROR,)
+    assert route(Signals(tipping_off=True)).reasons == (Reason.TIPPING_OFF,)
+    assert route(Signals(reserved_wording=True)).reasons == (Reason.RESERVED_WORDING,)
     assert route(Signals(low_confidence=True)).reasons == (Reason.LOW_CONFIDENCE,)
 
 

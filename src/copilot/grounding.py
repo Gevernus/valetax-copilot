@@ -1,10 +1,11 @@
 """Deterministic check of a draft against the sections it cites. No model involved.
 
 A draft fails when it cites nothing or an unknown section; when a number with its unit or
-currency ("48 hours", "a business day", "$10") or a fee/guarantee claim appears in neither the
-cited sections nor the client's message; or when it gives trading advice, announces a decision,
-names a compliance check or says the case was passed on. Only the cited sections support policy: what the draft
-takes from the client's message alone is listed in `client_figures`, and a person checks it.
+currency ("48 hours", "$10"), a time unit ("within the hour") or a fee/guarantee claim appears
+in neither the cited sections nor the client's message; or when it gives trading advice. Only
+the cited sections support policy: what the draft takes from the client's message alone is
+listed in `client_figures`, and a person checks it. What a reply must not say whatever the
+sources say (a decision, a compliance check, a handover) is reply_guard.py.
 """
 
 from dataclasses import dataclass
@@ -46,6 +47,19 @@ def check_draft(draft: Draft, kb: KnowledgeBase, ticket: str) -> GroundingResult
         problems.append(f"numbers not in cited sections: {', '.join(invented)}")
     from_client = [str(q) for q in echoed]
 
+    # A time unit without a number is a claim too: "within the hour", "a couple of days".
+    extra_units = quantities.time_units(reply) - quantities.time_units(sources)
+    ticket_units = quantities.time_units(ticket)
+    from_client += [
+        quantities.unit_label(u)
+        for u in sorted(extra_units & ticket_units - {q.unit for q in echoed})
+    ]
+    if extra_units - ticket_units:
+        invented_units = ", ".join(
+            quantities.unit_label(u) for u in sorted(extra_units - ticket_units)
+        )
+        problems.append(f"time units not in cited sections: {invented_units}")
+
     claims = [c for c in rules.policy_claims(reply) if c.lower() not in sources.lower()]
     from_client += [c for c in claims if c.lower() in ticket.lower()]
     unsupported = [c for c in claims if c.lower() not in ticket.lower()]
@@ -54,10 +68,4 @@ def check_draft(draft: Draft, kb: KnowledgeBase, ticket: str) -> GroundingResult
 
     if rules.gives_trading_advice(reply):
         problems.append("reply contains trading advice")
-    if rules.announces_decision(reply):
-        problems.append("reply announces a decision reserved for a person")
-    if rules.tips_off(reply):
-        problems.append("reply names a compliance check")
-    if rules.claims_handover(reply):
-        problems.append("reply says the case was passed on")
     return GroundingResult(tuple(problems), tuple(from_client))

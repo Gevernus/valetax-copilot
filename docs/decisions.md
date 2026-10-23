@@ -79,48 +79,87 @@ backend does not enforce the schema.
 ## 8. Checks on every draft: numbers in code, wording by patterns and the decision model
 
 **Decision.** A draft is withheld when it has no citations; when a number with its unit or
-currency ("48 hours", "a business day", "$10"), or a fee or guarantee claim, appears in neither
-the cited sections nor the client's message; or when it gives trading advice, announces a
-decision on the client's case, names a compliance, fraud or security check, or says the case
-was passed on. These run on every shown draft, not only on tickets flagged as complaints, KYC or
-AML, so a missed flag does not let an outcome through. Only the cited sections support policy:
+currency ("48 hours", "$10"), a time unit without a number ("within the hour"), or a fee or
+guarantee claim appears in neither the cited sections nor the client's message; or when it
+gives trading advice, announces a decision on the client's case, names a compliance, fraud or
+security check, or says the case was passed on. These run on every draft, not only on tickets
+flagged as complaints, KYC or AML, so a missed flag does not let an outcome through. Only the cited sections support policy:
 a figure the draft takes from the client's message alone ("3 days ago") keeps the draft
 visible, is listed on the card, and routes the ticket to a person (`client_figures`). If a
 check cannot run, the draft is withheld (`check_error`).
-**How.** Numbers are compared in code (`quantities.py`): each with its unit or currency, so
-"$1,000" is not "$1", "3 days" is not "3 hours" or "3 business days", "8 €" is not "8 USD", and
-a bare "8" is not "8 USD". A number with a unit the tables do not know ("2 AUD", "₹2", "2
-trading days") is supported by nothing, step numbers ("Step 2") support nothing, and a locale-
-ambiguous "1,000" needs a number with the same readings. Units are read in every language the
-detector returns. Wording is checked in two layers: precise patterns (`rules.py`: "your
-withdrawal was rejected", "мы одобрили", "has been passed to") and three typed questions on
-the reply (`classify/questions.py: REPLY`) asked of the same decision model as the ticket
-questions, withholding at P(yes) ≥ 0.5.
-**Why two layers.** Measured on `evals/drafts.jsonl`: 465 labelled drafts and sentences (real
-drafts from every saved run, both review panels' probes, and paraphrases written before the
-checks were changed); thresholds and question wording were set on the dev split only, and the
-holdout is frozen by a hash test (`evals/run_drafts.py`, results in `evals/results/drafts-*`).
+**How.** Numbers are compared in code with their unit or currency (`quantities.py`, whose
+docstring lists what is read and what fails closed): a number is supported only by the same
+value with the same unit, a step number only by a step number, and an unknown unit by nothing.
+Wording is checked by frozen patterns (`rules.py`) and three typed questions on the reply asked
+of the decision model (`reply_guard.py`, P(yes) ≥ 0.5).
+**The number layer, measured.** It is a frozen deterministic floor, not a parser of meaning;
+its measured property is the blind figures set (`evals/figures_challenge.jsonl`, 200 drafts with
+their cited sections and tickets, 91 with an unsupported figure, written by a separate agent that
+never saw the code, frozen by hash, run once with `evals/run_figures.py`, not tuned on after).
+The writer counts a correct KB figure restated in another unit ("within an hour" for 60
+minutes) or taken from an uncited section as unsupported, and the same value as a word ("six
+months") as supported.
 
-| holdout (227 rows) | patterns only | patterns + Jev |
+| figures set | recall | precision |
 |---|---|---|
-| decision recall | 34% (10/29) | 100% (29/29, 88–100%) |
-| compliance-check recall | 38% (5/13) | 100% (13/13, 77–100%) |
-| handover recall | 72% (33/46) | 100% (46/46, 92–100%) |
-| any of the three: recall / precision | 55% / 100% | 100% (88/88, 96–100%) / 97% (88/91) |
+| withheld, all 200 | 91% (83/91, 84–96%) | 95% (83/87, 89–98%) |
+| en / ru-es / other | 33/38 / 26/27 / 24/26 | 33/36 / 26/27 / 24/24 |
+| sent to a person (withheld, or shown with figures only from the ticket) | 93% (85/91, 86–97%) | 85% (85/100, 77–91%) |
 
-Patterns alone missed paraphrases ("As discussed, your withdrawal has been approved",
-"Penarikan Anda telah disetujui", "Ya trasladamos su consulta al equipo de pagos"); an earlier attempt to widen them and excuse
-conditional sentences let "After reviewing your documents, we have approved…" through.
-**Limits.** Patterns and a classifier, not proof. The set is small (29 decisions, 13
-compliance checks in the holdout), labelled by one person, and the handover positives are
-mostly one template ("passed to the responsible team"); four labels were corrected after
-reading the model's disagreements, two of them in the holdout. Over-caution observed: "glad
-your withdrawal arrived", "after verification is completed, you're all set" and a future "I
-will pass your question" can be withheld. A paraphrased unsupported claim without a number
-("withdrawals are usually quick") passes. The reply check adds one decision-model call (about
-0.3 s) per shown draft.
+Missed (shown as ready): "overnight", "by Friday", "Withdrawals are instant" from an uncited
+section, "полугода" for the KB's 6 months, "24 horas úteis" for 24 hours, "一天内"; two figures
+echoed from the ticket as policy ("within 2 days", "within 5 hours") are not withheld but do go
+to a person. Withheld though supported: "Credit time (minutes): 60", a ticket reference
+"#48213", the client's own date "1 November", and "1 к 2000" for 1:2000. The 11 further
+"sent to a person" alarms are client figures the draft attributes to the client ("your 300 USD
+withdrawal"); the check cannot tell attribution from assertion and sends them to a person by
+design. Disagreements with the writer's labels are listed here, not relabelled (results in
+`evals/results/figures_challenge-check_draft.md`).
+**Why the decision model, and what the patterns are for.** Measured with
+`evals/run_drafts.py` (results in `evals/results/drafts-*` and `drafts_challenge-*`, threshold 0.5,
+jev-1.14.0, questions `reply-v2`). Headline: the blind challenge set, 180 rows written by a
+separate agent that never saw the patterns, the questions or the drafts set, frozen by hash,
+run once:
+
+| challenge, 180 rows: recall / precision | patterns only | Jev only | patterns + Jev |
+|---|---|---|---|
+| decision | 7/50 / 7/7 | 50/50 (93–100%) / 50/53 | 50/50 / 50/53 |
+| compliance check | 15/34 / 15/15 | 34/34 (90–100%) / 34/34 | 34/34 / 34/34 |
+| handover | 9/34 / 9/9 | 34/34 (90–100%) / 34/35 | 34/34 / 34/35 |
+| any of the three | 27/93 (29%) / 27/27 | 93/93 (96–100%) / 93/94 | 93/93 / 93/94 |
+
+On our own `evals/drafts.jsonl` (465 rows: drafts from every saved run split by ticket, both
+review panels' probes in dev, paraphrases written before the checks changed in holdout; dev
+256 / holdout 209, holdout frozen by hash) the holdout agrees: patterns 55% recall, Jev only
+and patterns + Jev 100% (87/87) at 97% precision. The patterns add one dev row the model
+misses ("Your account has not been verified", p = 0.41) and nothing on holdout or challenge.
+They stay because they cost nothing, still run when the model is disabled
+(`--reply-checker none`, recorded in the trace) or the draft already failed the source check,
+and never raised a false alarm on dev. They
+are a frozen, model-free floor: they are not widened. A new miss becomes a dev row in
+`evals/drafts.jsonl` and, if needed, a change to the question wording, measured on dev and
+then once on holdout.
+**Limits.** A classifier and patterns, not proof. Both sets are synthetic and small (50
+decisions, 34 checks, 34 handovers in the challenge set); the drafts set was labelled by one
+person who also wrote the question wording, and four of its labels were corrected after reading
+the model's disagreements ([evals.md](evals.md#reply-checks-labelled-drafts-and-label-changes)).
+Its handover positives are mostly one template ("passed to the responsible team") repeated
+across tickets. Observed over-caution: a future "we will send your request to the team"
+(challenge c125, drafts d317) and "after verification is completed, you're all set" are
+withheld. Disagreements on the challenge set, kept as labelled: c046 (a completed handover the
+model also reads as a decision, p = 0.51), c058 and c166 ("flagged" payments the model also
+reads as a decision, p = 0.53 and 0.67). Not covered: a paraphrased timeline or amount without
+a number or a unit word ("withdrawals are usually quick", "processed overnight"); numbers
+spelled out in languages other than en, ru, es and id ("trong hai ngày" is caught only by its
+unit word); and digitless times in Chinese and Thai ("一天内", "当天处理", "ภายในวันเดียวกัน"),
+kept as strict expected failures in `tests/test_quantities.py`. Trading advice in a draft is
+still checked by a pattern only (`rules.gives_trading_advice`); the fixed decline is what the
+client sees for an advice request. The reply check adds one decision-model call (about 0.3 s)
+per draft that passed the source check; only Jev is measured, and an unmeasured backend is
+refused as a reply checker.
 **Rejected.** An LLM judge: a second generative model with its own errors, latency and cost;
 the typed questions return probabilities on the contract the ticket classifier already uses.
+An LLM backend for the REPLY questions answers with p = 0 or 1 and is not measured.
 
 ## 9. Hard rules live in code
 

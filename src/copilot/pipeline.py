@@ -16,6 +16,7 @@ from copilot.kb import KnowledgeBase
 from copilot.language import detect_language
 from copilot.llm import LlmError, LlmUsage
 from copilot.masking import mask_pii
+from copilot.reply_guard import check_reply
 from copilot.routing import CONSEQUENCE, Reason, Signals, Thresholds, route
 
 
@@ -91,13 +92,20 @@ class Copilot:
         classifier: Classifier,
         drafter: Drafter,
         thresholds: Thresholds | None = None,
-        reply_checker: Classifier | None = None,
+        *,
+        reply_checker: Classifier | None,
     ) -> None:
+        """`reply_checker` asks the REPLY questions of each shown draft; None is a deliberate
+        choice (patterns only), recorded in every trace line."""
+        if classifier.questions is not TICKET:
+            raise ValueError("the ticket classifier must answer the TICKET questions")
+        if reply_checker is not None and reply_checker.questions is not REPLY:
+            raise ValueError("the reply checker must answer the REPLY questions")
         self.kb = kb
         self.classifier = classifier
         self.drafter = drafter
         self.thresholds = thresholds or Thresholds()
-        self.reply_checker = reply_checker  # the REPLY questions; None skips them
+        self.reply_checker = reply_checker
 
     def process(self, ticket_id: str, text: str) -> Card:
         timings: dict[str, int] = {}
@@ -142,7 +150,9 @@ class Copilot:
         problems: tuple[str, ...] = ()
         client_figures: tuple[str, ...] = ()
         check_error = False
-        reply_check: dict[str, Any] = {}
+        reply_problems: tuple[str, ...] = ()
+        reply_reasons: frozenset[Reason] = frozenset()
+        reply_check: dict[str, Any] = {"status": "not run"}
         if not flagged["injection"]:
             # A reserved case gets the fixed acknowledgement below; the model writes nothing.
             mode = Mode.ACKNOWLEDGE if reserved else Mode.ANSWER
@@ -167,12 +177,22 @@ class Copilot:
                         problems = check.problems
                         # Only a shown draft needs its client figures checked.
                         client_figures = () if problems else check.client_figures
-                        if self.reply_checker and not problems and not draft.abstain:
-                            reply_check, problems = self._check_reply(
-                                self.reply_checker, draft.reply
-                            )
+                        if draft.abstain:
+                            reply_check = {"status": "skipped: abstained"}
+                        else:
+                            # Patterns on every draft, so the reason is not lost; the model
+                            # only on a draft that could still be shown.
+                            checker = None if problems else self.reply_checker
+                            guard = check_reply(draft.reply, checker, self.thresholds.reply_flag)
+                            reply_problems, reply_reasons = guard.problems, guard.reasons
+                            reply_check = guard.record
+                            if problems and self.reply_checker is not None:
+                                reply_check = {"status": "skipped: grounding"}
+                            if reply_problems:
+                                client_figures = ()
                     except Exception:  # noqa: BLE001 - a check that cannot run must withhold, not crash
                         check_error = True
+                        reply_check = {"status": "error"}
 
         cited = [c for c in (draft.citations if draft else []) if c in self.kb.sections]
         signals = Signals(
@@ -186,6 +206,8 @@ class Copilot:
             abstained=bool(draft and draft.abstain),
             unanswered=bool(draft and not draft.abstain and draft.unanswered),
             cites_conflict=any(self.kb.has_conflict(c) for c in cited),
+            tipping_off=Reason.TIPPING_OFF in reply_reasons,
+            reserved_wording=Reason.RESERVED_WORDING in reply_reasons,
             client_figures=bool(client_figures),
             grounding_failed=bool(problems),
             check_error=check_error,
@@ -196,7 +218,7 @@ class Copilot:
         parts: list[str] = []
         if mode is Mode.ACKNOWLEDGE and reserved:
             parts.append(acknowledgement(reserved, language))
-        elif draft and not draft.abstain and not problems and not check_error:
+        elif draft and not draft.abstain and not (problems or reply_problems or check_error):
             parts.append(draft.reply.strip())
         if flagged["trading_advice"] and mode:
             # Written by code, so it stands even when the model's part is withheld.
@@ -221,7 +243,7 @@ class Copilot:
             ],
             unanswered=list(draft.unanswered) if draft else [],
             abstain_reason=draft.abstain_reason if draft and draft.abstain else "",
-            problems=list(problems),
+            problems=[*problems, *reply_problems],
             client_figures=list(client_figures),
             masked=masked.counts,
             timings_ms=timings,
@@ -237,30 +259,11 @@ class Copilot:
             raw_reply=draft.reply if draft else None,
         )
 
-    def _check_reply(
-        self, checker: Classifier, reply: str
-    ) -> tuple[dict[str, Any], tuple[str, ...]]:
-        cls = checker.classify(reply)
-        p_yes = {name: round(cls.answers[name].p_yes, 3) for name in REPLY.options}
-        problems = tuple(
-            f"reply check: {_REPLY_PROBLEM[name]} (p={p:.2f})"
-            for name, p in p_yes.items()
-            if p >= self.thresholds.reply_flag
-        )
-        meta = {"backend": cls.backend, "model": cls.model, "questions_version": REPLY.version}
-        return {**meta, **p_yes}, problems
-
-
-_REPLY_PROBLEM = {
-    "decision": "announces a decision reserved for a person",
-    "check": "names a compliance check",
-    "handover": "says the case was passed on",
-}
-
 
 def _classifier_meta(cls: Classification) -> dict[str, Any]:
     return {
         "questions_version": TICKET.version,
+        "prompt_version": cls.prompt_version or None,
         "backend": cls.backend,
         "model": cls.model,
         "category_p": round(cls.answers["category"].p, 3),

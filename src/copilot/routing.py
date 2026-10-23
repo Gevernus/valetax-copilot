@@ -14,6 +14,8 @@ class Reason(StrEnum):
     LOW_CONFIDENCE = "low_confidence"
     KB_GAP = "kb_gap"
     KB_CONFLICT = "kb_conflict"
+    TIPPING_OFF = "tipping_off"
+    RESERVED_WORDING = "reserved_wording"
     CLIENT_FIGURES = "client_figures"
     GROUNDING_FAILED = "grounding_failed"
     CHECK_ERROR = "check_error"
@@ -31,6 +33,8 @@ CONSEQUENCE: dict[Reason, str] = {
     Reason.LOW_CONFIDENCE: "Classifier is unsure about the topic. Read the ticket before using the draft.",
     Reason.KB_GAP: "The help pages do not answer all of it. Fill in what is listed as unanswered.",
     Reason.KB_CONFLICT: "The cited help pages contradict each other. Confirm the current policy first.",
+    Reason.TIPPING_OFF: "The draft mentions a compliance, fraud or security check; telling the client could be tipping-off. Withheld.",
+    Reason.RESERVED_WORDING: "The draft announces a decision or a handover that only a person can make. Withheld.",
     Reason.CLIENT_FIGURES: "The draft repeats figures from the client's message that the help pages do not state. Check them before sending.",
     Reason.GROUNDING_FAILED: "The draft failed the source check and is withheld.",
     Reason.CHECK_ERROR: "The source check could not run, so the draft is withheld. Reply manually.",
@@ -64,6 +68,8 @@ class Signals:
     abstained: bool = False
     unanswered: bool = False
     cites_conflict: bool = False
+    tipping_off: bool = False
+    reserved_wording: bool = False
     client_figures: bool = False
     grounding_failed: bool = False
     check_error: bool = False
@@ -94,6 +100,8 @@ _TABLE: tuple[tuple[str, Reason], ...] = (
     ("abstained", Reason.KB_GAP),
     ("unanswered", Reason.KB_GAP),
     ("cites_conflict", Reason.KB_CONFLICT),
+    ("tipping_off", Reason.TIPPING_OFF),
+    ("reserved_wording", Reason.RESERVED_WORDING),
     ("client_figures", Reason.CLIENT_FIGURES),
     ("grounding_failed", Reason.GROUNDING_FAILED),
     ("check_error", Reason.CHECK_ERROR),

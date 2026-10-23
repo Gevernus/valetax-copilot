@@ -1,12 +1,20 @@
 """Hard rules hold in code whatever the models answer: fakes stand in for both models."""
 
+import json
 from typing import Any
 
 import pytest
+from evals.run_drafts import RESULTS
 
 from copilot import cli, pipeline, rules
-from copilot.classify import Answer, Classification
-from copilot.classify.questions import QUESTIONS, YES_NO
+from copilot.classify import (
+    MEASURED_REPLY_CHECKERS,
+    Answer,
+    Classification,
+    answers_from_probabilities,
+    make_reply_checker,
+)
+from copilot.classify.questions import QUESTIONS, REPLY, TICKET, YES_NO
 from copilot.draft import ACKNOWLEDGEMENT, TRADING_DECLINE, Drafter
 from copilot.kb import load_kb
 from copilot.llm import LlmResult, LlmUsage
@@ -15,6 +23,7 @@ from copilot.pipeline import Copilot
 
 class FakeClassifier:
     name = "fake"
+    questions = TICKET
 
     def __init__(
         self,
@@ -61,7 +70,7 @@ class FakeLlm:
 
 def make(classifier: FakeClassifier, llm: FakeLlm) -> Copilot:
     kb = load_kb()
-    return Copilot(kb, classifier, Drafter(llm, kb))
+    return Copilot(kb, classifier, Drafter(llm, kb), reply_checker=None)
 
 
 MIN_DEPOSIT = {
@@ -128,7 +137,7 @@ def test_decision_in_an_answer_is_withheld() -> None:
     llm = FakeLlm(reply="Your account has been verified now.", citations=["verify.steps"])
     card = make(FakeClassifier(category="verification"), llm).process("t", "am I verified?")
     assert card.reply is None
-    assert "grounding_failed" in card.reasons
+    assert "reserved_wording" in card.reasons
 
 
 def test_figures_only_the_client_gave_go_to_a_person(capsys: pytest.CaptureFixture[str]) -> None:
@@ -244,6 +253,7 @@ def test_a_russian_amount_in_the_ticket_does_not_break_the_card() -> None:
 
 class FakeReplyChecker:
     name = "fake"
+    questions = REPLY
 
     def __init__(self, **p_yes: float) -> None:
         self.p_yes = p_yes
@@ -272,7 +282,7 @@ def test_reply_questions_withhold_a_paraphrased_decision() -> None:
     card = with_reply_checker(checker, llm).process("t", "is my withdrawal ok?")
     assert checker.seen == ["After reviewing everything, the withdrawal went through."]
     assert card.reply is None
-    assert card.reasons == ["grounding_failed"]
+    assert card.reasons == ["reserved_wording"]
     assert card.trace()["reply_check"]["decision"] == 0.9
 
 
@@ -293,3 +303,73 @@ def test_reply_questions_failing_withhold_the_draft() -> None:
 
 def test_decline_does_not_point_to_an_unconfirmed_document() -> None:
     assert all("Risk" not in text and "рисков" not in text for text in TRADING_DECLINE.values())
+
+
+def test_a_malformed_reply_answer_withholds_the_draft() -> None:
+    class Malformed(FakeReplyChecker):
+        def classify(self, text: str) -> Classification:
+            raw = {name: {"yes": float("nan"), "no": float("nan")} for name in REPLY.options}
+            return Classification(answers_from_probabilities(raw, REPLY), "fake", "fake")
+
+    card = with_reply_checker(Malformed(), FakeLlm(**MIN_DEPOSIT)).process("t", "Min deposit?")
+    assert card.reply is None
+    assert card.reasons == ["check_error"]
+
+
+def test_patterns_only_is_recorded_not_silent() -> None:
+    card = make(FakeClassifier(), FakeLlm(**MIN_DEPOSIT)).process("t", "Min deposit?")
+    assert card.trace()["reply_check"] == {"status": "patterns only"}
+
+
+def test_question_sets_cannot_be_swapped() -> None:
+    kb = load_kb()
+    with pytest.raises(ValueError, match="TICKET"):
+        Copilot(kb, FakeReplyChecker(), Drafter(FakeLlm(), kb), reply_checker=None)
+    with pytest.raises(ValueError, match="REPLY"):
+        Copilot(kb, FakeClassifier(), Drafter(FakeLlm(), kb), reply_checker=FakeClassifier())
+
+
+def test_an_unmeasured_reply_checker_is_refused() -> None:
+    with pytest.raises(ValueError, match="not measured"):
+        make_reply_checker("llm")
+    assert make_reply_checker("none") is None
+    for name in MEASURED_REPLY_CHECKERS:
+        meta = json.loads((RESULTS / f"drafts-patterns+{name}.json").read_text())["meta"]
+        assert meta["questions_version"] == REPLY.version  # measured with today's questions
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "The minimum deposit for a Standard account is 4.",  # a bare figure vs "Step 4"
+        "The fee is 3 AUD per step.",  # an unknown unit next to a step word
+        "Минимальный депозит 4 шага.",  # a count of steps vs "Step 4"
+    ],
+)
+def test_the_help_page_steps_never_support_an_amount(reply: str) -> None:
+    llm = FakeLlm(reply=reply, citations=["deposit.steps"])
+    card = make(FakeClassifier(), llm).process("t", "What is the minimum deposit?")
+    assert card.route != "auto"
+    assert card.reply is None
+
+
+def test_patterns_keep_their_reason_when_grounding_also_fails() -> None:
+    llm = FakeLlm(
+        reply="Your account is under compliance review for 3 days.",
+        citations=["funding.withdrawal-pending"],
+    )
+    checker = FakeReplyChecker()
+    card = with_reply_checker(checker, llm).process("t", "why pending?")
+    assert {"tipping_off", "grounding_failed"} <= set(card.reasons)
+    assert checker.seen == []  # no model call for a draft that is withheld anyway
+    assert card.trace()["reply_check"] == {"status": "skipped: grounding"}
+
+
+def test_reply_check_status_per_branch() -> None:
+    abstained = make(FakeClassifier(), FakeLlm(abstain=True, abstain_reason="gap")).process(
+        "t", "?"
+    )
+    assert abstained.trace()["reply_check"] == {"status": "skipped: abstained"}
+    checked = with_reply_checker(FakeReplyChecker(), FakeLlm(**MIN_DEPOSIT)).process("t", "Min?")
+    assert checked.trace()["reply_check"]["status"] == "checked"
+    assert "input_tokens" in checked.trace()["reply_check"]

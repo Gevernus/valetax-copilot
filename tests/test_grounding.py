@@ -1,7 +1,5 @@
 import pytest
-from evals.run_drafts import load_drafts
 
-from copilot import rules
 from copilot.draft import Draft
 from copilot.grounding import check_draft
 from copilot.kb import KnowledgeBase, load_kb
@@ -83,7 +81,7 @@ def test_invented_time_without_a_digit_fails(kb: KnowledgeBase) -> None:
         "Withdrawals are usually processed within a business day.", "funding.withdrawal-pending"
     )
     result = check_draft(d, kb, "how long do withdrawals take?")
-    assert any("1 business day" in p for p in result.problems)
+    assert any("time units" in p and "business days" in p for p in result.problems)
 
 
 def test_time_unit_in_other_language_is_matched(kb: KnowledgeBase) -> None:
@@ -104,59 +102,6 @@ def test_unknown_or_missing_citation_fails(kb: KnowledgeBase) -> None:
 def test_trading_advice_in_reply_fails(kb: KnowledgeBase) -> None:
     d = draft("We recommend you buy gold while it is low.", "open.leverage")
     assert not check_draft(d, kb, "should I buy gold?").ok
-
-
-def test_decision_fails_in_any_draft(kb: KnowledgeBase) -> None:
-    # Answer mode too: the KYC flag may have been missed.
-    d = draft("Your account has been verified, you can withdraw now.", "verify.steps")
-    result = check_draft(d, kb, "is my account verified yet?")
-    assert any("decision" in p for p in result.problems)
-
-
-@pytest.mark.parametrize(
-    ("reply", "kind"),
-    [
-        ("Your withdrawal has been rejected.", "decision"),
-        ("Your account is verified.", "decision"),
-        ("We've successfully verified your account.", "decision"),
-        ("Your withdrawal is now approved.", "decision"),
-        ("Мы одобрили вашу заявку.", "decision"),
-        ("Ваш счёт разблокирован.", "decision"),
-        ("Мы вернём вам средства.", "decision"),
-        ("Su retiro fue aprobado.", "decision"),
-        ("Hemos aprobado su solicitud.", "decision"),
-        ("Your account is under compliance review.", "compliance"),
-        ("This is part of an AML check.", "compliance"),
-        ("Ваш счёт проверяет служба безопасности.", "compliance"),
-        ("Estamos revisando el origen de sus fondos.", "compliance"),
-        ("Your case has been passed to the responsible team.", "passed on"),
-        ("We have forwarded your request.", "passed on"),
-        ("Ваша жалоба передана ответственной команде.", "passed on"),
-        ("Hemos trasladado su caso.", "passed on"),
-    ],
-)
-def test_plain_wordings_are_caught_by_the_patterns(
-    kb: KnowledgeBase, reply: str, kind: str
-) -> None:
-    result = check_draft(draft(reply, "funding.withdrawal-pending"), kb, "status?")
-    assert any(kind in p for p in result.problems)
-
-
-def test_patterns_raise_no_false_alarm_on_labelled_drafts() -> None:
-    # The patterns are the cheap first layer and must be precise; the reply questions
-    # (classify/questions.py: REPLY) take the paraphrases. Measured in evals/run_drafts.py.
-    checks = {
-        "decision": rules.announces_decision,
-        "check": rules.tips_off,
-        "handover": rules.claims_handover,
-    }
-    false_alarms = [
-        (row["id"], label)
-        for row in load_drafts()
-        for label, check in checks.items()
-        if check(row["text"]) and not row[label]
-    ]
-    assert false_alarms == []
 
 
 def test_numbered_list_is_not_a_claim(kb: KnowledgeBase) -> None:
@@ -191,13 +136,44 @@ def test_currency_must_match_the_source(kb: KnowledgeBase, reply: str) -> None:
         ("A fee of 2 AUD applies to each deposit.", ["deposit.steps"]),
         ("The minimum deposit is 3 BTC.", ["deposit.steps"]),
         ("Account opening takes up to 4 working hours.", ["open.steps", "open.time"]),
+        ("The fee is 3 pounds.", ["open.steps"]),
         ("Deposits are credited within a business day.", ["funding.credit-time"]),
+        ("Вывод средств обрабатывается в течение часа.", ["funding.withdrawal-pending"]),
+        ("Withdrawals are processed the same business day.", ["funding.withdrawal-pending"]),
+        ("提款将在一小时内处理。", ["funding.withdrawal-pending"]),
+        ("Withdrawals usually take a couple of days.", ["funding.withdrawal-pending"]),
     ],
 )
-def test_unknown_units_and_spelled_units_are_not_supported_by_step_numbers(
+def test_invented_amounts_and_timelines_are_withheld(
     kb: KnowledgeBase, reply: str, citations: list[str]
 ) -> None:
     assert not check_draft(draft(reply, *citations), kb, "question").ok
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Step 1: Log in to your Member Area. Step 2: Select your preferred payment channel.",
+        "الخطوة 1: سجل الدخول. الخطوة 2: اختر قناة الدفع.",
+        "第1步：登录会员区。第2步：选择付款渠道。",
+        "Крок 1: увійдіть до кабінету. Крок 2: оберіть канал.",
+        "चरण 1: लॉग इन करें। चरण 2: भुगतान चैनल चुनें।",
+        "ขั้นตอนที่ 1 เข้าสู่ระบบ ขั้นตอนที่ 2 เลือกช่องทาง",
+        "The 1st step is to log in; the 2nd step is to pick a channel.",
+        "Шаг 1: войдите. Шаг 2: выберите канал.",
+        "Follow steps 1-4.",
+        "Шаги 1–4: войдите и выберите способ оплаты.",
+        "Step #2: Select your preferred payment channel.",
+        "Шаг №2: выберите способ оплаты.",
+        "Bước thứ 2: chọn kênh thanh toán.",
+        "Langkah ke-2: pilih saluran pembayaran.",
+        "2-й шаг: выберите способ оплаты.",
+        "Paso 2: seleccione su canal de pago preferido.",
+        "In step 2, select your preferred payment channel.",
+    ],
+)
+def test_step_lists_in_any_language_pass(kb: KnowledgeBase, reply: str) -> None:
+    assert check_draft(draft(reply, "deposit.steps"), kb, "how do I deposit?").ok
 
 
 @pytest.mark.parametrize(
@@ -210,3 +186,25 @@ def test_unknown_units_and_spelled_units_are_not_supported_by_step_numbers(
 )
 def test_greetings_are_not_time_claims(kb: KnowledgeBase, reply: str) -> None:
     assert check_draft(draft(reply, "funding.how-to-deposit"), kb, "how to deposit?").ok
+
+
+def test_open_steps_count_is_supported(kb: KnowledgeBase) -> None:
+    d = draft("You can open an account in 3 simple steps.", "open.steps")
+    assert check_draft(d, kb, "how do I open an account?").ok
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Our 24/7 support team can help. The minimum deposit starts from 8 USD.",
+        "Log in to MT5 and enable 2FA. The minimum deposit starts from 8 USD.",
+        "Your card must support 3DS. The minimum deposit starts from 8 USD.",
+    ],
+)
+def test_product_names_with_digits_are_not_claims(kb: KnowledgeBase, reply: str) -> None:
+    assert check_draft(draft(reply, "funding.min-deposit"), kb, "min deposit?").ok
+
+
+def test_a_figure_that_looks_like_a_list_number_is_checked(kb: KnowledgeBase) -> None:
+    d = draft("Minimum deposit: 5. You can fund via any channel.", "funding.min-deposit")
+    assert not check_draft(d, kb, "minimum deposit?").ok

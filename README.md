@@ -46,7 +46,7 @@ and open the file; the cards are embedded, no server needed.
 Evals and tests:
 
 ```bash
-uv run pytest                                              # 47 tests, no network, fake models
+uv run pytest                                              # no network, fake models
 uv run python -m evals.run run --classifier jev --model haiku   # golden set, one configuration
 uv run python -m evals.run report --date 2026-10-22            # re-score saved cards, no model calls
 ```

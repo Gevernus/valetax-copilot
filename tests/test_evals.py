@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 from evals import metrics
 from evals.run import RESULTS, load_labels
-from evals.run_drafts import load_drafts
+from evals.run_drafts import SETS, load_drafts
 
 from copilot.kb import load_kb
 
@@ -36,4 +36,17 @@ def test_drafts_holdout_is_frozen() -> None:
     # The reply checks are tuned on the dev split only. A changed holdout row needs a new split.
     holdout = [r for r in load_drafts() if r["split"] == "holdout"]
     digest = hashlib.sha256(json.dumps(holdout, ensure_ascii=False, sort_keys=True).encode())
-    assert digest.hexdigest() == "c76ead634bace4b47c9069f1bd5fd3df0da2ba714b49c2ae1c97636554a68e1d"
+    assert digest.hexdigest() == "8fd77a6cc93fcf29649bdccb3b013369d80cb24eccc67f46edf024578fd5fd93"
+
+
+def test_drafts_challenge_set_is_frozen() -> None:
+    # Written by a separate agent that never saw the checks; run once, never tuned on, and a
+    # row that looks mislabelled is reported as a disagreement, not relabelled.
+    digest = hashlib.sha256(SETS["drafts_challenge"].read_bytes()).hexdigest()
+    assert digest == "5817ba50514466f4a2d1e455231f04f549a50a9a61f17d313b8016b1e186b9bc"
+
+
+def test_figures_challenge_set_is_frozen() -> None:
+    # Blind set for the number layer: run once, never tuned on or relabelled.
+    digest = hashlib.sha256((RESULTS.parent / "figures_challenge.jsonl").read_bytes()).hexdigest()
+    assert digest == "f248bcdcfda1e243ba6358901eef96e84c02c54a8ec2e5eaf72790e9b16d2d35"

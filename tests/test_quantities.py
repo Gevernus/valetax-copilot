@@ -1,6 +1,6 @@
 import pytest
 
-from copilot.quantities import Quantity, quantities, supported
+from copilot.quantities import Quantity, quantities, supported, time_units
 
 
 def q(*values: str, unit: str | None = None) -> Quantity:
@@ -146,14 +146,11 @@ def test_a_range_binds_the_unit_to_both_ends(text: str, expected: set[Quantity])
     assert quantities(text) == expected
 
 
-def test_list_markers_and_numbers_inside_words_are_skipped() -> None:
-    assert quantities("1. Log in.\n2. Select MT5 or TRC20.") == set()
-
-
 def test_a_number_is_supported_only_with_its_unit() -> None:
     evidence = quantities("Completed within 48 hours. Open an account in 3 simple steps.")
     assert supported(q("48", unit="hour"), evidence)
-    assert supported(q("3"), evidence)
+    assert supported(q("3", unit="steps"), evidence)
+    assert not supported(q("3"), evidence)  # a step count supports only a step count
     assert not supported(q("48", unit="day"), evidence)
     assert not supported(q("3", unit="day"), evidence)
     # A bare number is a different claim from the same value with a unit: "8" vs "8 USD".
@@ -175,39 +172,6 @@ def test_ambiguous_number_needs_the_same_readings() -> None:
 
 
 @pytest.mark.parametrize(
-    ("text", "expected"),
-    [
-        ("within a business day", q("1", unit="business_day")),
-        ("in an hour", q("1", unit="hour")),
-        ("one day", q("1", unit="day")),
-        ("en un día", q("1", unit="day")),
-        ("через один день", q("1", unit="day")),
-    ],
-)
-def test_an_article_before_a_unit_is_one(text: str, expected: Quantity) -> None:
-    assert quantities(text) == {expected}
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        "Min. deposit",
-        "Good day, thanks for your message.",
-        "Buenos días, gracias.",
-        "Нужно добавить документ. Добро пожаловать!",
-        "Bây giờ bạn có thể nạp tiền.",
-        "您今天可以登录会员区。",
-        "周末也可以提交。",
-        "بشكل عام، يمكنك الإيداع.",
-        "Silakan kirim dokumen hari ini.",
-        "часто задаваемые вопросы",
-    ],
-)
-def test_a_unit_word_alone_is_not_a_claim(text: str) -> None:
-    assert quantities(text) == set()
-
-
-@pytest.mark.parametrize(
     "text",
     [
         "A fee of 2 AUD applies.",
@@ -219,18 +183,129 @@ def test_a_unit_word_alone_is_not_a_claim(text: str) -> None:
         "Deposits are credited within 2 trading days.",
         "You can withdraw up to 4 lakh per day.",
         "about 2 billion VND",
+        "The fee is 3 pounds.",
+        "3 Pfund",
+        "a 2 percentage-point fee",
+        "Withdrawals take 2 cycles.",
+        "存款手续费为3英镑。",
+        "ค่าธรรมเนียมการฝาก 2 ปอนด์",
+        "存款将在3个钟头内到账。",
+        "3  pounds",
+        "3 more pounds",
+        # Next to a step word, a number with an unknown unit is still unknown, not a step.
+        "The fee is 3 AUD per step.",
+        "A fee of 2 pounds per step applies.",
+        "Комиссия 2 фунта за шаг.",
+        "Step 2 – 3 AUD is the minimum for this channel.",
+        "Step 4 - 2 pounds fee is charged.",
+        "Шаг 2 — 3 фунта комиссии за пополнение.",
+        "Step 3 – 4 minimum.",
+        "Step 1 to 4 AUD.",
+        "Paso 2 - 3 libras de comisión.",
     ],
 )
 def test_a_number_with_an_unknown_unit_is_never_supported(text: str) -> None:
-    claims = quantities(text)
-    assert claims
-    assert all(q.unit == "unknown" for q in claims)
-    assert not any(supported(c, claims) for c in claims)
+    unknown = {c for c in quantities(text) if c.unit != "step"}
+    assert unknown
+    assert {c.unit for c in unknown} == {"unknown"}
+    assert not any(supported(c, quantities(text)) for c in unknown)
 
 
-def test_step_numbers_and_list_markers_are_not_claims() -> None:
-    assert quantities("Step 1: Log in. Step 2: Select. Шаг 3: готово. Paso 4.") == set()
-    assert quantities("To deposit: 1. Log in. 2. Select a channel. 3) Enter the amount.") == set()
+def test_a_ratio_carries_no_unit() -> None:
+    assert quantities("up to 1:2000 depending on account types") == {q("1:2000")}
+    assert quantities("We offer 1:2000 leverage on 1:500 accounts.") == {q("1:2000"), q("1:500")}
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("To deposit: 1. Log in. 2. Select a channel. 3) Enter the amount.", set()),
+        ("1. Log in.\n2. Select MT5 or TRC20.", set()),
+        # A list is a sequence from 1; a lone "5." or "(3)" is a figure.
+        ("Minimum deposit: 5. You can fund via any channel.", {q("5")}),
+        ("Withdrawal fee: 2. It is charged on every withdrawal.", {q("2")}),
+        ("Комиссия за вывод: 2. Она взимается с каждого вывода.", {q("2")}),
+        ("The fee is (3) per withdrawal.", {q("3")}),
+        ("Fee: 1. It is charged on every withdrawal.", {q("1")}),
+    ],
+)
+def test_list_markers_are_a_sequence(text: str, expected: set[Quantity]) -> None:
+    assert quantities(text) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "units"),
+    [
+        ("Вывод средств обрабатывается в течение часа.", {"hour"}),
+        ("Withdrawals are processed within the hour.", {"hour"}),
+        ("Withdrawals are processed the same business day.", {"business_day", "day"}),
+        ("Вывод придёт через неделю.", {"week"}),
+        ("Вывод обрабатывается за сутки.", {"day"}),
+        ("提款将在一小时内处理。", {"hour"}),
+        ("Les retraits sont traités en une heure.", {"hour"}),
+        ("Auszahlungen werden innerhalb einer Stunde bearbeitet.", {"hour"}),
+        ("Withdrawals usually take a couple of days.", {"day"}),
+        ("El retiro se procesa en una hora.", {"hour"}),
+        ("Penarikan diproses dalam sehari.", {"day"}),
+        ("Para çekme işlemi bir saat içinde tamamlanır.", {"hour"}),
+        ("تتم معالجة السحب خلال ساعة.", {"hour"}),
+        ("Rút tiền được xử lý trong một giờ.", {"hour"}),
+        ("Rút tiền mất trong hai ngày.", {"day"}),
+        ("निकासी एक घंटे में संसाधित होती है।", {"hour"}),
+        ("Вывод займёт полчаса.", {"hour"}),
+        ("в течение получаса", {"hour"}),
+        ("Le retrait est traité dans la journée.", {"day"}),
+        ("Die Auszahlung erfolgt am selben Tag.", {"day"}),
+        ("innerhalb eines Tages", {"day"}),
+        ("تتم معالجة السحب في نفس اليوم.", {"day"}),
+        ("تتم معالجة السحب خلال الساعة.", {"hour"}),
+        ("تتم معالجة السحب في اليوم التالي.", {"day"}),
+        ("تتم معالجة السحب خلال الأسبوع.", {"week"}),
+        ("تصل الأموال خلال الشهر.", {"month"}),
+        ("تتم معالجة السحب خلال الساعات القادمة.", {"hour"}),
+        ("تتم معالجة السحب خلال اليوم.", {"day"}),
+        ("تتم معالجة السحب في ذات اليوم.", {"day"}),
+        ("تصل الأموال بحلول نهاية اليوم.", {"day"}),
+        ("يتم ذلك خلال الدقائق القادمة.", {"minute"}),
+        ("يتم ذلك خلال السنة.", {"year"}),
+    ],
+)
+def test_a_time_unit_without_digits_is_still_a_claim(text: str, units: set[str]) -> None:
+    assert time_units(text) == units
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Good day, thanks for your message.",
+        "Have a nice day!",
+        "Buenos días, gracias por escribirnos.",
+        "Добрый день! Добро пожаловать.",
+        "Нужно добавить документ.",
+        "Bây giờ bạn có thể nạp tiền.",
+        "您今天可以登录会员区。",
+        "周末也可以提交。",
+        "بشكل عام، يمكنك الإيداع.",
+        "Silakan kirim dokumen hari ini.",
+        "Support is available 24/7.",
+        "Puede depositar a cualquier hora.",
+        "Min. deposit",
+        "Wait a minute, please.",
+        "Guten Tag!",
+        "Bonne journée !",
+        "Bao giờ bạn cần?",
+        "يمكنك الإيداع اليوم.",
+        "часто задаваемые вопросы",
+        "Нужно добавить документ. Добро пожаловать!",
+    ],
+)
+def test_greetings_and_idioms_are_not_claims(text: str) -> None:
+    assert time_units(text) == set()
+    assert quantities(text) == set()
+
+
+def test_a_rate_is_not_a_time_claim() -> None:
+    assert time_units("Support works 24 hours a day.") == set()
 
 
 def test_billions() -> None:
@@ -272,6 +347,63 @@ def test_quantities_read_as_text(quantity: Quantity, text: str) -> None:
     ],
 )
 def test_units_in_every_detected_language(text: str, expected: Quantity) -> None:
-    # A unit the parser cannot read leaves the number bare, and a bare number does not match
-    # "8 USD"; so every language `language.py` can return needs its units here.
+    # A unit the tables cannot read makes the number unsupported, so every language
+    # `language.py` can return needs its units here.
     assert quantities(text) == {expected}
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="known limit: a time without a digit in Chinese or Thai, written with a numeral word "
+    "or without a separate unit word, is not read (decisions.md §8)",
+)
+@pytest.mark.parametrize(
+    "text",
+    [
+        "一天内到账。",
+        "三天内处理。",
+        "一周内处理。",
+        "当天处理。",
+        "次日到账。",
+        "ภายในหนึ่งวัน",
+        "ภายในวันเดียวกัน",
+    ],
+)
+def test_digitless_chinese_and_thai_timelines(text: str) -> None:
+    assert time_units(text)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Step 2: Select a channel.", {q("2", unit="step")}),
+        ("Шаг 3: готово.", {q("3", unit="step")}),
+        ("الخطوة 1: سجل الدخول", {q("1", unit="step")}),
+        ("第1步：登录", {q("1", unit="step")}),
+        ("ขั้นตอนที่ 1 เข้าสู่ระบบ", {q("1", unit="step")}),
+        ("चरण 1: लॉग इन करें", {q("1", unit="step")}),
+        ("Крок 1: увійдіть", {q("1", unit="step")}),
+        ("the 1st step", {q("1", unit="step")}),
+        ("2-й шаг: выберите способ оплаты", {q("2", unit="step")}),
+        ("Step #2: select", {q("2", unit="step")}),
+        ("Шаг №2: выберите", {q("2", unit="step")}),
+        ("Bước thứ 2: chọn kênh", {q("2", unit="step")}),
+        ("Langkah ke-2: pilih saluran", {q("2", unit="step")}),
+        ("Follow steps 1-4.", {q("1", unit="step"), q("4", unit="step")}),
+        ("Шаги 1–4: войдите и выберите способ.", {q("1", unit="step"), q("4", unit="step")}),
+        ("Steps 2 – 3 are below.", {q("2", unit="step"), q("3", unit="step")}),
+        # A count of steps is a different claim from a step's number.
+        ("in 3 simple steps", {q("3", unit="steps")}),
+        ("in 3 quick and simple steps", {q("3", unit="steps")}),
+        ("в 3 простых шага", {q("3", unit="steps")}),
+        ("3 steps", {q("3", unit="steps")}),
+    ],
+)
+def test_step_numbers_and_step_counts(text: str, expected: set[Quantity]) -> None:
+    assert quantities(text) == expected
+
+
+def test_step_and_unknown_read_as_text() -> None:
+    assert str(q("2", unit="step")) == "step 2"
+    assert str(q("3", unit="steps")) == "3 steps"
+    assert str(q("3", unit="unknown")) == "3 (unit not recognised)"

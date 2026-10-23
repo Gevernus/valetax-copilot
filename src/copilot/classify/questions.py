@@ -109,7 +109,7 @@ TICKET: Final = QuestionSet(
 # must not decide a reserved case, tip the client off about a check, or claim a handover that
 # has not happened; the patterns in rules.py catch the plain wordings, these the paraphrases.
 REPLY: Final = QuestionSet(
-    version="reply-v1",
+    version="reply-v2",
     subject="draft replies that a broker's support agent is about to send to a client",
     instructions={
         "decision": "Does the reply tell the client that a decision on their own case has been made?",
@@ -130,7 +130,7 @@ REPLY: Final = QuestionSet(
         "check": {
             "yes": "the reply names or hints at such a check on this client: compliance or AML "
             "review, a fraud, security or risk team, monitoring, suspicious or unusual activity, "
-            "source of funds, due diligence, a report to a regulator or an internal alert",
+            "or where the client's money came from",
             "no": "no such check; ordinary identity verification steps and general statements about "
             "protecting all clients are not such a check",
         },

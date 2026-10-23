@@ -42,19 +42,20 @@ class LlmClassifier:
 
     def __init__(self, llm: Llm | None = None, questions: QuestionSet = TICKET) -> None:
         self._llm = llm or make_llm("claude-cli", "haiku")
-        self._questions = questions
+        self.questions = questions
         self._system, self._schema = system(questions), schema(questions)
 
     def classify(self, text: str) -> Classification:
         result = self._llm.complete(self._system, f"<text>\n{text}\n</text>", self._schema)
         answers = {
             name: Answer(str(result.data[name]), {str(result.data[name]): 1.0})
-            for name in self._questions.options
+            for name in self.questions.options
         }
         u = result.usage
         return Classification(
             answers=answers,
             backend=self.name,
             model=result.model,
+            prompt_version=PROMPT_VERSION,
             usage=Usage(u.input_tokens, u.output_tokens, u.cache_read_tokens, u.cache_write_tokens),
         )

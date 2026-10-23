@@ -1,0 +1,1256 @@
+{
+ "meta": {
+  "set": "drafts_challenge",
+  "rows": 180,
+  "checker": "patterns+jev",
+  "model": "jev-1.14.0",
+  "questions_version": "reply-v2",
+  "threshold": 0.5,
+  "p_yes": {
+   "c001": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.01
+   },
+   "c002": {
+    "decision": 1.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c003": {
+    "decision": 0.02,
+    "check": 0.01,
+    "handover": 1.0
+   },
+   "c004": {
+    "decision": 0.01,
+    "check": 0.0,
+    "handover": 0.11
+   },
+   "c005": {
+    "decision": 0.51,
+    "check": 1.0,
+    "handover": 0.89
+   },
+   "c006": {
+    "decision": 0.0,
+    "check": 0.03,
+    "handover": 0.0
+   },
+   "c007": {
+    "decision": 0.0,
+    "check": 0.03,
+    "handover": 0.0
+   },
+   "c008": {
+    "decision": 1.0,
+    "check": 0.09,
+    "handover": 0.02
+   },
+   "c009": {
+    "decision": 1.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c010": {
+    "decision": 0.08,
+    "check": 0.11,
+    "handover": 0.0
+   },
+   "c011": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c012": {
+    "decision": 0.21,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c013": {
+    "decision": 0.01,
+    "check": 0.03,
+    "handover": 1.0
+   },
+   "c014": {
+    "decision": 0.0,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c015": {
+    "decision": 0.98,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c016": {
+    "decision": 0.13,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c017": {
+    "decision": 1.0,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c018": {
+    "decision": 1.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c019": {
+    "decision": 0.12,
+    "check": 0.0,
+    "handover": 1.0
+   },
+   "c020": {
+    "decision": 0.09,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c021": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c022": {
+    "decision": 0.99,
+    "check": 0.13,
+    "handover": 0.0
+   },
+   "c023": {
+    "decision": 1.0,
+    "check": 0.99,
+    "handover": 0.01
+   },
+   "c024": {
+    "decision": 0.94,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c025": {
+    "decision": 0.0,
+    "check": 0.96,
+    "handover": 0.0
+   },
+   "c026": {
+    "decision": 0.0,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c027": {
+    "decision": 0.99,
+    "check": 0.89,
+    "handover": 0.0
+   },
+   "c028": {
+    "decision": 0.0,
+    "check": 0.04,
+    "handover": 0.0
+   },
+   "c029": {
+    "decision": 0.01,
+    "check": 1.0,
+    "handover": 1.0
+   },
+   "c030": {
+    "decision": 0.02,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c031": {
+    "decision": 1.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c032": {
+    "decision": 0.91,
+    "check": 0.99,
+    "handover": 1.0
+   },
+   "c033": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c034": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c035": {
+    "decision": 0.89,
+    "check": 0.03,
+    "handover": 0.0
+   },
+   "c036": {
+    "decision": 0.01,
+    "check": 0.02,
+    "handover": 0.0
+   },
+   "c037": {
+    "decision": 0.02,
+    "check": 0.98,
+    "handover": 0.0
+   },
+   "c038": {
+    "decision": 0.99,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c039": {
+    "decision": 0.01,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c040": {
+    "decision": 0.26,
+    "check": 1.0,
+    "handover": 0.0
+   },
+   "c041": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.01
+   },
+   "c042": {
+    "decision": 0.01,
+    "check": 0.06,
+    "handover": 0.0
+   },
+   "c043": {
+    "decision": 1.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c044": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c045": {
+    "decision": 0.01,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c046": {
+    "decision": 0.51,
+    "check": 0.0,
+    "handover": 1.0
+   },
+   "c047": {
+    "decision": 0.02,
+    "check": 0.0,
+    "handover": 1.0
+   },
+   "c048": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.03
+   },
+   "c049": {
+    "decision": 1.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c050": {
+    "decision": 0.01,
+    "check": 0.0,
+    "handover": 0.98
+   },
+   "c051": {
+    "decision": 0.02,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c052": {
+    "decision": 0.0,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c053": {
+    "decision": 0.01,
+    "check": 1.0,
+    "handover": 1.0
+   },
+   "c054": {
+    "decision": 0.0,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c055": {
+    "decision": 0.93,
+    "check": 0.43,
+    "handover": 0.0
+   },
+   "c056": {
+    "decision": 0.01,
+    "check": 0.02,
+    "handover": 0.0
+   },
+   "c057": {
+    "decision": 1.0,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c058": {
+    "decision": 0.53,
+    "check": 0.86,
+    "handover": 0.01
+   },
+   "c059": {
+    "decision": 0.06,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c060": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c061": {
+    "decision": 0.96,
+    "check": 0.26,
+    "handover": 0.0
+   },
+   "c062": {
+    "decision": 0.12,
+    "check": 1.0,
+    "handover": 0.0
+   },
+   "c063": {
+    "decision": 0.01,
+    "check": 0.0,
+    "handover": 1.0
+   },
+   "c064": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c065": {
+    "decision": 1.0,
+    "check": 0.22,
+    "handover": 0.0
+   },
+   "c066": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c067": {
+    "decision": 0.85,
+    "check": 0.0,
+    "handover": 0.29
+   },
+   "c068": {
+    "decision": 0.01,
+    "check": 1.0,
+    "handover": 0.0
+   },
+   "c069": {
+    "decision": 0.0,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c070": {
+    "decision": 0.05,
+    "check": 0.02,
+    "handover": 1.0
+   },
+   "c071": {
+    "decision": 0.95,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c072": {
+    "decision": 0.97,
+    "check": 1.0,
+    "handover": 0.65
+   },
+   "c073": {
+    "decision": 0.01,
+    "check": 0.0,
+    "handover": 0.02
+   },
+   "c074": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c075": {
+    "decision": 0.02,
+    "check": 0.0,
+    "handover": 1.0
+   },
+   "c076": {
+    "decision": 0.08,
+    "check": 0.03,
+    "handover": 0.0
+   },
+   "c077": {
+    "decision": 0.97,
+    "check": 1.0,
+    "handover": 0.7
+   },
+   "c078": {
+    "decision": 0.0,
+    "check": 0.04,
+    "handover": 0.0
+   },
+   "c079": {
+    "decision": 0.01,
+    "check": 0.24,
+    "handover": 0.0
+   },
+   "c080": {
+    "decision": 1.0,
+    "check": 0.08,
+    "handover": 0.0
+   },
+   "c081": {
+    "decision": 1.0,
+    "check": 0.03,
+    "handover": 0.0
+   },
+   "c082": {
+    "decision": 0.11,
+    "check": 0.24,
+    "handover": 0.0
+   },
+   "c083": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c084": {
+    "decision": 0.01,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c085": {
+    "decision": 0.44,
+    "check": 1.0,
+    "handover": 0.03
+   },
+   "c086": {
+    "decision": 0.0,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c087": {
+    "decision": 1.0,
+    "check": 0.99,
+    "handover": 0.0
+   },
+   "c088": {
+    "decision": 0.3,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c089": {
+    "decision": 0.99,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c090": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 1.0
+   },
+   "c091": {
+    "decision": 0.0,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c092": {
+    "decision": 0.0,
+    "check": 0.96,
+    "handover": 0.0
+   },
+   "c093": {
+    "decision": 0.0,
+    "check": 0.02,
+    "handover": 0.0
+   },
+   "c094": {
+    "decision": 0.0,
+    "check": 1.0,
+    "handover": 1.0
+   },
+   "c095": {
+    "decision": 0.03,
+    "check": 0.02,
+    "handover": 0.0
+   },
+   "c096": {
+    "decision": 0.02,
+    "check": 0.0,
+    "handover": 1.0
+   },
+   "c097": {
+    "decision": 1.0,
+    "check": 0.29,
+    "handover": 0.0
+   },
+   "c098": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.01
+   },
+   "c099": {
+    "decision": 0.06,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c100": {
+    "decision": 0.02,
+    "check": 0.05,
+    "handover": 0.02
+   },
+   "c101": {
+    "decision": 0.98,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c102": {
+    "decision": 0.76,
+    "check": 1.0,
+    "handover": 0.02
+   },
+   "c103": {
+    "decision": 0.08,
+    "check": 0.0,
+    "handover": 1.0
+   },
+   "c104": {
+    "decision": 0.99,
+    "check": 0.24,
+    "handover": 0.0
+   },
+   "c105": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c106": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c107": {
+    "decision": 0.25,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c108": {
+    "decision": 0.03,
+    "check": 0.01,
+    "handover": 1.0
+   },
+   "c109": {
+    "decision": 0.01,
+    "check": 0.0,
+    "handover": 0.01
+   },
+   "c110": {
+    "decision": 1.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c111": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 1.0
+   },
+   "c112": {
+    "decision": 0.04,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c113": {
+    "decision": 0.78,
+    "check": 1.0,
+    "handover": 0.72
+   },
+   "c114": {
+    "decision": 0.0,
+    "check": 0.02,
+    "handover": 0.0
+   },
+   "c115": {
+    "decision": 1.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c116": {
+    "decision": 0.32,
+    "check": 0.02,
+    "handover": 0.0
+   },
+   "c117": {
+    "decision": 1.0,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c118": {
+    "decision": 0.01,
+    "check": 1.0,
+    "handover": 0.0
+   },
+   "c119": {
+    "decision": 0.24,
+    "check": 1.0,
+    "handover": 0.06
+   },
+   "c120": {
+    "decision": 0.0,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c121": {
+    "decision": 0.02,
+    "check": 0.03,
+    "handover": 1.0
+   },
+   "c122": {
+    "decision": 0.99,
+    "check": 0.03,
+    "handover": 0.0
+   },
+   "c123": {
+    "decision": 0.97,
+    "check": 0.99,
+    "handover": 1.0
+   },
+   "c124": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c125": {
+    "decision": 0.05,
+    "check": 0.0,
+    "handover": 0.78
+   },
+   "c126": {
+    "decision": 0.01,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c127": {
+    "decision": 0.0,
+    "check": 0.04,
+    "handover": 0.0
+   },
+   "c128": {
+    "decision": 0.15,
+    "check": 0.02,
+    "handover": 0.0
+   },
+   "c129": {
+    "decision": 0.01,
+    "check": 0.05,
+    "handover": 1.0
+   },
+   "c130": {
+    "decision": 0.02,
+    "check": 1.0,
+    "handover": 0.03
+   },
+   "c131": {
+    "decision": 0.01,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c132": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c133": {
+    "decision": 1.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c134": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.02
+   },
+   "c135": {
+    "decision": 0.17,
+    "check": 0.02,
+    "handover": 0.0
+   },
+   "c136": {
+    "decision": 0.98,
+    "check": 1.0,
+    "handover": 0.01
+   },
+   "c137": {
+    "decision": 0.0,
+    "check": 0.03,
+    "handover": 0.0
+   },
+   "c138": {
+    "decision": 1.0,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c139": {
+    "decision": 0.01,
+    "check": 0.0,
+    "handover": 1.0
+   },
+   "c140": {
+    "decision": 0.98,
+    "check": 1.0,
+    "handover": 0.01
+   },
+   "c141": {
+    "decision": 1.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c142": {
+    "decision": 0.0,
+    "check": 0.01,
+    "handover": 1.0
+   },
+   "c143": {
+    "decision": 0.01,
+    "check": 0.08,
+    "handover": 0.0
+   },
+   "c144": {
+    "decision": 0.02,
+    "check": 1.0,
+    "handover": 0.18
+   },
+   "c145": {
+    "decision": 0.02,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c146": {
+    "decision": 1.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c147": {
+    "decision": 0.01,
+    "check": 1.0,
+    "handover": 1.0
+   },
+   "c148": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c149": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.01
+   },
+   "c150": {
+    "decision": 1.0,
+    "check": 1.0,
+    "handover": 0.0
+   },
+   "c151": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 1.0
+   },
+   "c152": {
+    "decision": 0.01,
+    "check": 0.09,
+    "handover": 0.01
+   },
+   "c153": {
+    "decision": 0.0,
+    "check": 0.07,
+    "handover": 0.0
+   },
+   "c154": {
+    "decision": 0.99,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c155": {
+    "decision": 0.0,
+    "check": 1.0,
+    "handover": 1.0
+   },
+   "c156": {
+    "decision": 0.36,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c157": {
+    "decision": 0.01,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c158": {
+    "decision": 1.0,
+    "check": 0.08,
+    "handover": 0.0
+   },
+   "c159": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 1.0
+   },
+   "c160": {
+    "decision": 0.3,
+    "check": 0.11,
+    "handover": 0.01
+   },
+   "c161": {
+    "decision": 0.02,
+    "check": 1.0,
+    "handover": 0.03
+   },
+   "c162": {
+    "decision": 0.01,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c163": {
+    "decision": 0.02,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c164": {
+    "decision": 0.01,
+    "check": 0.01,
+    "handover": 1.0
+   },
+   "c165": {
+    "decision": 0.0,
+    "check": 0.03,
+    "handover": 0.0
+   },
+   "c166": {
+    "decision": 0.67,
+    "check": 1.0,
+    "handover": 0.0
+   },
+   "c167": {
+    "decision": 0.01,
+    "check": 0.0,
+    "handover": 0.0
+   },
+   "c168": {
+    "decision": 1.0,
+    "check": 0.06,
+    "handover": 0.0
+   },
+   "c169": {
+    "decision": 0.02,
+    "check": 0.0,
+    "handover": 0.01
+   },
+   "c170": {
+    "decision": 0.0,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c171": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.01
+   },
+   "c172": {
+    "decision": 0.05,
+    "check": 1.0,
+    "handover": 0.03
+   },
+   "c173": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.03
+   },
+   "c174": {
+    "decision": 0.01,
+    "check": 0.0,
+    "handover": 1.0
+   },
+   "c175": {
+    "decision": 0.03,
+    "check": 0.01,
+    "handover": 0.0
+   },
+   "c176": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 0.01
+   },
+   "c177": {
+    "decision": 0.0,
+    "check": 0.0,
+    "handover": 1.0
+   },
+   "c178": {
+    "decision": 0.0,
+    "check": 0.04,
+    "handover": 0.0
+   },
+   "c179": {
+    "decision": 0.99,
+    "check": 1.0,
+    "handover": 0.0
+   },
+   "c180": {
+    "decision": 0.03,
+    "check": 0.01,
+    "handover": 0.0
+   }
+  }
+ },
+ "patterns": {
+  "all": {
+   "decision": {
+    "recall": {
+     "hits": 7,
+     "n": 50,
+     "value": 0.14,
+     "ci95": [
+      0.07,
+      0.262
+     ]
+    },
+    "precision": {
+     "hits": 7,
+     "n": 7,
+     "value": 1.0,
+     "ci95": [
+      0.646,
+      1.0
+     ]
+    }
+   },
+   "check": {
+    "recall": {
+     "hits": 15,
+     "n": 34,
+     "value": 0.4411764705882353,
+     "ci95": [
+      0.289,
+      0.605
+     ]
+    },
+    "precision": {
+     "hits": 15,
+     "n": 15,
+     "value": 1.0,
+     "ci95": [
+      0.796,
+      1.0
+     ]
+    }
+   },
+   "handover": {
+    "recall": {
+     "hits": 9,
+     "n": 34,
+     "value": 0.2647058823529412,
+     "ci95": [
+      0.146,
+      0.431
+     ]
+    },
+    "precision": {
+     "hits": 9,
+     "n": 9,
+     "value": 1.0,
+     "ci95": [
+      0.701,
+      1.0
+     ]
+    }
+   },
+   "any": {
+    "recall": {
+     "hits": 27,
+     "n": 93,
+     "value": 0.2903225806451613,
+     "ci95": [
+      0.208,
+      0.389
+     ]
+    },
+    "precision": {
+     "hits": 27,
+     "n": 27,
+     "value": 1.0,
+     "ci95": [
+      0.875,
+      1.0
+     ]
+    }
+   },
+   "misses": [
+    "c002",
+    "c005",
+    "c008",
+    "c009",
+    "c015",
+    "c017",
+    "c022",
+    "c024",
+    "c025",
+    "c027",
+    "c031",
+    "c032",
+    "c035",
+    "c037",
+    "c038",
+    "c043",
+    "c046",
+    "c047",
+    "c049",
+    "c050",
+    "c053",
+    "c055",
+    "c057",
+    "c061",
+    "c062",
+    "c065",
+    "c067",
+    "c070",
+    "c071",
+    "c072",
+    "c077",
+    "c080",
+    "c081",
+    "c089",
+    "c090",
+    "c092",
+    "c094",
+    "c101",
+    "c102",
+    "c103",
+    "c104",
+    "c111",
+    "c113",
+    "c115",
+    "c118",
+    "c119",
+    "c121",
+    "c122",
+    "c123",
+    "c129",
+    "c130",
+    "c133",
+    "c136",
+    "c138",
+    "c139",
+    "c140",
+    "c141",
+    "c142",
+    "c144",
+    "c146",
+    "c147",
+    "c150",
+    "c151",
+    "c154",
+    "c155",
+    "c158",
+    "c159",
+    "c161",
+    "c164",
+    "c166",
+    "c168",
+    "c172",
+    "c174",
+    "c177",
+    "c179"
+   ],
+   "false_alarms": []
+  }
+ },
+ "jev": {
+  "all": {
+   "decision": {
+    "recall": {
+     "hits": 50,
+     "n": 50,
+     "value": 1.0,
+     "ci95": [
+      0.929,
+      1.0
+     ]
+    },
+    "precision": {
+     "hits": 50,
+     "n": 53,
+     "value": 0.9433962264150944,
+     "ci95": [
+      0.846,
+      0.981
+     ]
+    }
+   },
+   "check": {
+    "recall": {
+     "hits": 34,
+     "n": 34,
+     "value": 1.0,
+     "ci95": [
+      0.898,
+      1.0
+     ]
+    },
+    "precision": {
+     "hits": 34,
+     "n": 34,
+     "value": 1.0,
+     "ci95": [
+      0.898,
+      1.0
+     ]
+    }
+   },
+   "handover": {
+    "recall": {
+     "hits": 34,
+     "n": 34,
+     "value": 1.0,
+     "ci95": [
+      0.898,
+      1.0
+     ]
+    },
+    "precision": {
+     "hits": 34,
+     "n": 35,
+     "value": 0.9714285714285714,
+     "ci95": [
+      0.855,
+      0.995
+     ]
+    }
+   },
+   "any": {
+    "recall": {
+     "hits": 93,
+     "n": 93,
+     "value": 1.0,
+     "ci95": [
+      0.96,
+      1.0
+     ]
+    },
+    "precision": {
+     "hits": 93,
+     "n": 94,
+     "value": 0.9893617021276596,
+     "ci95": [
+      0.942,
+      0.998
+     ]
+    }
+   },
+   "misses": [],
+   "false_alarms": [
+    "c046",
+    "c058",
+    "c125",
+    "c166"
+   ]
+  }
+ },
+ "patterns+jev": {
+  "all": {
+   "decision": {
+    "recall": {
+     "hits": 50,
+     "n": 50,
+     "value": 1.0,
+     "ci95": [
+      0.929,
+      1.0
+     ]
+    },
+    "precision": {
+     "hits": 50,
+     "n": 53,
+     "value": 0.9433962264150944,
+     "ci95": [
+      0.846,
+      0.981
+     ]
+    }
+   },
+   "check": {
+    "recall": {
+     "hits": 34,
+     "n": 34,
+     "value": 1.0,
+     "ci95": [
+      0.898,
+      1.0
+     ]
+    },
+    "precision": {
+     "hits": 34,
+     "n": 34,
+     "value": 1.0,
+     "ci95": [
+      0.898,
+      1.0
+     ]
+    }
+   },
+   "handover": {
+    "recall": {
+     "hits": 34,
+     "n": 34,
+     "value": 1.0,
+     "ci95": [
+      0.898,
+      1.0
+     ]
+    },
+    "precision": {
+     "hits": 34,
+     "n": 35,
+     "value": 0.9714285714285714,
+     "ci95": [
+      0.855,
+      0.995
+     ]
+    }
+   },
+   "any": {
+    "recall": {
+     "hits": 93,
+     "n": 93,
+     "value": 1.0,
+     "ci95": [
+      0.96,
+      1.0
+     ]
+    },
+    "precision": {
+     "hits": 93,
+     "n": 94,
+     "value": 0.9893617021276596,
+     "ci95": [
+      0.942,
+      0.998
+     ]
+    }
+   },
+   "misses": [],
+   "false_alarms": [
+    "c046",
+    "c058",
+    "c125",
+    "c166"
+   ]
+  }
+ }
+}

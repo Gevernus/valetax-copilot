@@ -5,8 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from copilot.classify import make_classifier
-from copilot.classify.questions import REPLY
+from copilot.classify import MEASURED_REPLY_CHECKERS, make_classifier, make_reply_checker
 from copilot.draft import Drafter
 from copilot.kb import DEFAULT_KB, load_kb
 from copilot.llm import make_llm
@@ -15,13 +14,15 @@ from copilot.trace import TraceWriter
 from copilot.view import render_page
 
 
-def build_copilot(classifier: str, llm: str, model: str, kb_path: Path = DEFAULT_KB) -> Copilot:
+def build_copilot(
+    classifier: str, llm: str, model: str, reply_checker: str, kb_path: Path = DEFAULT_KB
+) -> Copilot:
     kb = load_kb(kb_path)
     return Copilot(
         kb,
         make_classifier(classifier),
         Drafter(make_llm(llm, model), kb),
-        reply_checker=make_classifier(classifier, REPLY),
+        reply_checker=make_reply_checker(reply_checker),
     )
 
 
@@ -68,6 +69,10 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--classifier", choices=["jev", "laya", "llm"], default="jev")
     run.add_argument("--llm", choices=["claude-cli", "anthropic"], default="claude-cli")
     run.add_argument("--model", default="haiku", help="haiku, sonnet or a full model id")
+    run.add_argument(
+        "--reply-checker", choices=[*MEASURED_REPLY_CHECKERS, "none"], default="jev",
+        help="backend for the REPLY questions; none = patterns only",
+    )  # fmt: skip
     run.add_argument("--json", action="store_true", help="print the card as JSON")
     run.add_argument("--traces", type=Path, default=Path("traces/traces.jsonl"))
 
@@ -89,7 +94,7 @@ def main(argv: list[str] | None = None) -> int:
         text = args.text
     else:
         text = sys.stdin.read()
-    copilot = build_copilot(args.classifier, args.llm, args.model)
+    copilot = build_copilot(args.classifier, args.llm, args.model, args.reply_checker)
     card = copilot.process(args.id, text)
     TraceWriter(args.traces).write(card.trace())
     if args.json:

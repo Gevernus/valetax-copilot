@@ -20,10 +20,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from copilot.classify import make_classifier
+from copilot.classify import MEASURED_REPLY_CHECKERS, make_classifier, make_reply_checker
 from copilot.classify.llm import SCHEMA as CLASSIFY_SCHEMA
 from copilot.classify.llm import SYSTEM as CLASSIFY_SYSTEM
-from copilot.classify.questions import REPLY
 from copilot.draft import Drafter, schema, system_prompt
 from copilot.kb import KnowledgeBase, load_kb
 from copilot.llm import ClaudeCli, UsageLimitError, make_llm
@@ -81,9 +80,9 @@ def run(args: argparse.Namespace) -> None:
         kb,
         make_classifier(args.classifier),
         Drafter(llm, kb),
-        reply_checker=make_classifier(args.classifier, REPLY),
+        reply_checker=make_reply_checker(args.reply_checker),
     )
-    config = f"{args.classifier}+{args.model}"
+    config = f"{args.classifier}+{args.model}+reply-{args.reply_checker}"
     out = RESULTS / args.date / config
     out.mkdir(parents=True, exist_ok=True)
 
@@ -137,6 +136,7 @@ def run(args: argparse.Namespace) -> None:
     meta = {
         "config": config,
         "classifier": args.classifier,
+        "reply_checker": args.reply_checker,
         "llm_backend": args.llm,
         "drafter_model": llm.model,
         "kb_version": kb.version,
@@ -337,6 +337,7 @@ def main() -> None:
     r.add_argument("--classifier", choices=["jev", "laya", "llm"], default="jev")
     r.add_argument("--llm", choices=["claude-cli", "anthropic"], default="claude-cli")
     r.add_argument("--model", default="haiku")
+    r.add_argument("--reply-checker", choices=[*MEASURED_REPLY_CHECKERS, "none"], default="jev")
     r.add_argument("--workers", type=int, default=4)
     r.add_argument("--limit", type=int)
     r.add_argument("--date", default=_today())

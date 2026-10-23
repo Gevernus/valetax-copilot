@@ -19,7 +19,7 @@ class JevClassifier:
         key = os.environ.get("TYPESAFE_API_KEY")
         if not key:
             raise RuntimeError("TYPESAFE_API_KEY is not set")
-        self._questions = questions
+        self.questions = questions
         self._model = model
         self._client = httpx.Client(timeout=timeout_s, headers={"Authorization": f"Bearer {key}"})
 
@@ -27,13 +27,13 @@ class JevClassifier:
         body = {
             "model": self._model,
             "state": text,
-            "questions": self._questions.systemone(),
+            "questions": self.questions.systemone(),
         }
         response = self._client.post(URL, json=body)
         response.raise_for_status()
         data = response.json()
         answers = answers_from_probabilities(
-            {name: a["probabilities"] for name, a in data["answers"].items()}, self._questions
+            {name: a["probabilities"] for name, a in data["answers"].items()}, self.questions
         )
         usage = data.get("usage", {})
         return Classification(

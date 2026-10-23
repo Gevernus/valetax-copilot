@@ -33,8 +33,13 @@ log or write them, and never put them in a test fixture.
 - `kb/valetax.toml`: the knowledge base; `docs/kb-issues.md` explains the issue tags
   (`conflict` routes to a person, `defect` keeps a section out of the prompt, `gap`).
 - `evals/tickets.jsonl`: golden set; `evals/metrics.py`: scoring; `evals/results/`: runs.
+- `src/copilot/reply_guard.py`: what a shown reply must not say (decision, compliance check,
+  handover): frozen patterns plus the `REPLY` questions; `--reply-checker` picks a measured backend.
 - `evals/drafts.jsonl`: labelled drafts for the reply checks; `uv run python -m evals.run_drafts
   [--classifier jev]`. Tune on `split: dev` only; the holdout hash is pinned in `tests/test_evals.py`.
+  `evals/drafts_challenge.jsonl` is blind: run it, never tune on it or relabel it.
+- `evals/figures_challenge.jsonl`: blind set for the number layer alone, `uv run python -m
+  evals.run_figures`; same rule: run it, never tune on it or relabel it.
 
 ## Rules for changes
 
