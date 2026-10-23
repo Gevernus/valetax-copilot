@@ -1,3 +1,5 @@
+"""One normalised text: invisible characters dropped, spaces folded, columns kept."""
+
 import pytest
 
 from copilot.normalise import normalise
@@ -9,7 +11,7 @@ from copilot.normalise import normalise
         ("a b", "a b"),  # no-break space
         ("a　b", "a b"),  # ideographic space
         ("a  b", "a b"),  # thin and narrow no-break spaces, collapsed
-        ("jo​hn", "john"),  # zero-width space
+        ("jo\u200bhn", "john"),  # zero-width space
         ("jo⁠hn", "john"),  # word joiner
         ("﻿hello", "hello"),  # byte-order mark
         ("jo‌hn", "john"),  # zero-width non-joiner
@@ -40,7 +42,7 @@ from copilot.normalise import normalise
         ("a\n\n\n\n\nb", "a\n\nb"),
         ("a \n \n \n b", "a\n\nb"),
         ("a\r\nb\rc d", "a\nb\nc\nd"),
-        ("x²", "x2"),  # NFKC: a known meaning change, stated in decisions §15
+        ("x²", "x2"),  # NFKC: a known meaning change, stated in normalise.py
     ],
 )
 def test_normalise(text: str, expected: str) -> None:
@@ -51,7 +53,7 @@ def test_normalise_is_linear() -> None:
     import time
 
     started = time.perf_counter()
-    normalise(("  　\n​" * 400_000) + "x")
+    normalise(("  　\n\u200b" * 400_000) + "x")
     assert time.perf_counter() - started < 5.0
 
 

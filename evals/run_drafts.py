@@ -20,7 +20,7 @@ from copilot.classify import make_classifier
 from copilot.classify.questions import REPLY
 from copilot.reply_guard import GUARDS
 from copilot.routing import Thresholds
-from evals.metrics import fmt, recall_precision
+from evals.metrics import fmt, read_jsonl, recall_precision
 
 ROOT = Path(__file__).resolve().parent
 SETS = {"drafts": ROOT / "drafts.jsonl", "drafts_challenge": ROOT / "drafts_challenge.jsonl"}
@@ -30,11 +30,11 @@ LABELS = tuple(GUARDS)
 
 def load_drafts(name: str = "drafts") -> list[dict[str, Any]]:
     """Rows with the three labels at the top level; the challenge set nests them in `labels`."""
-    rows = [json.loads(line) for line in SETS[name].read_text().splitlines() if line.strip()]
-    return [{**row, **row.get("labels", {})} for row in rows]
+    return [{**row, **row.get("labels", {})} for row in read_jsonl(SETS[name])]
 
 
 def score(rows: list[dict[str, Any]], hits: list[dict[str, bool]]) -> dict[str, Any]:
+    """Recall and precision per label and for any label, with misses and false alarms."""
     out: dict[str, Any] = {}
     pairs = list(zip(rows, hits, strict=True))
     for label in LABELS:
@@ -46,6 +46,7 @@ def score(rows: list[dict[str, Any]], hits: list[dict[str, bool]]) -> dict[str, 
 
 
 def main() -> None:
+    """Run the checkers over a drafts set and write the report."""
     parser = argparse.ArgumentParser(prog="evals.run_drafts")
     parser.add_argument("--set", choices=list(SETS), default="drafts")
     parser.add_argument("--classifier", choices=["jev", "laya", "llm"])

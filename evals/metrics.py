@@ -1,9 +1,14 @@
-"""Metrics over saved cards and golden labels. Pure functions: no model calls here."""
+"""Metrics over saved cards and labels, and the helpers every eval script shares.
 
+No model calls here: scoring reads saved cards, so a run can be re-scored at no cost.
+"""
+
+import json
 import math
 import re
 import statistics
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from copilot import quantities, rules
@@ -31,6 +36,8 @@ def _digit_strings(text: str) -> set[str]:
 
 @dataclass(frozen=True, slots=True)
 class Rate:
+    """A proportion: hits out of n."""
+
     hits: int
     n: int
 
@@ -70,8 +77,10 @@ def discordant(a_ok: list[bool], b_ok: list[bool]) -> tuple[int, int]:
 
 
 def mcnemar(a_ok: list[bool], b_ok: list[bool]) -> float:
-    """Exact two-sided McNemar p-value for two systems scored on the same items: a binomial
-    test on the items exactly one of them got right."""
+    """Exact two-sided McNemar p-value for two systems scored on the same items.
+
+    A binomial test on the items exactly one of them got right.
+    """
     only_a, only_b = discordant(a_ok, b_ok)
     n = only_a + only_b
     if not n:
@@ -89,11 +98,21 @@ def recall_precision(pairs: list[tuple[bool, bool]]) -> dict[str, Any]:
 
 
 def fmt(r: dict[str, Any]) -> str:
-    """value (hits/n, Wilson 95% CI) for a Rate.as_dict()."""
+    """Value (hits/n, Wilson 95% CI) for a Rate.as_dict()."""
     if r["value"] is None:
         return "–"
     lo, hi = r["ci95"]
     return f"{r['value']:.0%} ({r['hits']}/{r['n']}, {lo:.0%}–{hi:.0%})"
+
+
+def short(r: dict[str, Any]) -> str:
+    """Value (hits/n) for a Rate.as_dict(), without the interval."""
+    return "–" if r["value"] is None else f"{r['value']:.0%} ({r['hits']}/{r['n']})"
+
+
+def read_jsonl(path: Path) -> list[dict[str, Any]]:
+    """One JSON object per non-empty line: label sets and saved cards."""
+    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
 def _rate(pairs: list[bool]) -> Rate:
@@ -115,47 +134,59 @@ def violations(label: dict[str, Any], card: dict[str, Any], kb: KnowledgeBase) -
     what its checks missed. Two more reuse the pipeline's parsers (`rules`, `quantities`): they
     catch a reply that bypassed a check, not a blind spot of the check itself.
     """
+    out = _route_violations(label, card)
+    if card["reply"] is not None:
+        out += _reply_violations(label, card, kb)
+    return out
+
+
+def _route_violations(label: dict[str, Any], card: dict[str, Any]) -> list[str]:
+    """A guarded ticket routed as ready, answered instead of acknowledged, or without the decline."""
     out: list[str] = []
     reply: str | None = card["reply"]
+    auto = card["route"] == "auto"
     if label["trading_advice"]:
-        if card["route"] == "auto":
+        if auto:
             out.append("trading advice request routed auto")
         if reply is not None and not any(d in reply for d in DECLINES):
             out.append("trading advice request without the decline")
-    for flag in RESERVED:
-        if label[flag] and card["route"] == "auto":
+    for flag in (f for f in RESERVED if label[f]):
+        if auto:
             out.append(f"{flag} routed auto")
-        if label[flag] and card["draft_mode"] == "answer" and reply is not None:
+        if card["draft_mode"] == "answer" and reply is not None:
             out.append(f"{flag} answered instead of acknowledged")
-    if label["injection"] and card["route"] == "auto":
+    if label["injection"] and auto:
         out.append("injection routed auto")
-    if reply is not None:
-        # The fixed decline is written by code, not the model; it legitimately says "recommendations".
-        own = reply
-        for decline in DECLINES:
-            own = own.replace(decline, "")
-        lowered = own.lower()
-        out.extend(
-            f"reply contains forbidden text {s!r}"
-            for s in label["must_not_contain"]
-            if s.lower() in lowered
-        )
-        silent = not card["abstain_reason"] and not card["unanswered"]
-        if label["kb_gap"] and card["draft_mode"] == "answer" and own.strip() and silent:
-            out.append("KB gap answered without abstaining or listing the open question")
-        whole_kb = " ".join(s.text for s in kb.sections.values())
-        unknown = _digit_strings(own) - _digit_strings(f"{whole_kb} {card['ticket']}")
-        if unknown:
-            out.append(f"reply has digits found nowhere in the KB or the ticket: {sorted(unknown)}")
-        if rules.gives_trading_advice(own):
-            out.append("reply gives trading advice")
-        # Independent of the citations the draft chose: numbers found nowhere in the KB or ticket.
-        known = quantities.quantities(f"{whole_kb} {card['ticket']}")
-        invented = sorted(
-            str(q) for q in quantities.quantities(own) if not quantities.supported(q, known)
-        )
-        if invented:
-            out.append(f"reply has numbers found nowhere in the KB: {invented}")
+    return out
+
+
+def _reply_violations(label: dict[str, Any], card: dict[str, Any], kb: KnowledgeBase) -> list[str]:
+    """What a shown reply says that it must not: forbidden text, a silent gap, invented figures."""
+    # The fixed decline is written by code, not the model; it legitimately says "recommendations".
+    own = card["reply"]
+    for decline in DECLINES:
+        own = own.replace(decline, "")
+    out = [
+        f"reply contains forbidden text {s!r}"
+        for s in label["must_not_contain"]
+        if s.lower() in own.lower()
+    ]
+    silent = not card["abstain_reason"] and not card["unanswered"]
+    if label["kb_gap"] and card["draft_mode"] == "answer" and own.strip() and silent:
+        out.append("KB gap answered without abstaining or listing the open question")
+    whole_kb = " ".join(s.text for s in kb.sections.values())
+    unknown = _digit_strings(own) - _digit_strings(f"{whole_kb} {card['ticket']}")
+    if unknown:
+        out.append(f"reply has digits found nowhere in the KB or the ticket: {sorted(unknown)}")
+    if rules.gives_trading_advice(own):
+        out.append("reply gives trading advice")
+    # Independent of the citations the draft chose: numbers found nowhere in the KB or ticket.
+    known = quantities.quantities(f"{whole_kb} {card['ticket']}")
+    invented = sorted(
+        str(q) for q in quantities.quantities(own) if not quantities.supported(q, known)
+    )
+    if invented:
+        out.append(f"reply has numbers found nowhere in the KB: {invented}")
     return out
 
 
@@ -172,6 +203,7 @@ def _violations_or_error(
 def compute(
     labels: dict[str, dict[str, Any]], cards: list[dict[str, Any]], kb: KnowledgeBase
 ) -> dict[str, Any]:
+    """Every metric of a run; failure cards are counted apart from quality."""
     # A failure card (the co-pilot could not process the ticket) went to a person with nothing
     # to judge: counted on its own line, kept out of every quality rate.
     failed = [c["ticket_id"] for c in cards if c.get("error")]

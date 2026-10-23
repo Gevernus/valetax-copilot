@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
+from evals.metrics import read_jsonl
 from evals.prices import run_cost
 
 RESULTS: Final = Path(__file__).resolve().parent / "results"
@@ -53,6 +54,8 @@ def break_even(monthly_cost: float, tickets: float, share: float = 1.0) -> float
 
 @dataclass(frozen=True, slots=True)
 class Config:
+    """One configuration's measured share of ready drafts and monthly cost."""
+
     ready: float  # measured: share of tickets routed `auto`
     model_month: float  # USD at CACHE_HIT
     cold_month: float  # USD with every call a cache write
@@ -75,12 +78,14 @@ class Config:
 
 
 def run_dir(date: str, key: str) -> Path:
+    """Results directory of one configuration in a dated run."""
     return RESULTS / date / f"{key}+reply-{REPLY_CHECKER}"
 
 
 def config(date: str, key: str) -> Config:
+    """Measured ready share and model cost of a configuration in a saved run."""
     run = run_dir(date, key)
-    cards = [json.loads(line) for line in (run / "cards.jsonl").read_text().splitlines()]
+    cards = read_jsonl(run / "cards.jsonl")
     meta = json.loads((run / "run.json").read_text())
     warm = run_cost(cards, meta, hit_draft=CACHE_HIT, hit_classify=CACHE_HIT).total
     cold = run_cost(cards, meta, hit_draft=0.0, hit_classify=0.0).total
@@ -95,6 +100,7 @@ def config(date: str, key: str) -> Config:
 
 
 def configs_table(date: str) -> str:
+    """The configurations table of docs/business-case.md."""
     rec = config(date, RECOMMENDED)
     when = "with the reply check" if rec.reply_checked else "before the reply check, so the "
     when += "" if rec.reply_checked else "ready share is an upper bound for current code"
@@ -121,6 +127,7 @@ def configs_table(date: str) -> str:
 
 
 def sensitivity_table(date: str) -> str:
+    """Net monthly saving by contact cost and time saved, plus the downside line."""
     rec = config(date, RECOMMENDED)
     head = " | ".join(f"{k}: {v:.0%} saved" for k, v in TIME_SAVED_READY.items())
     lines = [f"| cost of a contact | {head} |", "|---|---|---|---|"]
@@ -138,6 +145,7 @@ def sensitivity_table(date: str) -> str:
 
 
 def blocks(date: str = DATE) -> dict[str, str]:
+    """Every generated block of docs/business-case.md, by name."""
     return {"configs": configs_table(date), "sensitivity": sensitivity_table(date)}
 
 
@@ -149,6 +157,7 @@ def split(text: str, name: str) -> tuple[str, str, str]:
 
 
 def update_doc(generated: dict[str, str]) -> None:
+    """Rewrite the generated blocks in docs/business-case.md."""
     text = DOC.read_text()
     for name, block in generated.items():
         head, _, tail = split(text, name)
@@ -157,6 +166,7 @@ def update_doc(generated: dict[str, str]) -> None:
 
 
 def main() -> None:
+    """Print the tables; with --update-doc, write them into the doc."""
     parser = argparse.ArgumentParser(prog="evals.business_case")
     parser.add_argument("--date", default=DATE, help="results dir with all four configurations")
     parser.add_argument("--update-doc", action="store_true", help=f"rewrite the tables in {DOC}")

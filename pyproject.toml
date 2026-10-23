@@ -38,11 +38,32 @@ target-version = "py312"
 src = ["src", "tests", "evals"]
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "N", "UP", "B", "A", "C4", "DTZ", "SIM", "RET", "PT", "S", "BLE", "PERF", "RUF"]
-ignore = ["E501", "RUF001"]  # long prompt and pattern strings; Cyrillic text is intended
+select = [
+    "E", "W", "F", "I", "N", "UP", "B", "A", "C4", "DTZ", "SIM", "RET", "PT", "S", "BLE", "PERF",
+    "RUF", "C90", "D", "ERA", "TRY", "PTH", "PLE", "PLW",
+    "PLR0911", "PLR0912", "PLR0913", "PLR0915",  # size of a function, not magic numbers
+]
+ignore = [
+    "E501",    # long patterns and prompt strings
+    "RUF001",  # Cyrillic and other scripts are intended
+    "SIM905",  # word lists read best as one string
+    "TRY003",  # one-line error messages are the clearest
+    "D102",    # methods implement documented protocols
+    "D105",    # magic methods
+    "D107",    # __init__ is documented on the class
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 6
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]
+"tests/**" = ["S101", "D"]
 "src/copilot/llm.py" = ["S603", "S607"]  # the claude CLI is invoked with an argument list
 
 [tool.mypy]

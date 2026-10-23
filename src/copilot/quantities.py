@@ -1,33 +1,24 @@
 """Numbers with their units, normalised so that a draft and its sources compare by value.
 
-"8", "8.00" and "8,0" are one value; "$1,000" is never "1"; "two business days" is the same
-claim as "2 business days"; "3 days" is not "3 hours", "$10" is not "10 USDT", "10 EUR" or "10%",
-and a bare "8" is not "8 USD". A separator that reads differently by locale ("1,000" is a
-thousand in English, one in Russian) keeps both readings, and only a number with the same
-readings supports it.
+`quantities(text)` returns every number with the unit or currency bound to it; `supported`
+says whether a claim has the same value and unit in the evidence. "8", "8.00" and "8,0" are one
+value; "two business days" equals "2 business days"; "3 days" is not "3 hours", "$10" is not
+"10 USDT" or "10%", and a bare "8" is not "8 USD". A separator that reads differently by locale
+("1,000") keeps both readings, and only the same readings support it.
 
-Covered: digits with any thousands separator; multipliers ("10k", "50 тысяч", "2 млн");
-currencies as symbols or codes before or after the number, glued or spaced ("$10", "10 $",
-"USD500", "8 €"), and as words after it; time units, the main currency words and percent in
-every language `language.py` detects; spelled-out numbers below a million in English, Russian
-(hundreds only as "сто"), Spanish and Indonesian, counted only before a unit; ranges ("1-2
-business days", "два и три дня") bind the unit to both ends.
+Read: digits with any thousands separator and multipliers ("10k", "50 тысяч"); currencies as
+symbols or codes on either side and as words after the number; time units, the main currency
+words and percent in every language `language.py` detects; spelled-out numbers below a million
+in English, Russian, Spanish and Indonesian, counted only before a unit; ranges ("1-2 days")
+bind the unit to both ends. A step's number ("Step 4") and a count of steps ("3 simple steps")
+have their own units, so the help page's steps never stand behind an amount.
 
-Fail closed: a number followed by any word the tables do not know, in any script, with any
-spacing ("3 pounds", "3英镑", "2 trading days", "3 AUD per step"), has the unit "unknown" and is
-supported by nothing. Steps have their own units: a step's number ("Step 4", "Шаг №4", "第4步",
-"the 4th step", "steps 1-4") is "step", a count of steps ("3 simple steps", with at most one
-adjective from a closed list, or two joined by "and") is "steps", and each supports only its own
-kind, so the help page's steps never stand behind an amount. The end of a step range yields to a
-currency sign or code ("steps 1-4 AUD" fails closed) but not to a currency word: "steps 1-4
-pounds" reads as steps.
+Fails closed: a number followed by any word the tables do not know ("3 pounds", "2 trading
+days", "3 AUD per step") has the unit "unknown" and nothing supports it.
 
-Time without a digit (`time_units`): a time word standing alone ("within the hour", "в течение
-часа", "am selben Tag", "خلال الأسبوع"), apart from greetings and idioms ("good day", "hari
-ini", "24 hours a day", "اليوم" as "today"). Words that also mean something else count only
-after a number. Not read: Chinese and Thai times without a digit ("一天内", "当天处理",
-"ภายในวันเดียวกัน"), pinned as strict expected failures in tests/test_quantities.py. Known
-limits: docs/decisions.md §8.
+`time_units` finds time words without a digit ("within the hour"), apart from greetings and
+idioms. Not read: Chinese and Thai times without a digit (strict xfail in the tests). Measured
+limits: docs/evals.md, the figures set.
 """
 
 import re
@@ -38,6 +29,8 @@ from typing import Final, NamedTuple
 
 @dataclass(frozen=True, slots=True)
 class Quantity:
+    """A number and its unit, the way a claim is compared."""
+
     values: frozenset[str]  # canonical decimals; two when the separator is ambiguous
     unit: str | None  # canonical unit, None for a bare number
 
@@ -51,7 +44,7 @@ class Quantity:
             return f"step {value}"
         if self.unit == "unknown":
             return f"{value} (unit not recognised)"
-        label = _LABELS.get(self.unit, self.unit.upper())
+        label = unit_label(self.unit)
         if self.values == {"1"} and label.endswith("s") and label.islower():
             label = label[:-1]
         return f"{value} {label}"
@@ -65,10 +58,8 @@ _LETTER: Final = (
 _START, _END = rf"(?<![{_LETTER}\d])", rf"(?![{_LETTER}])"
 
 
-def _arabic_article(words: str) -> str:
-    """Arabic writes the article into the word ("الساعة", "خلال الأسبوع"): every Arabic unit word
-    may take it."""
-    return re.sub(r"(?:^|(?<=\|))(?=[\u0621-\u064a])", "(?:ال)?", words)
+# Arabic writes the article into the word ("الساعة", "خلال الأسبوع"): a time word may take it.
+_ARTICLE: Final = "(?:ال)?"
 
 
 # Canonical time unit -> (words that are a time claim anywhere, "within the hour"; words that
@@ -140,7 +131,10 @@ _LABELS: Final = {"minute": "minutes", "hour": "hours", "business_day": "busines
                   "lot": "lots", "pip": "pips", "steps": "steps"}  # fmt: skip
 
 _UNIT_WORDS: Final = {
-    **{name: _arabic_article("|".join(p for p in pair if p)) for name, pair in _TIME.items()},
+    **{
+        name: _ARTICLE + "(?:" + "|".join(p for p in pair if p) + ")"
+        for name, pair in _TIME.items()
+    },
     **{name: f"{codes}|{words}" for name, (codes, words) in _CURRENCY.items()},
     **_OTHER,
 }
@@ -155,7 +149,7 @@ _SIGN: Final = r"[\u00a2-\u00a5\u0e3f\u20a0-\u20cf]"
 _UNKNOWN_AFTER: Final = re.compile(rf"[ \u00a0]?{_SIGN}|[ \u00a0]?[A-Z]{{3,4}}(?![A-Za-z])")
 _UNKNOWN_BEFORE: Final = re.compile(rf"(?:{_SIGN}|(?<![A-Za-z])[A-Z]{{3,4}})[ \u00a0]?$")
 _TIME_ANYWHERE: Final = {
-    name: re.compile(rf"(?i){_START}(?:{_arabic_article(words)}){_END}")
+    name: re.compile(rf"(?i){_START}{_ARTICLE}(?:{words}){_END}")
     for name, (words, _) in _TIME.items()
 }
 # Greetings and idioms with a time word that state no timeline: "good day", "24 hours a day".
@@ -170,19 +164,18 @@ _IDIOM: Final = re.compile(
 # something else (function words and ordinal endings). Any other word right after a number, in
 # any script ("3 pounds", "2 cycles"), is a unit the tables do not know.
 _BARE_NEXT: Final = frozenset(
-    """
-    and or to of in on at for from with by per up is are was were will can may the a an
-    depending st nd rd th и или в на до от по для с из й я е го ый ая ое ой y o de en para
-    por con e ou em com dan atau di ke untuk dari ve veya và hoặc et à pour und oder bis zu
-    für von er re ème
-    """.split()  # noqa: SIM905 - one readable whitelist
+    "and or to of in on at for from with by per up is are was were will can may the a an "
+    "depending st nd rd th и или в на до от по для с из й я е го ый ая ое ой y o de en para "
+    "por con e ou em com dan atau di ke untuk dari ve veya và hoặc et à pour und oder bis zu "
+    "für von er re ème".split()
 )
 # Steps: a step's number ("Step 2", "Шаг 2", "第2步", "the 2nd step") and a count of steps ("3
 # simple steps") have their own units, so the help page's "Step 4" never stands behind "the
 # minimum deposit is 4".
+_STEP_PLURALS: Final = r"steps|шаги|шагов|кроки|кроків|pasos|passos|étapes|schritte|etapas"
 _STEP_WORDS: Final = (
-    r"steps?|шаг(?:и|а|ов)?|крок(?:и|ів)?|pasos?|passos?|langkah|adım\w*|bước|étapes?|schritte?"
-    r"|etapas?|الخطوة|चरण|ขั้นตอนที่"
+    rf"{_STEP_PLURALS}|step|шага?|крок|paso|passo|étape|schritt|etapa|langkah|adım\w*|bước"
+    r"|الخطوة|चरण|ขั้นตอนที่"
 )
 _STEP_ADJECTIVES: Final = (
     r"simple|easy|quick|short|few|following|прост\w+|лёгк\w+|легк\w+|быстр\w+|sencill\w+"
@@ -193,8 +186,7 @@ _STEP_BEFORE: Final = re.compile(rf"(?i)(?:{_STEP_WORDS})[^\S\n]*(?:#|№|thứ[
 # The end of a range after a plural step word ("steps 1-4"). A currency sign or code after it
 # still wins ("steps 1-4 AUD"); a currency word does not ("steps 1-4 pounds" reads as steps).
 _STEP_RANGE_BEFORE: Final = re.compile(
-    r"(?i)(?:steps|шаги|шагов|кроки|кроків|pasos|passos|étapes|schritte|etapas)[^\S\n]*"
-    r"\d+[^\S\n]*(?:-|–|—|to|до|a|hingga)[^\S\n]*$"
+    rf"(?i)(?:{_STEP_PLURALS})[^\S\n]*\d+[^\S\n]*(?:-|–|—|to|до|a|hingga)[^\S\n]*$"
 )
 # After the number: an ordinal ending, at most one adjective (or two joined by "and") from the
 # closed list, then the step word. Nothing else may stand between, so "3 AUD per step" or "4 at
@@ -234,9 +226,11 @@ _RANGE: Final = re.compile(r"(?i)\s*(?:-|–|—|to|or|and|y|o|a|и|или|до|
 
 
 def _number_words() -> dict[str, tuple[int, str]]:
-    """Word -> (value, how it combines): "add" to the running number, "mul" multiplies the last
-    word ("two hundred", "dua puluh"), "teen" adds ten ("dua belas"), "big" closes a group of
-    thousands."""
+    """Number words: word -> (value, how it combines).
+
+    "add" adds to the running number, "mul" multiplies the last word ("two hundred", "dua
+    puluh"), "teen" adds ten ("dua belas"), "big" closes a group of thousands.
+    """
     add: dict[int, str] = {
         0: "zero cero nol",
         1: "one uno un una satu один одна одно одного одной одному одну одним одном",
@@ -348,8 +342,11 @@ def _readings(raw: str) -> set[Decimal] | None:
 
 
 def _step_unit(text: str, start: int, end: int) -> str | None:
-    """ "step" for a step's number ("Step 2", "第2步", "the 2nd step"), "steps" for a count of
-    steps ("3 simple steps"); each supports only its own kind."""
+    """The step unit of a number, if any.
+
+    "step" for a step's number ("Step 2", "第2步", "the 2nd step"), "steps" for a count of steps
+    ("3 simple steps"); each supports only its own kind.
+    """
     if _STEP_BEFORE.search(text[max(0, start - 24) : start]):
         return "step"
     m = _STEP_AFTER.match(text, end)
@@ -454,8 +451,11 @@ def _word_tokens(text: str, digits: list[_Token]) -> list[_Token]:
 
 
 def quantities(text: str) -> set[Quantity]:
-    """Every number in the text with the unit or currency attached to it. Numbered-list markers
-    are formatting, and spelled-out numbers count only before a unit ("one of our agents")."""
+    """Every number in the text with the unit or currency attached to it.
+
+    Numbered-list markers are formatting, and spelled-out numbers count only before a unit ("one
+    of our agents").
+    """
     text = _NOT_A_CLAIM.sub(" ", _strip_list_markers(text))
     digits = _digit_tokens(text)
     tokens = sorted([*digits, *_word_tokens(text, digits)])
@@ -471,17 +471,20 @@ def quantities(text: str) -> set[Quantity]:
 
 
 def supported(claim: Quantity, evidence: set[Quantity]) -> bool:
-    """The same value with the same unit; a bare number is supported only by a bare number, and
-    a number with an unknown unit by nothing."""
+    """Whether the evidence holds the same value with the same unit.
+
+    A bare number is supported only by a bare number, and a number with an unknown unit by
+    nothing.
+    """
     return claim.unit != "unknown" and claim in evidence
 
 
 def unit_label(unit: str) -> str:
+    """The unit as a card shows it: "hours", "USD"."""
     return _LABELS.get(unit, unit.upper())
 
 
 def time_units(text: str) -> set[str]:
-    """Time units mentioned without a number ("within the hour", "a couple of days"), apart from
-    greetings and idioms."""
+    """Time units mentioned without a number ("within the hour"), apart from greetings and idioms."""
     text = _IDIOM.sub(" ", text)
     return {unit for unit, pattern in _TIME_ANYWHERE.items() if pattern.search(text)}

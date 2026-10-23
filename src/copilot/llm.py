@@ -41,6 +41,8 @@ class LlmUsage:
 
 @dataclass(frozen=True, slots=True)
 class LlmResult:
+    """Structured output of one call, with usage and latency."""
+
     data: dict[str, Any]
     usage: LlmUsage
     model: str
@@ -59,6 +61,8 @@ _RATE_LIMIT = re.compile(r"(?i)rate.?limit|\b429\b")
 
 
 class Llm(Protocol):
+    """A structured-output LLM backend."""
+
     name: str
     model: str
 
@@ -70,6 +74,8 @@ class Llm(Protocol):
 
 
 class ClaudeCli:
+    """`claude -p` with a JSON schema, isolated from the developer's setup."""
+
     name = "claude-cli"
 
     def __init__(self, model: str = "haiku", timeout_s: float = 90.0) -> None:
@@ -215,6 +221,7 @@ def anthropic_error(e: Exception) -> ProviderError:
 
 
 def make_llm(backend: str, model: str) -> Llm:
+    """An LLM backend by name: claude-cli or anthropic."""
     if backend == "claude-cli":
         return ClaudeCli(model)
     if backend == "anthropic":

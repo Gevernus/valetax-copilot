@@ -17,6 +17,7 @@ from copilot.view import render_page
 def build_copilot(
     classifier: str, llm: str, model: str, reply_checker: str, kb_path: Path = DEFAULT_KB
 ) -> Copilot:
+    """The pipeline with the backends named on the command line."""
     kb = load_kb(kb_path)
     return Copilot(
         kb,
@@ -50,22 +51,22 @@ def _print_card(card: Card) -> None:
         print("(withheld: " + "; ".join(c["problems"]) + ")")
     else:
         print("(none)")
-    if c["client_figures"]:
-        print("\nFROM THE CLIENT'S MESSAGE, NOT IN THE SOURCES:")
-        for figure in c["client_figures"]:
-            print(f"  - {figure}")
-    if c["unanswered"]:
-        print("\nNOT IN THE KNOWLEDGE BASE:")
-        for q in c["unanswered"]:
-            print(f"  - {q}")
-    if c["citations"]:
-        print("\nSOURCES:")
-        for source in c["citations"]:
-            print(f"  [{source['id']}] {source['title']} — {source['url']}")
+    _print_list("FROM THE CLIENT'S MESSAGE, NOT IN THE SOURCES", c["client_figures"])
+    _print_list("NOT IN THE KNOWLEDGE BASE", c["unanswered"])
+    sources = [f"[{s['id']}] {s['title']} — {s['url']}" for s in c["citations"]]
+    _print_list("SOURCES", sources, bullet="")
     print(f"\ntimings_ms={c['timings_ms']}")
 
 
+def _print_list(title: str, items: list[str], bullet: str = "- ") -> None:
+    if items:
+        print(f"\n{title}:")
+        for item in items:
+            print(f"  {bullet}{item}")
+
+
 def main(argv: list[str] | None = None) -> int:
+    """Command line: `run` one ticket, or `view` cards as a page."""
     parser = argparse.ArgumentParser(prog="copilot", description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
 

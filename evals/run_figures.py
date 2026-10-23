@@ -18,7 +18,7 @@ from copilot.draft import Draft
 from copilot.grounding import check_draft
 from copilot.kb import KnowledgeBase, load_kb
 from copilot.masking import mask_pii
-from evals.metrics import fmt, recall_precision
+from evals.metrics import fmt, read_jsonl, recall_precision
 
 ROOT = Path(__file__).resolve().parent
 FIGURES = ROOT / "figures_challenge.jsonl"
@@ -28,15 +28,13 @@ FIGURE_PROBLEMS = ("numbers not in", "time units not in", "unsupported policy cl
 OTHER_PROBLEMS = ("empty reply", "unknown sections", "no citations", "reply contains trading")
 
 
-def load_figures() -> list[dict[str, Any]]:
-    return [json.loads(line) for line in FIGURES.read_text().splitlines() if line.strip()]
-
-
 def group(lang: str) -> str:
+    """Language group of a row for the report."""
     return next((name for name, langs in GROUPS.items() if lang in langs), "other")
 
 
 def predict(row: dict[str, Any], kb: KnowledgeBase) -> dict[str, bool]:
+    """Whether the source check withholds the draft, and whether it flags it."""
     draft = Draft(abstain=False, reply=row["draft"], citations=row["cited"])
     # The ticket as the pipeline gives it to the check: normalised and masked.
     result = check_draft(draft, kb, mask_pii(row["ticket"]).text)
@@ -49,7 +47,8 @@ def predict(row: dict[str, Any], kb: KnowledgeBase) -> dict[str, bool]:
 
 
 def main() -> None:
-    rows = load_figures()
+    """Run the number layer over the figures set and write the report."""
+    rows = read_jsonl(FIGURES)
     kb = load_kb()
     preds = [predict(r, kb) for r in rows]
     report: dict[str, Any] = {

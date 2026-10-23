@@ -2,23 +2,19 @@
 
 Phase 1 is built for one fact: the knowledge base is four pages, about 2,000 tokens of prompt. Phase 2
 is what changes when tickets grow past 10,000 a month and the KB grows into SOPs, product
-pages and internal procedures. Each step below has a trigger, so it is done when the numbers
-ask for it, not before.
+pages and internal procedures. Each step is done when the numbers ask for it, not before; the
+triggers, the rollout stages and their criteria are in [rollout.md](rollout.md). This page is
+what each step builds.
 
-## 1. Rollout: shadow, five agents, everyone
+## 1. Rollout
 
-| stage | what agents see | exit criterion |
-|---|---|---|
-| Shadow, 1–2 weeks | nothing; the co-pilot runs on live tickets and only writes traces and cards | hard-rule violations 0 on a sample read by the support lead; "draft ready" precision ≥ 90% on that sample |
-| Pilot, 5 agents | cards in the help desk, a "used / edited / discarded" button on every draft | edit distance and discard rate stable for a week; no complaint about a sent draft |
-| Everyone | same, with per-agent opt-out | weekly review keeps the numbers inside the limits below |
-
-Rollback is a flag that hides cards; the pipeline keeps writing traces, so shadow mode is
-also the fallback.
+Shadow, a five-agent pilot, all agents, and maybe auto-send for a narrow category, each with
+entry, exit and stop criteria and a rollback flag: [rollout.md](rollout.md).
 
 ## 2. The weekly loop: miss → case → fix → re-run
 
-Once a week, 30–60 minutes, the AI engineer and the support lead:
+Once a week, the AI engineer (about 2 hours) and the support lead (about 1), the hours the
+business case pays for; who reads which sample is in [rollout.md](rollout.md#weekly-loop):
 
 1. **Pull misses** from the traces and agent feedback: discarded drafts, drafts edited by more
    than a threshold, routes the agent overrode, any hard-rule hit. Traces carry the KB version
@@ -46,8 +42,9 @@ plain JSON lines and the KB is a TOML file.
 
 ## 4. Retrieval, when the KB stops fitting
 
-Trigger: the KB passes about 30–50k tokens, or ticket types need disjoint sources.
-Until then the whole KB in a cached prompt is cheaper and has no retrieval misses.
+Trigger: [rollout.md](rollout.md#scaling-triggers) (a prompt over 30k tokens, or ticket types
+that need disjoint sources). Until then the whole KB in a cached prompt is cheaper and has no
+retrieval misses.
 
 - **Hybrid retrieval**: BM25 for exact terms (USDT, TRC20, ECN, error codes) plus multilingual
   embeddings for paraphrases and non-English tickets, merged with reciprocal rank fusion, then
@@ -61,7 +58,7 @@ Until then the whole KB in a cached prompt is cheaper and has no retrieval misse
 
 ## 5. Classifier: from zero-shot to fine-tuned
 
-- After 4–8 weeks of pilot, agents' corrections give a few thousand labelled tickets.
+- Trigger: 2,000 agent-confirmed labels, 4–8 weeks of pilot ([rollout.md](rollout.md#scaling-triggers)).
 - Fine-tune Laya on them (its notebook supports Apple Silicon and T4); the README reports
   0.362 → 0.766 accuracy from fine-tuning on another typed-decision workload.
 - Fit per-question thresholds on held-out data instead of the hand-set ones in

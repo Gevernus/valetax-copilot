@@ -1,9 +1,10 @@
-"""What a shown reply must not do, whatever the sources say: decide a reserved case, name a
-compliance check (tipping-off), or claim a handover that has not happened.
+"""What a shown reply must not do, whatever the sources say.
 
-Two layers per label: a precise pattern from rules.py, and the REPLY question on the decision
-model (classify/questions.py). The patterns are a frozen floor and are not widened; a new miss
-becomes a dev row in evals/drafts.jsonl and, if needed, a change to the question's wording.
+It must not decide a reserved case, name a compliance check (tipping-off), or claim a handover
+that has not happened. Two layers per label: a precise pattern from rules.py, and the REPLY
+question on the decision model (classify/questions.py). The patterns are a frozen floor and are
+not widened; a new miss becomes a dev row in evals/drafts.jsonl and, if needed, a change to the
+question's wording.
 """
 
 from collections.abc import Callable
@@ -18,6 +19,8 @@ from copilot.routing import Reason
 
 @dataclass(frozen=True, slots=True)
 class Guard:
+    """One thing a reply must not do: its pattern, problem text and reason."""
+
     pattern: Callable[[str], bool]
     problem: str
     reason: Reason
@@ -39,6 +42,8 @@ assert set(GUARDS) == set(REPLY.options)  # noqa: S101 - one label per REPLY que
 
 @dataclass(frozen=True, slots=True)
 class ReplyCheck:
+    """Problems and reasons found in a reply, and the trace record."""
+
     problems: tuple[str, ...]
     reasons: frozenset[Reason]
     record: dict[str, Any] = field(default_factory=dict)  # for the trace: no text

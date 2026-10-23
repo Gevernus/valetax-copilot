@@ -12,9 +12,12 @@ AGENT_FIELDS = frozenset(f.name for f in fields(Card)) - set(EVAL_ONLY) | {"tick
 
 
 def render_page(cards: list[dict[str, Any]]) -> str:
-    """Cards from any source (a CLI run or an eval's cards.jsonl) keep only the agent's fields.
-    In the embedded JSON, "<", ">" and "&" are escaped, so no string can close the data block or
-    open a tag; the page's script escapes every value it writes into HTML."""
+    """One static HTML page of cards, each cut to the agent's fields.
+
+    Cards come from any source (a CLI run or an eval's cards.jsonl). In the embedded JSON, "<",
+    ">" and "&" are escaped, so no string can close the data block or open a tag; the page's
+    script escapes every value it writes into HTML.
+    """
     template = files("copilot").joinpath("agent_view.html").read_text()
     shown = [{k: v for k, v in agent_view(card).items() if k in AGENT_FIELDS} for card in cards]
     data = json.dumps(shown, ensure_ascii=False)

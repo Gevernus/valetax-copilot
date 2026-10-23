@@ -57,7 +57,8 @@ Downside: if only 15% of live tickets get a ready draft instead of 38%, a ready 
 <!-- /generated -->
 
 The pilot measures handling time on ready-draft tickets against a control group randomised by
-ticket, how often agents send, edit or discard a draft, and the live share of ready drafts.
+ticket, how often agents send, edit or discard a draft, and the live share of ready drafts;
+the sample sizes and the go/no-go are in [rollout.md](rollout.md).
 
 ## Risks
 

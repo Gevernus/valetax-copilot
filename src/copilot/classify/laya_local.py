@@ -13,6 +13,8 @@ CHECKPOINT = "multilingual"
 
 
 class LayaClassifier:
+    """Laya in process; ignores the timeout."""
+
     name = "laya"
 
     def __init__(self, questions: QuestionSet = TICKET) -> None:

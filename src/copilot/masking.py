@@ -24,6 +24,8 @@ _LONG_NUMBER = re.compile(r"\b\d{7,}\b")
 
 @dataclass(frozen=True, slots=True)
 class Masked:
+    """Masked text and how many items of each kind were masked."""
+
     text: str
     counts: dict[str, int]  # what was masked, by kind; safe to log
 
@@ -39,8 +41,11 @@ def _luhn_ok(digits: str) -> bool:
 
 
 def mask_pii(text: str) -> Masked:
-    """Masks the normalised text (`normalise` is idempotent, so a caller that already normalised
-    loses nothing): an invisible character cannot split an email or a number."""
+    """Mask emails, cards, IBANs, wallets, phones and account numbers in the normalised text.
+
+    `normalise` is idempotent, so a caller that already normalised loses nothing, and an invisible
+    character cannot split an email or a number.
+    """
     text = normalise(text)
     counts: Counter[str] = Counter()
 

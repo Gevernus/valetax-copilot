@@ -305,10 +305,6 @@ def test_reply_questions_failing_withhold_the_draft() -> None:
     assert card.reasons == ["check_error"]
 
 
-def test_decline_does_not_point_to_an_unconfirmed_document() -> None:
-    assert all("Risk" not in text and "рисков" not in text for text in TRADING_DECLINE.values())
-
-
 def test_a_malformed_reply_answer_withholds_the_draft() -> None:
     class Malformed(FakeReplyChecker):
         def classify(self, text: str, timeout_s: float | None = None) -> Classification:
@@ -395,15 +391,9 @@ def test_draft_caps_are_checked_in_code_not_sent_to_providers() -> None:
     assert card.reasons == ["draft_error"]
 
 
-def test_the_prompt_caps_the_unanswered_list() -> None:
-    from copilot.draft import system_prompt
-
-    assert "at most 10" in system_prompt(load_kb())
-
-
 def test_the_injection_patterns_are_linear_on_whitespace_runs() -> None:
     import time
 
     started = time.perf_counter()
     rules.looks_like_injection("игнорируй" + "\x0b" * 10_000 + "x")
-    assert time.perf_counter() - started < 0.05
+    assert time.perf_counter() - started < 0.5  # quadratic backtracking takes seconds

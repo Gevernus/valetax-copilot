@@ -13,14 +13,14 @@ from typing import Any, Final
 
 from copilot.kb import KnowledgeBase, load_kb
 from evals.business_case import CONFIGS, RECOMMENDED, run_dir, split
-from evals.metrics import compute, discordant, fmt, mcnemar, zero_failure_upper
+from evals.metrics import compute, discordant, fmt, mcnemar, read_jsonl, zero_failure_upper
 from evals.run import load_labels
 
 DOC: Final = Path(__file__).resolve().parents[1] / "docs" / "evals.md"
 
 
 def _cards(path: Path) -> list[dict[str, Any]]:
-    return [json.loads(line) for line in (path / "cards.jsonl").read_text().splitlines()]
+    return read_jsonl(path / "cards.jsonl")
 
 
 def _violations(m: dict[str, Any]) -> str:
@@ -39,6 +39,7 @@ def _route_accuracy(
 
 
 def headline_table(golden: str, challenge: str) -> str:
+    """The headline table of docs/evals.md, with the Jev-vs-LLM McNemar line."""
     kb = load_kb()
     labels, blind = load_labels(), load_labels("tickets_challenge")
     lines = [
@@ -109,11 +110,13 @@ def headline_table(golden: str, challenge: str) -> str:
 
 
 def update_doc(block: str) -> None:
+    """Rewrite the generated headline block in docs/evals.md."""
     head, _, tail = split(DOC.read_text(), "headline")
     DOC.write_text(f"{head}<!-- generated:headline -->\n{block}\n<!-- /generated -->{tail}")
 
 
 def main() -> None:
+    """Print the table; with --update-doc, write it into the doc."""
     parser = argparse.ArgumentParser(prog="evals.headline")
     parser.add_argument("--golden", required=True, help="results dir with all four configurations")
     parser.add_argument("--challenge", required=True, help="results dir of the blind set")

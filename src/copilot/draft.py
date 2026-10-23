@@ -14,11 +14,13 @@ PROMPT_VERSION = "draft-v3"
 
 
 class Draft(BaseModel):
-    """The drafter's answer. The length caps are ours, checked here, not sent with the schema:
-    a provider may reject or rewrite them. They sit at two to six times the longest answers in
-    the saved runs (reply 640, abstain reason 579, 3 unanswered items of up to 272 characters), so
-    they stop runaway output, not normal answers. An answer over a cap fails validation, which is
-    a transient error (retried, then a draft_error for a person)."""
+    """The drafter's structured answer.
+
+    The length caps are ours, checked here and not sent with the schema, since a provider may
+    reject or rewrite them. They sit at two to six times the longest answers in the saved runs, so
+    they stop runaway output, not normal answers. An answer over a cap fails validation: a
+    transient error, retried, then a draft_error for a person.
+    """
 
     abstain: bool
     abstain_reason: str = Field("", max_length=1500)
@@ -55,10 +57,12 @@ why in `abstain_reason`, and leave `reply` empty.
 
 
 def system_prompt(kb: KnowledgeBase) -> str:
+    """The rules and the citable KB: identical bytes on every call, so it caches."""
     return f"{_RULES}\nKNOWLEDGE BASE (snapshot {kb.version}):\n\n{kb.prompt_block}"
 
 
 def schema(kb: KnowledgeBase) -> dict[str, Any]:
+    """Structured output; citations are an enum of citable section ids."""
     return {
         "type": "object",
         "properties": {
@@ -78,11 +82,15 @@ def schema(kb: KnowledgeBase) -> dict[str, Any]:
 
 @dataclass(frozen=True, slots=True)
 class DraftResult:
+    """The validated draft and the raw LLM result (usage, latency)."""
+
     draft: Draft
     llm: LlmResult
 
 
 class Drafter:
+    """Drafts a reply to one masked ticket from the whole KB."""
+
     def __init__(self, llm: Llm, kb: KnowledgeBase) -> None:
         self._llm = llm
         self._kb = kb
@@ -144,6 +152,7 @@ TRADING_DECLINE = TRADING_DECLINE_VERSIONS[max(TRADING_DECLINE_VERSIONS)]
 
 
 def trading_decline(language: str) -> str:
+    """The fixed trading-advice decline in the client's language, English otherwise."""
     return TRADING_DECLINE.get(language, TRADING_DECLINE["en"])
 
 
@@ -179,5 +188,6 @@ ACKNOWLEDGEMENT = ACKNOWLEDGEMENT_VERSIONS[max(ACKNOWLEDGEMENT_VERSIONS)]
 
 
 def acknowledgement(case: str, language: str) -> str:
+    """The fixed acknowledgement of a reserved case in the client's language."""
     texts = ACKNOWLEDGEMENT[case]
     return texts.get(language, texts["en"])

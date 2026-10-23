@@ -18,8 +18,7 @@ REPLAY_BASELINES = ("2026-10-23/jev+haiku+reply-jev", "2026-10-23-challenge/jev+
 
 
 def cards(run: str) -> list[dict[str, Any]]:
-    path = RESULTS / run / "cards.jsonl"
-    return [json.loads(line) for line in path.read_text().splitlines()]
+    return metrics.read_jsonl(RESULTS / run / "cards.jsonl")
 
 
 def test_committed_v3_run_rescores_to_the_handovers_the_fixed_texts_removed() -> None:
@@ -65,7 +64,7 @@ def test_every_saved_draft_fits_the_draft_caps() -> None:
     from copilot.draft import Draft
 
     for path in RESULTS.glob("*/*/cards.jsonl"):
-        for card in (json.loads(line) for line in path.read_text().splitlines()):
+        for card in metrics.read_jsonl(path):
             Draft.model_validate({
                 "abstain": bool(card["abstain_reason"]),
                 "abstain_reason": card["abstain_reason"],

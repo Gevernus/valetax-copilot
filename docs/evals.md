@@ -173,13 +173,66 @@ ru10) from the label definitions, which only tightens them. The holdout rows are
 by hash; the blind challenge set is the untouched measure. The v1 drafts were made with the contaminated CLI prompt; v1 classifier numbers
 are unaffected (Jev does not use the CLI).
 
-## Reply checks: labelled drafts and label changes
+## Checks on drafts
 
-`evals/drafts.jsonl` (465 rows, dev 256 / holdout 209) and the blind `evals/drafts_challenge.jsonl`
-(180 rows) measure the reply checks; results and method are in
-[decisions.md §8](decisions.md#8-checks-on-every-draft-numbers-in-code-wording-by-patterns-and-the-decision-model).
-Labels changed after reading the decision model's disagreements on dev and the first holdout
-split (the challenge set is never relabelled):
+Two layers of [decisions.md §8](decisions.md#8-checks-on-every-draft-numbers-in-code-wording-by-patterns-and-the-decision-model), each measured on its own, without the pipeline's models.
+
+**The number layer** (`quantities.py` through `grounding.check_draft`) is a frozen
+deterministic floor, not a parser of meaning. Its blind set, `evals/figures_challenge.jsonl`:
+200 drafts with their cited sections and tickets, 91 with an unsupported figure, written by a
+separate agent that never saw the code, frozen by hash, run once with `evals.run_figures`. The
+writer counts a correct KB figure restated in another unit ("within an hour" for 60 minutes)
+or taken from an uncited section as unsupported, and the same value as a word ("six months")
+as supported.
+
+| figures set, 200 rows | recall | precision |
+|---|---|---|
+| withheld | 91% (83/91, 84–96%) | 95% (83/87, 89–98%) |
+| sent to a person (withheld, or shown with figures only from the ticket) | 93% (85/91, 86–97%) | 85% (85/100, 77–91%) |
+
+The rows come in 40 groups of 5 drafts on one ticket, so they are not independent and the
+intervals are optimistic; 45% of rows are positive, so the precision holds for this set, not for
+live traffic. Misses are timelines without a unit word, unit words outside the tables and
+figures from an uncited section; the false withholds and the 11 client figures the draft
+attributes to the client are listed by id, not relabelled, in
+`evals/results/figures_challenge-check_draft.md`. Every later code change was re-run on it with
+the ticket normalised and masked as the pipeline gives it: 0 of 200 predictions changed.
+
+**The reply checks** (`reply_guard.py`): frozen patterns and three typed questions on the
+decision model (jev-1.14.0, questions `reply-v2`, threshold 0.5), measured with
+`evals.run_drafts`. Headline: the blind `evals/drafts_challenge.jsonl`, 180 rows written by a
+separate agent that never saw the patterns, the questions or the drafts set, frozen by hash, run
+once (`evals/results/drafts_challenge-*`):
+
+| challenge, 180 rows: recall / precision | patterns only | Jev only | patterns + Jev |
+|---|---|---|---|
+| decision | 7/50 / 7/7 | 50/50 (93–100%) / 50/53 | 50/50 / 50/53 |
+| compliance check | 15/34 / 15/15 | 34/34 (90–100%) / 34/34 | 34/34 / 34/34 |
+| handover | 9/34 / 9/9 | 34/34 (90–100%) / 34/35 | 34/34 / 34/35 |
+| any of the three | 27/93 (29%) / 27/27 | 93/93 (96–100%) / 93/94 | 93/93 / 93/94 |
+
+On our own `evals/drafts.jsonl` (465 rows: drafts from every saved run split by ticket, probe
+sentences in dev, paraphrases written before the checks changed in holdout; dev 256 / holdout
+209, holdout frozen by hash) the holdout agrees: patterns 55% recall, Jev and patterns + Jev
+100% (87/87) at 97% precision. The patterns add one dev row the model misses ("Your account has
+not been verified", p = 0.41) and nothing on holdout or challenge. They stay because they cost
+nothing, still run when the model is off, and never raised a false alarm on dev. A new miss
+becomes a dev row and, if needed, a change to the question wording, measured on dev and then
+once on holdout.
+
+Limits of the reply checks: both sets are synthetic and small (50 decisions, 34 checks, 34
+handovers in the challenge set); the drafts set was labelled by one person who also wrote the
+question wording, and its handover positives are mostly one template repeated across tickets.
+Observed over-caution: a future "we will send your request to the team" (challenge c125, drafts
+d317) and "after verification is completed, you're all set" are withheld. Disagreements on the
+challenge set, kept as labelled: c046 (a completed handover the model also reads as a decision,
+p = 0.51), c058 and c166 ("flagged" payments read as a decision, p = 0.53 and 0.67). Trading
+advice inside a draft is checked by a pattern only; the client sees the fixed decline for an
+advice request. Only Jev is measured as a reply checker; an LLM backend answers with p = 0 or 1
+and is refused.
+
+Labels in `evals/drafts.jsonl` changed after reading the model's disagreements on dev and the
+first holdout split (the challenge set is never relabelled):
 
 | row | text (start) | label | old → new | why |
 |---|---|---|---|---|

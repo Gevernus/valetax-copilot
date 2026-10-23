@@ -17,6 +17,8 @@ from copilot.kb import KnowledgeBase
 
 @dataclass(frozen=True, slots=True)
 class GroundingResult:
+    """Problems that withhold the draft, and figures only the client gave."""
+
     problems: tuple[str, ...]
     client_figures: tuple[str, ...] = ()  # supported by the ticket only
 
@@ -26,6 +28,7 @@ class GroundingResult:
 
 
 def check_draft(draft: Draft, kb: KnowledgeBase, ticket: str) -> GroundingResult:
+    """Check a draft against the sections it cites and the client's message."""
     if draft.abstain:
         return GroundingResult(())
     reply = draft.reply

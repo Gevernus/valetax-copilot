@@ -1,3 +1,5 @@
+"""The frozen reply patterns catch plain wordings and leave help-page wording alone."""
+
 import pytest
 from evals.run_drafts import load_drafts
 

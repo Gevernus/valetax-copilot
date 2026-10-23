@@ -101,7 +101,7 @@
           `<li><a href="${safeUrl(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>
            <span class="small">[${esc(s.id)}]</span></li>`).join("")}</ul>` : ""}
         <div class="small">classifier ${esc(c.classifier.backend)} · drafter ${esc(c.drafter.model ?? "—")}
-          · kb ${esc(c.kb_version)} · ${Object.entries(c.timings_ms).map(([k, v]) => `${esc(k)} ${esc(v)} ms`).join(", ")}</div>
+          · kb ${esc(c.versions?.kb)} · ${Object.entries(c.timings_ms).map(([k, v]) => `${esc(k)} ${esc(v)} ms`).join(", ")}</div>
       </article>`).join("");
   }
   document.getElementById("summary").textContent =

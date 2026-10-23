@@ -1,3 +1,8 @@
+"""PII is masked in the normalised text, in linear time."""
+
+import gc
+import time
+
 import pytest
 
 from copilot.masking import mask_pii
@@ -44,14 +49,18 @@ def test_card_like_number_failing_luhn_is_not_called_a_card() -> None:
 
 
 def test_masking_is_linear_on_long_runs() -> None:
-    import time
-
     def seconds(n: int) -> float:
+        text = "1" * n + " " + "a." * n + " account" + " " * n + "1"
         started = time.perf_counter()
-        mask_pii("1" * n + " " + "a." * n + " account" + " " * n + "1")
+        mask_pii(text)
         return time.perf_counter() - started
 
-    small, large = seconds(5_000), seconds(20_000)
+    gc.collect()
+    gc.disable()  # a full collection over other tests' objects would dominate the timing
+    try:
+        small, large = (min(seconds(n) for _ in range(3)) for n in (5_000, 20_000))
+    finally:
+        gc.enable()
     assert large < 2.0
     assert large < 10 * max(small, 0.01)  # 4x the input, not 16x the time
 

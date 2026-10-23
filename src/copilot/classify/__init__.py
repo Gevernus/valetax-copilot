@@ -9,6 +9,8 @@ from copilot.classify.questions import QUESTIONS, TICKET, YES_NO, QuestionSet
 
 @dataclass(frozen=True, slots=True)
 class Answer:
+    """One question's chosen option and the probability of every option."""
+
     choice: str
     probabilities: dict[str, float]
 
@@ -24,6 +26,8 @@ class Answer:
 
 @dataclass(frozen=True, slots=True)
 class Usage:
+    """Tokens of one classification call."""
+
     input_tokens: int = 0
     output_tokens: int = 0
     cache_read_tokens: int = 0
@@ -32,6 +36,8 @@ class Usage:
 
 @dataclass(frozen=True, slots=True)
 class Classification:
+    """Every question's answer, with the backend and model that gave them."""
+
     answers: dict[str, Answer]
     backend: str
     model: str
@@ -40,6 +46,8 @@ class Classification:
 
 
 class Classifier(Protocol):
+    """A backend that answers a question set about a text."""
+
     name: str
     questions: QuestionSet  # what it answers: TICKET or REPLY
 
@@ -51,9 +59,11 @@ class Classifier(Protocol):
 def answers_from_probabilities(
     raw: dict[str, dict[str, float]], questions: QuestionSet = TICKET
 ) -> dict[str, Answer]:
-    """Build answers from per-question probabilities; the choice is the argmax. A response that
-    is not a distribution over exactly the question's options is refused, so a malformed answer
-    fails the call instead of reading as a confident "no"."""
+    """Answers from per-question probabilities; the choice is the argmax.
+
+    A response that is not a distribution over exactly the question's options is refused, so a
+    malformed answer fails the call instead of reading as a confident "no".
+    """
     out: dict[str, Answer] = {}
     for name, options in questions.options.items():
         probs = raw.get(name)
@@ -90,6 +100,7 @@ def make_reply_checker(name: str) -> Classifier | None:
 
 
 def make_classifier(name: str, questions: QuestionSet = TICKET) -> Classifier:
+    """A classifier backend by name: jev, laya or llm."""
     if name == "jev":
         from copilot.classify.jev import JevClassifier
 

@@ -41,7 +41,7 @@ from copilot.errors import PermanentError, RetryPolicy, UsageLimitError
 from copilot.kb import KnowledgeBase, load_kb
 from copilot.llm import ClaudeCli, LlmResult, LlmUsage, make_llm
 from copilot.pipeline import Copilot
-from evals.metrics import compute, fmt
+from evals.metrics import compute, fmt, read_jsonl, short
 from evals.prices import run_cost, user_tokens
 
 ROOT = Path(__file__).resolve().parent
@@ -57,8 +57,10 @@ class OutageError(RuntimeError):
 
 
 class OutageGuard:
-    """Stops a run after `limit` cards in a row failed on a provider (the card has an `error`);
-    a card that went through resets the count."""
+    """Stops a run after `limit` cards in a row failed on a provider.
+
+    A card that went through resets the count.
+    """
 
     def __init__(self, limit: int = 5) -> None:
         self.limit = limit
@@ -73,11 +75,12 @@ class OutageGuard:
 
 
 def load_labels(name: str = "tickets") -> dict[str, dict[str, Any]]:
-    rows = [json.loads(line) for line in TICKET_SETS[name].read_text().splitlines() if line.strip()]
-    return {r["id"]: r for r in rows}
+    """A labelled ticket set by id."""
+    return {r["id"]: r for r in read_jsonl(TICKET_SETS[name])}
 
 
 def check_labels(labels: dict[str, dict[str, Any]], kb: KnowledgeBase) -> None:
+    """Refuse labels that cite a section the KB does not have."""
     for tid, lab in labels.items():
         unknown = set(lab["sections"]) - kb.sections.keys()
         if unknown:
@@ -97,6 +100,7 @@ def calibrate(llm: ClaudeCli, system: str, schema_: dict[str, Any]) -> dict[str,
 
 
 def run(args: argparse.Namespace) -> None:
+    """Run a ticket set through one configuration and save cards, traces and metrics."""
     kb = load_kb()
     labels = load_labels(args.set)
     check_labels(labels, kb)
@@ -120,51 +124,18 @@ def run(args: argparse.Namespace) -> None:
     if args.classifier == "llm":
         calibration["classifier"] = calibrate(ClaudeCli("haiku"), CLASSIFY_SYSTEM, CLASSIFY_SCHEMA)
 
-    stopped: list[Exception] = []  # the first reason to stop: a usage limit or an outage
-    outage = OutageGuard()
-
-    def one(tid: str) -> tuple[dict[str, Any], dict[str, Any]]:
-        if stopped:
-            raise stopped[0]
-        text = labels[tid]["text"]
-        try:
-            # Failures end as cards for a person, retried inside the pipeline; the eval export
-            # keeps the model's raw reply, which the agent's export leaves out.
-            processed = copilot.process(tid, text)
-        except UsageLimitError as e:
-            # Quota is not a model failure: stop the run rather than score it.
-            stopped.append(e)
-            raise
-        card = processed.to_eval_dict()  # its `ticket` is the text the models saw
-        try:
-            outage.record(card)
-        except OutageError as e:
-            stopped.append(e)  # the other workers stop too
-            raise
-        print(f"{tid}: {card['route']:5} {','.join(card['reasons'])}", file=sys.stderr)
-        return card, processed.trace()
-
     started = time.perf_counter()
     if args.classifier == "laya":
         copilot.classifier.classify("warm-up")  # load the checkpoint outside the timings
     try:
-        with ThreadPoolExecutor(max_workers=args.workers) as pool:
-            results = list(pool.map(one, ids))
-    except UsageLimitError:
-        shutil.rmtree(out)
-        raise SystemExit(f"{config}: usage limit reached; run discarded, nothing scored") from None
-    except OutageError as e:
+        results = _process_all(copilot, labels, ids, args.workers)
+    except (UsageLimitError, OutageError) as e:
         shutil.rmtree(out)
         raise SystemExit(f"{config}: {e}; run discarded, nothing scored") from None
     wall_s = round(time.perf_counter() - started, 1)
     cards = [card for card, _ in results]
-
-    with (out / "cards.jsonl").open("w") as f:
-        for card in cards:
-            f.write(json.dumps(card, ensure_ascii=False) + "\n")
-    with (out / "traces.jsonl").open("w") as f:
-        for _, trace in results:  # the same line the CLI writes: Card.trace()
-            f.write(json.dumps(trace, ensure_ascii=False) + "\n")
+    _write_jsonl(out / "cards.jsonl", cards)
+    _write_jsonl(out / "traces.jsonl", [trace for _, trace in results])  # as the CLI writes
     meta = {
         "config": config,
         "set": args.set,
@@ -182,10 +153,45 @@ def run(args: argparse.Namespace) -> None:
     report(args.date)
 
 
+def _process_all(
+    copilot: Copilot, labels: dict[str, dict[str, Any]], ids: list[str], workers: int
+) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    """Eval card and trace line per ticket, in parallel.
+
+    A usage limit or an outage stops every worker: the run would measure the provider, not the
+    co-pilot. Failures end as cards for a person, retried inside the pipeline.
+    """
+    stopped: list[Exception] = []
+    outage = OutageGuard()
+
+    def one(tid: str) -> tuple[dict[str, Any], dict[str, Any]]:
+        if stopped:
+            raise stopped[0]
+        try:
+            processed = copilot.process(tid, labels[tid]["text"])
+            card = processed.to_eval_dict()  # keeps the raw reply; `ticket` is what models saw
+            outage.record(card)
+        except (UsageLimitError, OutageError) as e:
+            stopped.append(e)
+            raise
+        print(f"{tid}: {card['route']:5} {','.join(card['reasons'])}", file=sys.stderr)
+        return card, processed.trace()
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        return list(pool.map(one, ids))
+
+
+def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
+    with path.open("w") as f:
+        f.writelines(json.dumps(row, ensure_ascii=False) + "\n" for row in rows)
+
+
 def cost_per_ticket(cards: list[dict[str, Any]], meta: dict[str, Any]) -> dict[str, Any]:
-    """API cost of our own tokens (evals/prices.py): every system prompt a cache hit (warm) or a
-    5-minute cache write (cold); the Jev reply check included, estimated on runs before it
-    recorded its tokens."""
+    """API cost of our own tokens per ticket, warm and cold cache (evals/prices.py).
+
+    Warm: every system prompt a cache hit; cold: every one a 5-minute cache write. The Jev reply
+    check is included, estimated on runs made before it recorded its tokens.
+    """
     warm = run_cost(cards, meta, hit_draft=1.0, hit_classify=1.0)
     cold = run_cost(cards, meta, hit_draft=0.0, hit_classify=0.0)
     system = meta.get("calibration", {}).get("drafter", {}).get("system")
@@ -216,11 +222,11 @@ def score(cards: list[dict[str, Any]], labels: dict[str, Any], kb: KnowledgeBase
 
 
 def _saved(run_dir: Path) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    cards = [json.loads(line) for line in (run_dir / "cards.jsonl").read_text().splitlines()]
-    return cards, json.loads((run_dir / "run.json").read_text())
+    return read_jsonl(run_dir / "cards.jsonl"), json.loads((run_dir / "run.json").read_text())
 
 
 def report(day: str) -> None:
+    """Re-score every saved run of a results dir and write <dir>.json and <dir>.md."""
     kb = load_kb()
     runs: dict[str, Any] = {}
     for run_dir in sorted((RESULTS / day).iterdir()):
@@ -237,14 +243,8 @@ def report(day: str) -> None:
     print(f"wrote {RESULTS / f'{day}.md'}")
 
 
-def _fmt(r: dict[str, Any]) -> str:
-    if r["value"] is None:
-        return "–"
-    lo, hi = r["ci95"]
-    return f"{r['value']:.0%} ({r['hits']}/{r['n']}, {lo:.0%}–{hi:.0%})"
-
-
 def summary_markdown(day: str, runs: dict[str, Any]) -> str:
+    """The results table of a dated run, with each run's misses listed."""
     names = list(runs)
     sets = sorted({m["meta"].get("set", "tickets") for m in runs.values()})
     lines = [
@@ -266,17 +266,17 @@ def summary_markdown(day: str, runs: dict[str, Any]) -> str:
         "failures (sent to a person, not scored)",
         lambda m: str(m.get("failures", {}).get("count", 0)),
     )
-    row("route accuracy", lambda m: _fmt(m["route"]["accuracy"]))
+    row("route accuracy", lambda m: fmt(m["route"]["accuracy"]))
     row(
         "route accuracy, holdout only",
-        lambda m: _fmt(m["holdout"]["route"]["accuracy"]) if "holdout" in m else "–",
+        lambda m: fmt(m["holdout"]["route"]["accuracy"]) if "holdout" in m else "–",
     )
-    row("needs-a-person recall (safety)", lambda m: _fmt(m["route"]["human_recall"]))
-    row("draft-ready precision", lambda m: _fmt(m["route"]["auto_precision"]))
-    row("draft-ready recall", lambda m: _fmt(m["route"]["auto_recall"]))
-    row("draft-ready share", lambda m: _fmt(m["route"]["auto_share"]))
+    row("needs-a-person recall (safety)", lambda m: fmt(m["route"]["human_recall"]))
+    row("draft-ready precision", lambda m: fmt(m["route"]["auto_precision"]))
+    row("draft-ready recall", lambda m: fmt(m["route"]["auto_recall"]))
+    row("draft-ready share", lambda m: fmt(m["route"]["auto_share"]))
     for f in ("category", "urgency", "sentiment", "language"):
-        row(f"{f} accuracy", lambda m, f=f: _fmt(m["fields"][f]))
+        row(f"{f} accuracy", lambda m, f=f: fmt(m["fields"][f]))
     for flag in (
         "trading_advice",
         "complaint",
@@ -286,15 +286,15 @@ def summary_markdown(day: str, runs: dict[str, Any]) -> str:
         "account_lookup",
     ):
         row(f"{flag} recall / precision", lambda m, flag=flag: (
-            f"{_short(m['flags'][flag]['recall'])} / {_short(m['flags'][flag]['precision'])}"
-            f" (model only {_short(m['flags'][flag]['model_only_recall'])})"
+            f"{short(m['flags'][flag]['recall'])} / {short(m['flags'][flag]['precision'])}"
+            f" (model only {short(m['flags'][flag]['model_only_recall'])})"
         ))  # fmt: skip
     row(
         "abstain recall / precision",
-        lambda m: f"{_short(m['abstain']['recall'])} / {_short(m['abstain']['precision'])}",
+        lambda m: f"{short(m['abstain']['recall'])} / {short(m['abstain']['precision'])}",
     )
-    row("citations valid", lambda m: _fmt(m["citations"]["valid"]))
-    row("expected section cited", lambda m: _fmt(m["citations"]["expected_hit"]))
+    row("citations valid", lambda m: fmt(m["citations"]["valid"]))
+    row("expected section cited", lambda m: fmt(m["citations"]["expected_hit"]))
     row("drafts withheld by grounding check", lambda m: str(len(m["grounding_rejections"])))
     row(
         "latency p50 / p95, s",
@@ -332,13 +332,12 @@ def summary_markdown(day: str, runs: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _short(r: dict[str, Any]) -> str:
-    return "–" if r["value"] is None else f"{r['value']:.0%} ({r['hits']}/{r['n']})"
-
-
 class SavedClassifier:
-    """A saved card's classifier answers. The card keeps P(yes) of each flag and P of the chosen
-    category only, which is all the routing reads."""
+    """A saved card's classifier answers, replayed without a call.
+
+    The card keeps P(yes) of each flag and P of the chosen category only, which is all the routing
+    reads.
+    """
 
     name = "saved"
     questions = TICKET
@@ -385,8 +384,10 @@ class SavedLlm:
 
 
 def replay_run(run: str, reply_checker: str = "none") -> dict[str, Any]:
-    """One saved run (`<date>/<config>`) through the current code. A saved failure card stays as
-    it was: there is no model output to replay."""
+    """One saved run (`<date>/<config>`) through the current code.
+
+    A saved failure card stays as it was: there is no model output to replay.
+    """
     kb = load_kb()
     saved, meta = _saved(RESULTS / run)
     labels = load_labels(meta.get("set", "tickets"))
@@ -442,6 +443,7 @@ def _today() -> str:
 
 
 def main() -> None:
+    """Command line: run, report or replay."""
     parser = argparse.ArgumentParser(prog="evals.run")
     sub = parser.add_subparsers(dest="command", required=True)
     r = sub.add_parser("run")

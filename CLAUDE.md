@@ -14,6 +14,7 @@ uv run python -m evals.run run --classifier jev --model haiku
 uv run python -m evals.run run --classifier jev --model haiku --set tickets_challenge --date <dir>-challenge
 uv run python -m evals.run report --date <dir>   # re-score saved cards, no model calls
 uv run python -m evals.run replay --date <dir>   # saved model outputs through current code, no network
+uv run python -m evals.gate 2026-10-23 2026-10-23-challenge   # CI gate: no violation, no accuracy loss
 uv run python -m evals.headline --golden <dir> --challenge <dir>-challenge --update-doc   # docs/evals.md table
 uv run python -m evals.business_case --date <dir> --update-doc   # dir with all four configs
 ```
@@ -34,9 +35,9 @@ log or write them, and never put them in a test fixture.
   per-ticket budget; Jev, the claude CLI and the Anthropic API raise only these (Laya and the
   LLM classifier do not, and are not retried). `Copilot.process` returns a card for a person on
   any failure; only evals ask it to raise a usage limit (`raise_usage_limit=True`).
-- `src/copilot/routing.py`: the rule table and thresholds. A new reason needs a row in
-  `_TABLE`, a `CONSEQUENCE` text, and a test in `tests/test_routing.py`. Failure cards
-  (`too_long`, `classifier_error`, `pipeline_error`) get their reasons from the same table.
+- `src/copilot/routing.py`: the reasons (in order of severity) and thresholds. A new reason
+  needs a `Reason` member in its group, a `CONSEQUENCE` text, and a pipeline test that raises
+  it. Failure cards (`too_long`, `classifier_error`, `pipeline_error`) use the same reasons.
 - `src/copilot/classify/questions.py`: the typed questions, shared by every backend.
 - `src/copilot/rules.py` and `grounding.py`: deterministic checks on input and draft.
 - `src/copilot/draft.py`: the drafter prompt (`PROMPT_VERSION`) and the fixed decline texts.

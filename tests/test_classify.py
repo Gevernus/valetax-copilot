@@ -1,3 +1,5 @@
+"""A malformed probability answer is refused, not read as a confident no."""
+
 from typing import Any
 
 import pytest

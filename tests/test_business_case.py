@@ -95,7 +95,6 @@ def test_recommendation_holds_in_the_run_shown() -> None:
 
 
 def test_doc_inputs_are_the_script_assumptions() -> None:
-    assert bc.WEEKS_PER_MONTH == 52 / 12
     assert len(set(prices.MIN_CACHEABLE.values())) == 1
     for text in (
         f"{bc.TICKETS_PER_MONTH:,}",

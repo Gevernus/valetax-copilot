@@ -1,5 +1,7 @@
-"""Official prices and the cost of one ticket: the one formula behind `evals.run report`
-(warm and cold cache) and `evals.business_case` (an assumed live cache-hit share).
+"""Official prices and the cost of one ticket.
+
+The one cost formula behind `evals.run report` (warm and cold cache) and
+`evals.business_case` (an assumed live cache-hit share).
 
 Sources, fetched 2026-10-23:
 - Anthropic: platform.claude.com/docs/en/about-claude/pricing (Haiku 5.5 for prompts up to
@@ -38,8 +40,11 @@ REPLY_CHECK_TOKENS_EST: Final = 600
 
 
 def llm_call_cost(model: str, prefix: float, user: float, output: float, hit: float) -> float:
-    """USD for one call. The system prompt is a cache hit with probability `hit` and a 5-minute
-    cache write otherwise; below the model's minimum cacheable length it is plain input."""
+    """USD for one LLM call.
+
+    The system prompt is a cache hit with probability `hit` and a 5-minute cache write otherwise;
+    below the model's minimum cacheable length it is plain input.
+    """
     p = PRICES[model]
     if prefix >= MIN_CACHEABLE[model]:
         prefix_usd = prefix * (hit * p.cache_hit + (1 - hit) * p.cache_write_5m)
@@ -49,15 +54,20 @@ def llm_call_cost(model: str, prefix: float, user: float, output: float, hit: fl
 
 
 def user_tokens(card: dict[str, Any]) -> int:
-    """The per-ticket message (mode, language, ticket) at 3 characters per token: conservative for
-    English, close for Cyrillic and Arabic. The CLI reports it inside its own overhead."""
+    """Tokens of the per-ticket message (language and ticket), at 3 characters per token.
+
+    Conservative for English, close for Cyrillic and Arabic; the CLI reports these tokens inside
+    its own overhead.
+    """
     return 20 + len(card["ticket"]) // 3
 
 
 def reply_check_tokens(card: dict[str, Any]) -> float:
-    """Jev input tokens of the reply check: as recorded by newer runs; for older runs, the
-    estimate on a draft the check would have seen (answer mode, not abstained, passed the source
-    check)."""
+    """Jev input tokens of the reply check.
+
+    As recorded by newer runs; for older runs, an estimate on a draft the check would have seen
+    (answer mode, not abstained, passed the source check).
+    """
     record = card.get("reply_check")
     if record is not None:
         return float(record.get("input_tokens", 0)) if record.get("status") == "checked" else 0.0
@@ -92,12 +102,14 @@ def _calls(card: dict[str, Any], stage: str) -> int:
 def run_cost(
     cards: list[dict[str, Any]], meta: dict[str, Any], hit_draft: float, hit_classify: float
 ) -> TicketCost:
-    """Mean cost per ticket of a saved run. Our own tokens only: the calibrated system prompt
-    (claude-cli) or the cached part the API reports, the ticket message, measured output tokens
-    (they include adaptive thinking: an upper bound at low effort), Jev input tokens. A retried
-    stage counts every attempt as paid, the failed ones at the cost of the one that answered: an
-    upper bound, since a failed call reports no tokens. Failure cards count too (they are left
-    out of quality, not of cost): a draft that failed is priced as its prompt, per attempt."""
+    """Mean cost per ticket of a saved run, our own tokens only.
+
+    Counted: the calibrated system prompt (claude-cli) or the cached part the API reports, the
+    ticket message, measured output tokens (adaptive thinking included: an upper bound at low
+    effort) and Jev input tokens. A retried stage counts every attempt as paid at the cost of the
+    one that answered, an upper bound. Failure cards count too: they are left out of quality, not
+    of cost.
+    """
     cal = meta.get("calibration", {})
     classify: list[float] = []
     draft: list[float] = []

@@ -36,15 +36,20 @@ def for_status(status: int) -> ProviderError:
 
 @dataclass(frozen=True, slots=True)
 class RetryPolicy:
+    """Attempts per stage, backoff and the per-ticket deadline."""
+
     attempts: int = 3  # calls per stage, the first one included
     backoff_s: float = 1.0  # wait before the second call; doubles after that
     deadline_s: float = 120.0  # per ticket, measured from the start of processing
 
 
 class Budget:
-    """One ticket's time and calls. Every call, the first included, gets the time left as its
-    timeout; with no time left it is not made (TransientError "deadline"). Only a transient
-    error is retried, within the attempt budget and the time left."""
+    """One ticket's time and calls.
+
+    Every call, the first included, gets the time left as its timeout; with no time left it is not
+    made (TransientError "deadline"). Only a transient error is retried, within the attempt budget
+    and the time left.
+    """
 
     def __init__(
         self,

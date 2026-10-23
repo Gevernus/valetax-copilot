@@ -10,6 +10,8 @@ DEFAULT_KB = Path(__file__).resolve().parents[2] / "kb" / "valetax.toml"
 
 @dataclass(frozen=True, slots=True)
 class Section:
+    """One KB section: verbatim text, source pages and issue tags."""
+
     id: str
     title: str
     text: str
@@ -19,6 +21,8 @@ class Section:
 
 @dataclass(frozen=True, slots=True)
 class KnowledgeBase:
+    """The sections, the issue kinds, and a version hash of the file."""
+
     sections: dict[str, Section]
     issue_kinds: dict[str, str]
     version: str  # first 12 hex digits of the file's SHA-256; goes into every trace line
@@ -45,6 +49,7 @@ class KnowledgeBase:
 
 
 def load_kb(path: Path = DEFAULT_KB) -> KnowledgeBase:
+    """Load and validate the TOML knowledge base."""
     raw = path.read_bytes()
     data = tomllib.loads(raw.decode())
     pages: dict[str, str] = data["pages"]

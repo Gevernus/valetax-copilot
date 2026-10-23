@@ -1,13 +1,23 @@
-"""Routing rules: a table from signals to reasons. Any reason sends the ticket to a person."""
+"""Routing: the reasons a ticket needs a person, in order of severity, and the flag thresholds.
 
-from dataclasses import dataclass, field
+A ticket with no reason gets "draft ready" (`auto`); any reason sends it to a person (`human`).
+The order of `Reason` is the order on the card: what failed first, then the cases a person
+owns, then what is wrong with the draft.
+"""
+
+from collections.abc import Iterable
+from dataclasses import dataclass
 from enum import StrEnum
 
 
 class Reason(StrEnum):
+    """Why a ticket needs a person."""
+
+    # The ticket was not read: no draft.
     TOO_LONG = "too_long"
     CLASSIFIER_ERROR = "classifier_error"
     PIPELINE_ERROR = "pipeline_error"
+    # The case belongs to a person whatever the draft says.
     PROMPT_INJECTION = "prompt_injection"
     AML = "aml"
     KYC = "kyc"
@@ -15,6 +25,7 @@ class Reason(StrEnum):
     TRADING_ADVICE = "trading_advice"
     ACCOUNT_LOOKUP = "account_lookup"
     LOW_CONFIDENCE = "low_confidence"
+    # The draft is incomplete, contested or withheld.
     KB_GAP = "kb_gap"
     KB_CONFLICT = "kb_conflict"
     TIPPING_OFF = "tipping_off"
@@ -62,69 +73,12 @@ class Thresholds:
     reply_flag: float = 0.5  # a reply question at or above this withholds the draft
 
 
-@dataclass(frozen=True, slots=True)
-class Signals:
-    too_long: bool = False
-    classifier_error: bool = False
-    pipeline_error: bool = False
-    injection: bool = False
-    aml: bool = False
-    kyc: bool = False
-    complaint: bool = False
-    trading_advice: bool = False
-    account_lookup: bool = False
-    low_confidence: bool = False
-    abstained: bool = False
-    unanswered: bool = False
-    cites_conflict: bool = False
-    tipping_off: bool = False
-    reserved_wording: bool = False
-    client_figures: bool = False
-    grounding_failed: bool = False
-    check_error: bool = False
-    draft_error: bool = False
+def route(reasons: Iterable[Reason]) -> tuple[Reason, ...]:
+    """The reasons in order of severity, each once."""
+    found = set(reasons)
+    return tuple(r for r in Reason if r in found)
 
 
-@dataclass(frozen=True, slots=True)
-class Route:
-    reasons: tuple[Reason, ...] = field(default_factory=tuple)
-
-    @property
-    def to_human(self) -> bool:
-        return bool(self.reasons)
-
-    @property
-    def label(self) -> str:
-        return "human" if self.reasons else "auto"
-
-
-_TABLE: tuple[tuple[str, Reason], ...] = (
-    ("too_long", Reason.TOO_LONG),
-    ("classifier_error", Reason.CLASSIFIER_ERROR),
-    ("pipeline_error", Reason.PIPELINE_ERROR),
-    ("injection", Reason.PROMPT_INJECTION),
-    ("aml", Reason.AML),
-    ("kyc", Reason.KYC),
-    ("complaint", Reason.COMPLAINT),
-    ("trading_advice", Reason.TRADING_ADVICE),
-    ("account_lookup", Reason.ACCOUNT_LOOKUP),
-    ("low_confidence", Reason.LOW_CONFIDENCE),
-    ("abstained", Reason.KB_GAP),
-    ("unanswered", Reason.KB_GAP),
-    ("cites_conflict", Reason.KB_CONFLICT),
-    ("tipping_off", Reason.TIPPING_OFF),
-    ("reserved_wording", Reason.RESERVED_WORDING),
-    ("client_figures", Reason.CLIENT_FIGURES),
-    ("grounding_failed", Reason.GROUNDING_FAILED),
-    ("check_error", Reason.CHECK_ERROR),
-    ("draft_error", Reason.DRAFT_ERROR),
-)
-
-
-def route(signals: Signals) -> Route:
-    """Reasons in table order (most severe first), without duplicates."""
-    reasons: list[Reason] = []
-    for attr, reason in _TABLE:
-        if getattr(signals, attr) and reason not in reasons:
-            reasons.append(reason)
-    return Route(tuple(reasons))
+def label(reasons: tuple[Reason, ...]) -> str:
+    """`human` when there is any reason, `auto` (draft ready) otherwise."""
+    return "human" if reasons else "auto"

@@ -1,5 +1,10 @@
-"""Deterministic patterns. Inputs: high-precision signals that run before any model.
-Outputs: checks on the draft that do not depend on the model behaving."""
+"""Deterministic patterns, the first and last layer around the models.
+
+Input side: high-precision signals (injection, a request for trading advice) that run before
+any model. Output side: checks on the draft (advice, a decision, tipping-off, a handover, a
+fee claim) that do not depend on the model behaving. Patterns catch plain wordings only;
+paraphrases are the decision model's job (reply_guard.py).
+"""
 
 import re
 from typing import Final
@@ -8,9 +13,11 @@ from typing import Final
 
 
 def _words(pattern: str) -> str:
-    r"""Patterns are written with single spaces; a ticket may break a phrase across a line. Only
-    `\s+` is emitted, and every optional word carries its own separator, so no two whitespace
-    quantifiers meet (which would backtrack quadratically on a long whitespace run)."""
+    r"""Let a phrase written with single spaces match across any whitespace.
+
+    Only `\s+` is emitted, and every optional word carries its own separator, so no two
+    whitespace quantifiers meet (which would backtrack quadratically on a long whitespace run).
+    """
     return pattern.replace(" ", r"\s+")
 
 
@@ -46,10 +53,12 @@ _TRADING_ADVICE_REQUEST: Final = re.compile(
 
 
 def looks_like_injection(text: str) -> bool:
+    """A plain instruction to the AI: ignore rules, reveal the prompt, change role."""
     return _INJECTION.search(text) is not None
 
 
 def asks_trading_advice(text: str) -> bool:
+    """A plain request for trading advice: buy or sell, signals, targets, leverage."""
     return _TRADING_ADVICE_REQUEST.search(text) is not None
 
 
@@ -142,20 +151,25 @@ _POLICY_CLAIM: Final = re.compile(
 
 
 def gives_trading_advice(text: str) -> bool:
+    """A draft that recommends a trade, a direction or a leverage."""
     return _ADVICE_IN_DRAFT.search(text) is not None
 
 
 def announces_decision(text: str) -> bool:
+    """A draft that announces a decision on the client's case."""
     return _DECISION_LANGUAGE.search(text) is not None
 
 
 def tips_off(text: str) -> bool:
+    """A draft that names a compliance, AML, fraud or security check."""
     return _TIPPING_OFF.search(text) is not None
 
 
 def claims_handover(text: str) -> bool:
+    """A draft that says the case was passed on."""
     return _HANDOVER.search(text) is not None
 
 
 def policy_claims(text: str) -> list[str]:
+    """Fee and guarantee claims in a draft."""
     return [m.group() for m in _POLICY_CLAIM.finditer(text)]

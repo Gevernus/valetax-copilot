@@ -64,7 +64,7 @@ def test_hostile_strings_render_as_text() -> None:
         "client_figures": [HOSTILE], "unanswered": [HOSTILE],
         "citations": [{"id": HOSTILE, "title": HOSTILE, "url": "javascript:alert(3)"}],
         "classifier": {"backend": HOSTILE}, "drafter": {"model": HOSTILE},
-        "kb_version": HOSTILE, "timings_ms": {HOSTILE: HOSTILE},
+        "versions": {"kb": HOSTILE}, "timings_ms": {HOSTILE: HOSTILE},
     }  # fmt: skip
     page = render_page([card])
     script = page.rsplit("<script>", 1)[1].split("</script>", 1)[0]

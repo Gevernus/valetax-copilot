@@ -1,79 +1,99 @@
 # Support co-pilot for a forex/CFD broker
 
-Processes an incoming support ticket for an agent: classifies it, drafts a reply grounded in the
-Valetax help pages with citations (or abstains), and routes it to a person whenever a hard rule
-or the evidence requires it. Python 3.12, uv; a CLI and a static HTML page for agents.
+For each incoming support ticket it classifies the ticket (category, urgency, language,
+sentiment), drafts a reply from the Valetax help pages with citations or abstains, and routes the
+ticket to a person whenever a hard rule or the evidence requires it. Nothing is sent to a client:
+an agent reads every card. Python 3.12, uv; a CLI and a static HTML page for agents.
 
-```mermaid
-flowchart LR
-    t([ticket]) --> m[mask PII<br/>rules: injection, advice]
-    m --> c[decision model<br/>9 typed questions<br/>Jev / Laya / LLM]
-    m --> l[language<br/>lingua]
-    c --> d{injection?}
-    d -->|no| g[draft from the whole KB<br/>cites section ids or abstains<br/>Haiku via claude CLI / API]
-    g --> k[grounding check<br/>numbers, time units, fees,<br/>advice, decisions vs cited text]
-    k --> r[routing table]
-    d -->|yes| r
-    r --> card([decision card:<br/>reasons first, draft, sources])
-    r --> tr[(trace line<br/>no text)]
-```
+**What the brief asked for, and what is done:** [docs/requirements.md](docs/requirements.md).
 
-**Results** for Jev + Haiku, run `2026-10-23` on the current code (details and intervals in
-[docs/evals.md](docs/evals.md)). On 80 hand-labelled tickets: 0 hard-rule violations (95%
-upper bound 3.7%); every one of the 48 tickets that needs a person reached one; 30 of 32
-answerable tickets got a ready draft (the two misses are thank-you notes); route accuracy 98%
-(95% CI 91–99%), 95% on the 20 held-out tickets; $0.00031–0.00049 per ticket at API prices.
-On 60 blind tickets frozen before their one run: 0 violations, 39 of 39 reached a person,
-route accuracy 95% (86–98%). Sonnet adds nothing measurable; the LLM classifier routes the
-same within noise at 4.7 s against 0.33 s; zero-shot Laya is safe but sends nearly everything
-to a person. The business case: [docs/business-case.md](docs/business-case.md).
+## Results
+
+Jev classifier + Haiku drafter, run `2026-10-23` on the current code. Full tables with intervals:
+[`evals/results/2026-10-23.md`](evals/results/2026-10-23.md) (golden) and
+[`evals/results/2026-10-23-challenge.md`](evals/results/2026-10-23-challenge.md) (blind).
+
+| | golden set, 80 tickets | blind set, 60 tickets |
+|---|---|---|
+| hard-rule violations | 0 (95% upper bound 3.7%) | 0 (≤ 4.9%) |
+| tickets that need a person and reached one | 48 of 48 | 39 of 39 |
+| route accuracy | 98% (91–99%); held-out 20: 95% | 95% (86–98%) |
+| ready drafts that were right | 30 of 30 | 18 of 18 |
+| API cost per ticket, warm / cold cache | $0.00031 / $0.00049 | |
+
+Sonnet adds nothing measurable at 8–13 times the model cost; the LLM classifier routes the same
+within noise at 4.7 s against 0.33 s; zero-shot Laya is safe but sends nearly everything to a
+person. Is it worth running: [docs/business-case.md](docs/business-case.md).
 
 ## Run it
 
 ```bash
-uv sync --all-extras                     # the laya extra pulls torch; skip it with plain `uv sync`
+uv sync --all-extras                     # the laya extra pulls torch; plain `uv sync` skips it
 export TYPESAFE_API_KEY=...              # Jev classifier (default)
 uv run copilot run "My withdrawal is pending for 3 days. Also, should I buy gold now?"
-uv run copilot run --classifier laya "Какие документы нужны для верификации?"   # fully local classifier
+uv run copilot run --classifier laya "Какие документы нужны для верификации?"   # local classifier
 uv run copilot run --json --file ticket.txt
 ```
 
 The drafter defaults to `--llm claude-cli --model haiku`, which shells out to an authenticated
-`claude` CLI (Claude Code). With an API key use `--llm anthropic` (written, not run: see
+`claude` CLI. With an API key use `--llm anthropic` (written, not run live:
 [decisions §11](docs/decisions.md#11-claude-subscription-cli-for-development-the-api-for-production)).
-Each run appends one line to `traces/traces.jsonl`.
+Each run appends one line, without ticket text, to `traces/traces.jsonl`.
 
-Agent view: `uv run copilot view evals/results/2026-10-23/jev+haiku+reply-jev/cards.jsonl -o agent-view.html`
-and open the file; the cards are embedded, no server needed.
-
-Evals and tests:
+Agent view, the cards embedded in one HTML file, no server:
 
 ```bash
-uv run pytest                                              # no network, fake models
-uv run python -m evals.run run --classifier jev --model haiku   # golden set, one configuration
-uv run python -m evals.run report --date 2026-10-23            # re-score saved cards, no model calls
-uv run python -m evals.run replay --date 2026-10-23            # saved model outputs, current code
+uv run copilot view evals/results/2026-10-23/jev+haiku+reply-jev/cards.jsonl -o agent-view.html
 ```
 
-## Requirement → where
+## How it works
 
-| Requirement | Where |
+```mermaid
+flowchart LR
+    t([ticket]) --> m[normalise, mask PII<br/>rules: injection, advice]
+    m --> c[decision model<br/>9 typed questions<br/>Jev / Laya / LLM]
+    m --> l[language<br/>lingua]
+    c --> d{injection or<br/>complaint, KYC, AML?}
+    d -->|no| g[draft from the whole KB<br/>cites section ids or abstains]
+    g --> k[source check: figures, fees<br/>reply check: decision, compliance, handover]
+    k --> r[routing: 18 reasons]
+    d -->|yes: no draft, or a fixed text by code| r
+    r --> card([card: reasons first,<br/>draft, sources])
+    r --> tr[(trace line, no text)]
+```
+
+| module | does |
 |---|---|
-| Classify: category, urgency, language, sentiment | `src/copilot/classify/` (questions in `questions.py`), `src/copilot/language.py` |
-| Draft grounded in the KB with citations, or abstain | `kb/valetax.toml`, `src/copilot/draft.py`, `src/copilot/grounding.py` |
-| Route to a human reviewer whenever required | `src/copilot/routing.py`, `src/copilot/pipeline.py` |
-| Fail safely: any failure is a card for a person, transient errors retried | `src/copilot/errors.py`, the boundary in `Copilot.process` ([decisions §15](docs/decisions.md)); the Anthropic API backend is written against the SDK docs, not run live |
-| No trading advice; detect and decline politely | `rules.asks_trading_advice`, the `trading_advice` question, `draft.TRADING_DECLINE`, `rules.gives_trading_advice` |
-| Never decide complaint, KYC or AML outcomes | fixed acknowledgements in `draft.ACKNOWLEDGEMENT`, `rules.py` patterns and the `REPLY` questions on every draft ([decisions §8](docs/decisions.md)), routing reasons |
-| Never invent policy, fees or timelines | `grounding.check_draft` with `quantities.py`, abstention in the draft schema |
-| KB used as is, gaps and inconsistencies included | `kb/valetax.toml`, [docs/kb-issues.md](docs/kb-issues.md) |
-| Measure it | `evals/`, [docs/evals.md](docs/evals.md) |
-| Business case on one page | [docs/business-case.md](docs/business-case.md) |
-| Phase 2: scale up | [docs/phase2.md](docs/phase2.md) |
-| Built with an agentic coding tool | Claude Code; [CLAUDE.md](CLAUDE.md) is the project guide it worked from |
+| `src/copilot/pipeline.py` | the order of stages; any failure becomes a card for a person |
+| `normalise.py`, `masking.py`, `rules.py` | one normalised text, PII masked, input patterns |
+| `classify/` | the typed questions and the Jev, Laya and LLM backends |
+| `draft.py`, `kb.py`, `kb/valetax.toml` | the drafter prompt and schema, the fixed texts, the KB |
+| `grounding.py`, `quantities.py`, `reply_guard.py` | checks on every draft |
+| `routing.py` | the reasons, in order of severity, and the thresholds |
+| `errors.py`, `llm.py` | three provider error kinds, one retry budget, the LLM backends |
+| `cli.py`, `view.py`, `trace.py` | the CLI, the agent page, the trace writer |
 
-## Further reading
+## Evals and checks
 
-[docs/decisions.md](docs/decisions.md) → [docs/evals.md](docs/evals.md) →
-[docs/business-case.md](docs/business-case.md) → [docs/kb-issues.md](docs/kb-issues.md) →
-[docs/phase2.md](docs/phase2.md).
+```bash
+uv run pytest                                                   # no network, fake models
+uv run ruff check . && uv run ruff format --check . && uv run mypy
+uv run python -m evals.gate 2026-10-23 2026-10-23-challenge     # the CI eval gate
+uv run python -m evals.run run --classifier jev --model haiku   # a new golden run
+uv run python -m evals.run replay --date 2026-10-23             # saved model outputs, current code
+```
+
+CI (`.github/workflows/ci.yml`) runs lint, types, the tests with any skip failing the build, and
+the eval gate: the committed runs replayed through the current code must keep zero violations
+and their route accuracy. `uvx pre-commit install` adds ruff and mypy as commit hooks.
+
+## Documents
+
+- [docs/requirements.md](docs/requirements.md): the brief, line by line, with proof and status
+- [docs/decisions.md](docs/decisions.md): each decision, why, and what was rejected
+- [docs/evals.md](docs/evals.md): the sets, the metrics, every result and its limits
+- [docs/business-case.md](docs/business-case.md): worth running at 10,000 tickets a month, and how
+- [docs/kb-issues.md](docs/kb-issues.md): the gaps and contradictions in the four help pages
+- [docs/rollout.md](docs/rollout.md): launch stages, promotion and stop criteria, scaling triggers
+- [docs/phase2.md](docs/phase2.md): what each scaling step builds, the weekly improvement loop
+- [CLAUDE.md](CLAUDE.md): the guide Claude Code worked from (the brief asked for an agentic tool)

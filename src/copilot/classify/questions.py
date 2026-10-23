@@ -1,6 +1,7 @@
 """The typed questions every classifier backend answers. One place, so backends stay comparable.
 
-Two sets: one about the client's ticket, one about a draft reply before it is shown."""
+Two sets: one about the client's ticket, one about a draft reply before it is shown.
+"""
 
 from dataclasses import dataclass
 from typing import Any, Final
@@ -85,6 +86,8 @@ YES_NO: Final[frozenset[str]] = frozenset(
 
 @dataclass(frozen=True, slots=True)
 class QuestionSet:
+    """A versioned set of typed questions about one kind of text."""
+
     version: str  # bump on any change to a question, an option or a description
     subject: str  # what the classified text is, for the LLM backend
     instructions: dict[str, str]

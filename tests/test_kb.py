@@ -1,3 +1,5 @@
+"""The KB loads with stable ids, tagged conflicts, and the defect kept out of the prompt."""
+
 from copilot.kb import load_kb
 
 

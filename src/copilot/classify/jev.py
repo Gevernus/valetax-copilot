@@ -16,6 +16,8 @@ JEV_MODEL = "jev-1.14.0"
 
 
 class JevClassifier:
+    """TypeSafe Jev over HTTP; needs TYPESAFE_API_KEY."""
+
     name = "jev"
 
     def __init__(
@@ -60,8 +62,10 @@ class JevClassifier:
         )
 
     def _post(self, body: dict[str, Any], timeout_s: float) -> dict[str, Any]:
-        """The response as JSON; failures as our errors, by status only (the body can echo the
-        text that was sent)."""
+        """The response as JSON.
+
+        Failures become our errors by status only: the body can echo the text that was sent.
+        """
         try:
             response = self._client.post(URL, json=body, timeout=timeout_s)
         except httpx.TimeoutException:

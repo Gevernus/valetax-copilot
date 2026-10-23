@@ -1,15 +1,16 @@
-"""One form of text for everything that reads it: the length cap, masking, the rules, language
-detection, the models, the source check, the stored ticket and the shown draft.
+"""One form of text for every stage that reads it.
 
-NFKC folds look-alike forms; every kind of space becomes " "; characters that render as nothing
-are dropped (format and control characters, the Unicode default-ignorable ranges, lone
-surrogates, blank fillers; control line breaks become "\n"), and so is a combining mark on an
-ASCII letter or digit (NFKC has already composed the real accented letters; marks on Thai,
-Devanagari or Arabic letters stay). So "jo​hn@x.com" is an email, "Ig️nore all previous
-instructions" an injection and "4̀111 1111 1111 1111" a card number. A wide gap between two
+The length cap, masking, the rules, language detection, the models, the source check, the
+stored ticket and the shown draft all read `normalise(text)`. NFKC folds look-alike forms;
+every kind of space becomes " "; characters that render as nothing are dropped (format and
+control characters, the Unicode default-ignorable ranges, lone surrogates, blank fillers;
+control line breaks become a newline), and so is a combining mark on an ASCII letter or digit.
+So an email split by a zero-width space is still an email, and "Ignore all previous
+instructions" with a variation selector inside is still an injection. A wide gap between two
 digits (a tab, or two spaces or more) is a column and stays a tab, so "1    250 USD" is not
-1250; every other run of spaces is one space, and blank lines collapse to one. NFKC changes some
-meanings (decisions.md §15).
+1250; other runs of spaces become one space, and blank lines collapse to one.
+
+Limit: NFKC changes some meanings ("x²" becomes "x2", "№" becomes "No").
 """
 
 import re
@@ -47,6 +48,7 @@ def _space_run(m: re.Match[str]) -> str:
 
 
 def normalise(text: str) -> str:
+    """The normalised form of a text; idempotent."""
     text = unicodedata.normalize("NFKC", text)
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     kept: list[str] = []

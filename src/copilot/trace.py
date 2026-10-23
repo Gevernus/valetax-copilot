@@ -8,6 +8,8 @@ from typing import Any
 
 
 class TraceWriter:
+    """Appends trace lines with a timestamp; safe across threads."""
+
     def __init__(self, path: Path) -> None:
         self._path = path
         self._lock = threading.Lock()
