@@ -18,7 +18,9 @@ spacing ("3 pounds", "3英镑", "2 trading days", "3 AUD per step"), has the uni
 supported by nothing. Steps have their own units: a step's number ("Step 4", "Шаг №4", "第4步",
 "the 4th step", "steps 1-4") is "step", a count of steps ("3 simple steps", with at most one
 adjective from a closed list, or two joined by "and") is "steps", and each supports only its own
-kind, so the help page's steps never stand behind an amount.
+kind, so the help page's steps never stand behind an amount. The end of a step range yields to a
+currency sign or code ("steps 1-4 AUD" fails closed) but not to a currency word: "steps 1-4
+pounds" reads as steps.
 
 Time without a digit (`time_units`): a time word standing alone ("within the hour", "в течение
 часа", "am selben Tag", "خلال الأسبوع"), apart from greetings and idioms ("good day", "hari
@@ -188,8 +190,8 @@ _STEP_ADJECTIVES: Final = (
 )
 # Before the number: the step word, then "#", "№", "thứ" or "ke-".
 _STEP_BEFORE: Final = re.compile(rf"(?i)(?:{_STEP_WORDS})[^\S\n]*(?:#|№|thứ[^\S\n]+|ke-)?[^\S\n]*$")
-# The end of a range after a plural step word ("steps 1-4"). Checked after the unknown-unit
-# rule, so "Step 2 - 3 AUD" or "steps 1-4 pounds" is not a step.
+# The end of a range after a plural step word ("steps 1-4"). A currency sign or code after it
+# still wins ("steps 1-4 AUD"); a currency word does not ("steps 1-4 pounds" reads as steps).
 _STEP_RANGE_BEFORE: Final = re.compile(
     r"(?i)(?:steps|шаги|шагов|кроки|кроків|pasos|passos|étapes|schritte|etapas)[^\S\n]*"
     r"\d+[^\S\n]*(?:-|–|—|to|до|a|hingga)[^\S\n]*$"
@@ -222,11 +224,10 @@ _NUMBER: Final = re.compile(
     + "|".join(f"(?P<x_{n}>{p})" for n, (p, _) in _MULTIPLIERS.items())
     + rf"){_END})?"
 )
-# "1. Log in. 2. Select" or "1) Visit": list numbering, stripped only as a sequence 1, 2, ...
-# of at least two, so "Minimum deposit: 5." or "(3)" stays a figure.
-_LIST_MARKER: Final = re.compile(
-    r"(?m)(?:^|(?<=[.!?:;]))\s*(?P<a>\d{1,2})[.)](?=\s)|(?<![\w.,(])(?P<b>\d{1,2})\)(?=\s)"
-)
+# "1. Log in. 2. Select" or "1) Visit": list numbering at a line start or after a sentence,
+# stripped only as a sequence 1, 2, ... of at least two ("1) …; 2) …" too). A marker after ":"
+# may only start one, so "Minimum deposit: 4." after a list, "Fee: 1." or "(3)" stays a figure.
+_LIST_MARKER: Final = re.compile(r"(?m)(?:^|(?<=[.!?:;]))\s*(?P<n>\d{1,2})[.)](?=\s)")
 # Between two numbers, these make a range or a list, so a unit after the second one applies to
 # the first too: "1-2 days", "two to three days", "два и три дня".
 _RANGE: Final = re.compile(r"(?i)\s*(?:-|–|—|to|or|and|y|o|a|и|или|до|hingga|sampai|atau|dan)\s*")
@@ -357,8 +358,14 @@ def _step_unit(text: str, start: int, end: int) -> str | None:
     return "step" if m.group("ord") or text[start - 1 : start] == "第" else "steps"
 
 
+def _currency_like(text: str, start: int, end: int) -> bool:
+    """A currency sign or an upper-case code the tables do not know, after or before."""
+    after = _UNKNOWN_AFTER.match(text, end)
+    return bool(after or _UNKNOWN_BEFORE.search(text[max(0, start - 6) : start]))
+
+
 def _unknown_unit(text: str, start: int, end: int) -> bool:
-    if _UNKNOWN_AFTER.match(text, end) or _UNKNOWN_BEFORE.search(text[max(0, start - 6) : start]):
+    if _currency_like(text, start, end):
         return True
     word = _NEXT_WORD.match(text, end)
     return word is not None and word.group(1).lower() not in _BARE_NEXT
@@ -367,10 +374,11 @@ def _unknown_unit(text: str, start: int, end: int) -> bool:
 def _strip_list_markers(text: str) -> str:
     runs: list[list[re.Match[str]]] = []
     for m in _LIST_MARKER.finditer(text):
-        n = int(m.group("a") or m.group("b"))
+        n = int(m.group("n"))
+        after_colon = text[m.start() - 1 : m.start()] == ":"
         if n == 1:
             runs.append([m])
-        elif runs and n == int(runs[-1][-1].group("a") or runs[-1][-1].group("b")) + 1:
+        elif runs and not after_colon and n == int(runs[-1][-1].group("n")) + 1:
             runs[-1].append(m)
     spans = sorted((m.start(), m.end()) for run in runs if len(run) >= 2 for m in run)
     parts, pos = [], 0
@@ -404,11 +412,14 @@ def _digit_tokens(text: str) -> list[_Token]:
         start = m.start("num")
         if unit is None:
             unit = _step_unit(text, start, m.end())
-        # A ratio ("1:2000") carries no unit: the word after it is not one.
-        if unit is None and ":" not in raw and _unknown_unit(text, start, m.end()):
+        # A ratio ("1:2000") carries no unit: the word after it is not one. A step range ("steps
+        # 1-4") yields to a currency sign or code, not to any other word ("steps 1-4 below").
+        if unit is None and ":" not in raw and _currency_like(text, start, m.end()):
             unit = "unknown"
         if unit is None and _STEP_RANGE_BEFORE.search(text[max(0, start - 24) : start]):
             unit = "step"
+        if unit is None and ":" not in raw and _unknown_unit(text, start, m.end()):
+            unit = "unknown"
         if ":" in raw:
             out.append(_Token(start, m.end(), frozenset({raw}), unit))
             continue

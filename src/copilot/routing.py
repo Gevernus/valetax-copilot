@@ -5,6 +5,8 @@ from enum import StrEnum
 
 
 class Reason(StrEnum):
+    CLASSIFIER_ERROR = "classifier_error"
+    PIPELINE_ERROR = "pipeline_error"
     PROMPT_INJECTION = "prompt_injection"
     AML = "aml"
     KYC = "kyc"
@@ -24,6 +26,8 @@ class Reason(StrEnum):
 
 # What the agent sees first on the card: why, and what it means for them.
 CONSEQUENCE: dict[Reason, str] = {
+    Reason.CLASSIFIER_ERROR: "The ticket could not be classified (service unavailable or a bad answer). No draft; read and handle it.",
+    Reason.PIPELINE_ERROR: "The co-pilot failed on this ticket. No draft; read and handle it.",
     Reason.PROMPT_INJECTION: "Message tries to instruct the AI. No draft was generated; handle manually.",
     Reason.AML: "Compliance case. Forward to the AML team; the draft only acknowledges.",
     Reason.KYC: "Verification decision. Forward to the KYC team; the draft only acknowledges.",
@@ -58,6 +62,8 @@ class Thresholds:
 
 @dataclass(frozen=True, slots=True)
 class Signals:
+    classifier_error: bool = False
+    pipeline_error: bool = False
     injection: bool = False
     aml: bool = False
     kyc: bool = False
@@ -90,6 +96,8 @@ class Route:
 
 
 _TABLE: tuple[tuple[str, Reason], ...] = (
+    ("classifier_error", Reason.CLASSIFIER_ERROR),
+    ("pipeline_error", Reason.PIPELINE_ERROR),
     ("injection", Reason.PROMPT_INJECTION),
     ("aml", Reason.AML),
     ("kyc", Reason.KYC),

@@ -344,6 +344,9 @@ def test_an_unmeasured_reply_checker_is_refused() -> None:
         "The minimum deposit for a Standard account is 4.",  # a bare figure vs "Step 4"
         "The fee is 3 AUD per step.",  # an unknown unit next to a step word
         "Минимальный депозит 4 шага.",  # a count of steps vs "Step 4"
+        # A figure after a step list is not the list's next number.
+        "1. Log in to your Member Area. 2. Select a channel. 3. Enter the amount. "
+        "Minimum deposit: 4. Happy trading!",
     ],
 )
 def test_the_help_page_steps_never_support_an_amount(reply: str) -> None:

@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
+from copilot.errors import PermanentError, ProviderError, TransientError, UsageLimitError
+
 MODEL_IDS = {"haiku": "claude-haiku-5-5", "sonnet": "claude-sonnet-5-5"}
 
 
@@ -37,14 +39,6 @@ class LlmResult:
     usage: LlmUsage
     model: str
     latency_ms: int
-
-
-class LlmError(RuntimeError):
-    """A failed call; the pipeline routes the ticket to a person."""
-
-
-class UsageLimitError(RuntimeError):
-    """The account is out of quota. Not a model failure: callers stop instead of recording it."""
 
 
 _LIMIT = re.compile(r"(?i)usage limit|rate limit|hit your limit|limit reached")
@@ -97,21 +91,21 @@ class ClaudeCli:
                 check=False,
             )
         except subprocess.TimeoutExpired as e:
-            raise LlmError(f"claude CLI timed out after {self._timeout_s:.0f}s") from e
+            raise TransientError(f"claude CLI timed out after {self._timeout_s:.0f}s") from e
         latency_ms = int((time.perf_counter() - started) * 1000)
         failed = proc.returncode != 0 or '"is_error":true' in proc.stdout.replace(" ", "")
         if failed and _LIMIT.search(proc.stdout + proc.stderr):
             raise UsageLimitError("claude CLI reports a usage or rate limit")
         if proc.returncode != 0:
             # stderr can echo the prompt; keep only the exit code.
-            raise LlmError(f"claude CLI exited with {proc.returncode}")
+            raise TransientError(f"claude CLI exited with {proc.returncode}")
         try:
             out = json.loads(proc.stdout)
         except json.JSONDecodeError as e:
-            raise LlmError("claude CLI returned non-JSON output") from e
+            raise TransientError("claude CLI returned non-JSON output") from e
         data = out.get("structured_output")
         if out.get("is_error") or not isinstance(data, dict):
-            raise LlmError(f"claude CLI returned no structured output ({out.get('subtype')})")
+            raise TransientError(f"claude CLI returned no structured output ({out.get('subtype')})")
         u = out.get("usage", {})
         usage = LlmUsage(
             input_tokens=int(u.get("input_tokens", 0)),
@@ -137,18 +131,28 @@ class AnthropicApi:
         self._client = anthropic.Anthropic()
 
     def complete(self, system: str, user: str, schema: dict[str, Any]) -> LlmResult:
+        import anthropic
+
         started = time.perf_counter()
-        response = self._client.messages.create(
-            model=self.model,
-            max_tokens=self._max_tokens,
-            system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-            messages=[{"role": "user", "content": user}],
-            output_config={"effort": "low", "format": {"type": "json_schema", "schema": schema}},
-        )
+        try:
+            response = self._client.messages.create(
+                model=self.model,
+                max_tokens=self._max_tokens,
+                system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+                messages=[{"role": "user", "content": user}],
+                output_config={
+                    "effort": "low",
+                    "format": {"type": "json_schema", "schema": schema},
+                },
+            )
+        except anthropic.AnthropicError as e:
+            raise anthropic_error(e) from None  # the SDK message can carry the response body
         latency_ms = int((time.perf_counter() - started) * 1000)
         if response.stop_reason != "end_turn":
-            raise LlmError(f"stop_reason={response.stop_reason}")
-        text = next(b.text for b in response.content if b.type == "text")
+            raise TransientError(f"stop_reason={response.stop_reason}")
+        text = next((b.text for b in response.content if b.type == "text"), "")
+        if not text.strip():
+            raise TransientError("no text in the response")
         u = response.usage
         usage = LlmUsage(
             input_tokens=u.input_tokens,
@@ -156,7 +160,25 @@ class AnthropicApi:
             cache_read_tokens=u.cache_read_input_tokens or 0,
             cache_write_tokens=u.cache_creation_input_tokens or 0,
         )
-        return LlmResult(json.loads(text), usage, self.model, latency_ms)
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            raise TransientError("the response is not JSON") from None
+        return LlmResult(data, usage, self.model, latency_ms)
+
+
+def anthropic_error(e: Exception) -> ProviderError:
+    """The SDK's exception as one of ours, by kind and status only."""
+    import anthropic
+
+    if isinstance(e, anthropic.APITimeoutError | anthropic.APIConnectionError):
+        return TransientError(type(e).__name__)
+    if isinstance(e, anthropic.APIStatusError):
+        status = e.status_code
+        if status == 429 or status >= 500:
+            return TransientError(f"HTTP {status}")
+        return PermanentError(f"HTTP {status}")
+    return PermanentError(type(e).__name__)
 
 
 def make_llm(backend: str, model: str) -> Llm:

@@ -51,6 +51,22 @@ class Rate:
         }
 
 
+def recall_precision(pairs: list[tuple[bool, bool]]) -> dict[str, Any]:
+    """(truth, prediction) pairs -> recall and precision with their Wilson intervals."""
+    return {
+        "recall": Rate(sum(p for t, p in pairs if t), sum(t for t, _ in pairs)).as_dict(),
+        "precision": Rate(sum(t for t, p in pairs if p), sum(p for _, p in pairs)).as_dict(),
+    }
+
+
+def fmt(r: dict[str, Any]) -> str:
+    """value (hits/n, Wilson 95% CI) for a Rate.as_dict()."""
+    if r["value"] is None:
+        return "–"
+    lo, hi = r["ci95"]
+    return f"{r['value']:.0%} ({r['hits']}/{r['n']}, {lo:.0%}–{hi:.0%})"
+
+
 def _rate(pairs: list[bool]) -> Rate:
     return Rate(sum(pairs), len(pairs))
 

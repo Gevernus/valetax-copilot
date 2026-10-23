@@ -20,7 +20,7 @@ from copilot.classify import make_classifier
 from copilot.classify.questions import REPLY
 from copilot.reply_guard import GUARDS
 from copilot.routing import Thresholds
-from evals.metrics import Rate
+from evals.metrics import fmt, recall_precision
 
 ROOT = Path(__file__).resolve().parent
 SETS = {"drafts": ROOT / "drafts.jsonl", "drafts_challenge": ROOT / "drafts_challenge.jsonl"}
@@ -37,25 +37,12 @@ def load_drafts(name: str = "drafts") -> list[dict[str, Any]]:
 def score(rows: list[dict[str, Any]], hits: list[dict[str, bool]]) -> dict[str, Any]:
     out: dict[str, Any] = {}
     pairs = list(zip(rows, hits, strict=True))
-    for label in (*LABELS, "any"):
-
-        def truth(r: dict[str, Any], label: str = label) -> bool:
-            return any(r[x] for x in LABELS) if label == "any" else bool(r[label])
-
-        def found(h: dict[str, bool], label: str = label) -> bool:
-            return any(h.values()) if label == "any" else h[label]
-
-        out[label] = {
-            "recall": Rate(*_count([found(h) for r, h in pairs if truth(r)])).as_dict(),
-            "precision": Rate(*_count([truth(r) for r, h in pairs if found(h)])).as_dict(),
-        }
+    for label in LABELS:
+        out[label] = recall_precision([(bool(r[label]), h[label]) for r, h in pairs])
+    out["any"] = recall_precision([(any(r[x] for x in LABELS), any(h.values())) for r, h in pairs])
     out["misses"] = [r["id"] for r, h in pairs if any(r[x] and not h[x] for x in LABELS)]
     out["false_alarms"] = [r["id"] for r, h in pairs if any(h[x] and not r[x] for x in LABELS)]
     return out
-
-
-def _count(values: list[bool]) -> tuple[int, int]:
-    return sum(values), len(values)
 
 
 def main() -> None:
@@ -120,8 +107,8 @@ def _markdown(report: dict[str, Any], checkers: list[str], splits: list[str]) ->
         lines.append("|---|" + "---|" * len(checkers))
         for label in (*LABELS, "any"):
             cells = [
-                f"{_fmt(report[c][split][label]['recall'])} / "
-                f"{_fmt(report[c][split][label]['precision'])}"
+                f"{fmt(report[c][split][label]['recall'])} / "
+                f"{fmt(report[c][split][label]['precision'])}"
                 for c in checkers
             ]
             lines.append(f"| {label} | " + " | ".join(cells) + " |")
@@ -129,13 +116,6 @@ def _markdown(report: dict[str, Any], checkers: list[str], splits: list[str]) ->
         lines += ["", f"{checkers[-1]} misses: {', '.join(last['misses']) or 'none'}"]
         lines += [f"{checkers[-1]} false alarms: {', '.join(last['false_alarms']) or 'none'}"]
     return "\n".join(lines) + "\n"
-
-
-def _fmt(r: dict[str, Any]) -> str:
-    if r["value"] is None:
-        return "–"
-    lo, hi = r["ci95"]
-    return f"{r['value']:.0%} ({r['hits']}/{r['n']}, {lo:.0%}–{hi:.0%})"
 
 
 if __name__ == "__main__":

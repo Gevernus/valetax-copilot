@@ -202,6 +202,9 @@ def test_ambiguous_number_needs_the_same_readings() -> None:
         "Step 3 – 4 minimum.",
         "Step 1 to 4 AUD.",
         "Paso 2 - 3 libras de comisión.",
+        "Steps 1-4 AUD.",
+        "Steps 2–3: 4 minimum.",
+        "Шаг 2 до 3 фунтов минимум.",
     ],
 )
 def test_a_number_with_an_unknown_unit_is_never_supported(text: str) -> None:
@@ -221,12 +224,25 @@ def test_a_ratio_carries_no_unit() -> None:
     [
         ("To deposit: 1. Log in. 2. Select a channel. 3) Enter the amount.", set()),
         ("1. Log in.\n2. Select MT5 or TRC20.", set()),
-        # A list is a sequence from 1; a lone "5." or "(3)" is a figure.
+        ("Чтобы пополнить счёт: 1) войдите; 2) выберите способ; 3) введите сумму.", set()),
+        # A list is a sequence from 1, never after "("; a marker after ":" may only start one.
         ("Minimum deposit: 5. You can fund via any channel.", {q("5")}),
         ("Withdrawal fee: 2. It is charged on every withdrawal.", {q("2")}),
         ("Комиссия за вывод: 2. Она взимается с каждого вывода.", {q("2")}),
         ("The fee is (3) per withdrawal.", {q("3")}),
         ("Fee: 1. It is charged on every withdrawal.", {q("1")}),
+        (
+            "1. Log in to your Member Area. 2. Select a channel. 3. Enter the amount. "
+            "Minimum deposit: 4. Happy trading!",
+            {q("4")},
+        ),
+        ("Withdrawal fee: 1. Minimum deposit: 2. Have a nice day.", {q("1"), q("2")}),
+        ("Минимальный депозит: 1. Комиссия: 2. Хорошего дня!", {q("1"), q("2")}),
+        ("The fee is 1) per deposit and 2) per withdrawal.", {q("1"), q("2")}),
+        (
+            "The minimum deposit starts from 8 USD. 1. Log in. 2. Fee: 3. Done.",
+            {q("8", unit="usd"), q("3")},
+        ),
     ],
 )
 def test_list_markers_are_a_sequence(text: str, expected: set[Quantity]) -> None:
@@ -389,8 +405,8 @@ def test_digitless_chinese_and_thai_timelines(text: str) -> None:
         ("Шаг №2: выберите", {q("2", unit="step")}),
         ("Bước thứ 2: chọn kênh", {q("2", unit="step")}),
         ("Langkah ke-2: pilih saluran", {q("2", unit="step")}),
-        ("Follow steps 1-4.", {q("1", unit="step"), q("4", unit="step")}),
-        ("Шаги 1–4: войдите и выберите способ.", {q("1", unit="step"), q("4", unit="step")}),
+        ("Follow steps 1-4 below.", {q("1", unit="step"), q("4", unit="step")}),
+        ("Шаги 1–4 описаны ниже.", {q("1", unit="step"), q("4", unit="step")}),
         ("Steps 2 – 3 are below.", {q("2", unit="step"), q("3", unit="step")}),
         # A count of steps is a different claim from a step's number.
         ("in 3 simple steps", {q("3", unit="steps")}),

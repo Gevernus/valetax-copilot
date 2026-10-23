@@ -21,7 +21,7 @@ withheld misses:
 - f148 (pt) figure='24 horas úteis' note='KB says 24 hours, not business hours': Caso não receba os fundos em até 24 horas úteis, fale com o suporte.
 - f168 (zh) figure='一天内' note=None: '待处理'表示正在排队处理，通常一天内完成。
 
-withheld false withholds:
+withheld false alarms:
 - f006 (en) figure=None note="list-like format, but the value and unit match the cited 'within 60 minutes'": Credit time (minutes): 60. Deposits themselves are instant, so please check your balance again shortly.
 - f044 (en) figure=None note='ticket number is a reference id, not a figure or policy': Your ticket #48213 is with our payments team. 'Pending' means your request is in queue and being processed; you'll be no
 - f080 (en) figure=None note="client's date, explicitly attributed to them and not confirmed": You mentioned 1 November; we can't confirm that date from our help centre, so I've asked the team.
@@ -44,7 +44,7 @@ flagged misses:
 - f148 (pt) figure='24 horas úteis' note='KB says 24 hours, not business hours': Caso não receba os fundos em até 24 horas úteis, fale com o suporte.
 - f168 (zh) figure='一天内' note=None: '待处理'表示正在排队处理，通常一天内完成。
 
-flagged false withholds:
+flagged false alarms:
 - f004 (en) figure=None note="100 USD and twenty minutes are the client's own figures, restated as theirs; 60 minutes is in the cited section": I see you made a 100 USD deposit twenty minutes ago. Deposits are instant, and the updated balance becomes visible withi
 - f006 (en) figure=None note="list-like format, but the value and unit match the cited 'within 60 minutes'": Credit time (minutes): 60. Deposits themselves are instant, so please check your balance again shortly.
 - f040 (en) figure=None note="2 days is the client's figure, restated as theirs": 'Pending' means your request is in queue and being processed. Once approved, you will be notified. I understand it has b

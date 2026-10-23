@@ -16,14 +16,15 @@ from typing import Any
 
 from copilot.draft import Draft
 from copilot.grounding import check_draft
-from copilot.kb import load_kb
-from evals.metrics import Rate
+from copilot.kb import KnowledgeBase, load_kb
+from evals.metrics import fmt, recall_precision
 
 ROOT = Path(__file__).resolve().parent
 FIGURES = ROOT / "figures_challenge.jsonl"
 OUT = ROOT / "results" / "figures_challenge-check_draft"
 GROUPS = {"en": ("en",), "ru-es": ("ru", "es")}
 FIGURE_PROBLEMS = ("numbers not in", "time units not in", "unsupported policy claims")
+OTHER_PROBLEMS = ("empty reply", "unknown sections", "no citations", "reply contains trading")
 
 
 def load_figures() -> list[dict[str, Any]]:
@@ -34,25 +35,25 @@ def group(lang: str) -> str:
     return next((name for name, langs in GROUPS.items() if lang in langs), "other")
 
 
-def predict(row: dict[str, Any]) -> dict[str, bool]:
-    kb = load_kb()
+def predict(row: dict[str, Any], kb: KnowledgeBase) -> dict[str, bool]:
     draft = Draft(abstain=False, reply=row["draft"], citations=row["cited"])
     result = check_draft(draft, kb, row["ticket"])
+    # A new kind of problem must be classed here as a figure problem or not, not ignored.
+    unknown = [p for p in result.problems if not p.startswith(FIGURE_PROBLEMS + OTHER_PROBLEMS)]
+    if unknown:
+        raise ValueError(f"{row['id']}: unclassified problems {unknown}")
     withheld = any(p.startswith(FIGURE_PROBLEMS) for p in result.problems)
     return {"withheld": withheld, "flagged": withheld or bool(result.client_figures)}
 
 
-def score(pairs: list[tuple[bool, bool]]) -> dict[str, Any]:
-    return {
-        "recall": Rate(sum(p for t, p in pairs if t), sum(t for t, _ in pairs)).as_dict(),
-        "precision": Rate(sum(t for t, p in pairs if p), sum(p for _, p in pairs)).as_dict(),
-    }
-
-
 def main() -> None:
     rows = load_figures()
-    preds = [predict(r) for r in rows]
-    report: dict[str, Any] = {"rows": len(rows)}
+    kb = load_kb()
+    preds = [predict(r, kb) for r in rows]
+    report: dict[str, Any] = {
+        "rows": len(rows),
+        "predictions": {r["id"]: p for r, p in zip(rows, preds, strict=True)},
+    }
     for kind in ("withheld", "flagged"):
         report[kind] = {}
         for name in ("all", *GROUPS, "other"):
@@ -61,7 +62,7 @@ def main() -> None:
                 for r, p in zip(rows, preds, strict=True)
                 if name == "all" or group(r["lang"]) == name
             ]
-            report[kind][name] = score(pairs)
+            report[kind][name] = recall_precision(pairs)
         report[kind]["misses"] = [
             r["id"]
             for r, p in zip(rows, preds, strict=True)
@@ -87,8 +88,8 @@ def _markdown(report: dict[str, Any], rows: dict[str, dict[str, Any]]) -> str:
         lines += ["", f"## {kind}", "", "| group | recall | precision |", "|---|---|---|"]
         for name in ("all", *GROUPS, "other"):
             cell = report[kind][name]
-            lines.append(f"| {name} | {_fmt(cell['recall'])} | {_fmt(cell['precision'])} |")
-        for title, key in (("misses", "misses"), ("false withholds", "false_alarms")):
+            lines.append(f"| {name} | {fmt(cell['recall'])} | {fmt(cell['precision'])} |")
+        for title, key in (("misses", "misses"), ("false alarms", "false_alarms")):
             lines += ["", f"{kind} {title}:"]
             for rid in report[kind][key]:
                 r = rows[rid]
@@ -96,13 +97,6 @@ def _markdown(report: dict[str, Any], rows: dict[str, dict[str, Any]]) -> str:
                     f"- {rid} ({r['lang']}) figure={r['figure']!r} note={r['note']!r}: {r['draft'][:120]}"
                 )
     return "\n".join(lines) + "\n"
-
-
-def _fmt(r: dict[str, Any]) -> str:
-    if r["value"] is None:
-        return "–"
-    lo, hi = r["ci95"]
-    return f"{r['value']:.0%} ({r['hits']}/{r['n']}, {lo:.0%}–{hi:.0%})"
 
 
 if __name__ == "__main__":

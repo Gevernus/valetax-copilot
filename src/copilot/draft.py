@@ -3,10 +3,11 @@
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
+from copilot.errors import TransientError
 from copilot.kb import KnowledgeBase
-from copilot.llm import Llm, LlmError, LlmResult
+from copilot.llm import Llm, LlmResult
 
 PROMPT_VERSION = "draft-v2"
 
@@ -85,12 +86,13 @@ class Drafter:
 
     def draft(self, ticket: str, language: str) -> DraftResult:
         user = f"Client language: {language}\n\n<ticket>\n{ticket}\n</ticket>"
+        result = self._llm.complete(self._system, user, self._schema)
         try:
-            result = self._llm.complete(self._system, user, self._schema)
-        except LlmError:
-            # One retry: timeouts and malformed output are usually transient.
-            result = self._llm.complete(self._system, user, self._schema)
-        return DraftResult(Draft.model_validate(result.data), result)
+            draft = Draft.model_validate(result.data)
+        except ValidationError:
+            # A sampled answer that breaks the schema usually comes out right on the next call.
+            raise TransientError("the draft does not match the schema") from None
+        return DraftResult(draft, result)
 
 
 # Appended by code, never written by the model, when the ticket asks for trading advice. Every

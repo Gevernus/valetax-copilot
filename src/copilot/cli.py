@@ -26,6 +26,11 @@ def build_copilot(
     )
 
 
+def _print_json(card: Card) -> None:
+    """The agent's export: never the model's withheld text."""
+    print(json.dumps(card.to_dict(), ensure_ascii=False, indent=2))
+
+
 def _print_card(card: Card) -> None:
     print(f"ROUTE: {card.route.upper()}  priority={card.urgency}  [{card.ticket_id}]")
     for reason, consequence in zip(card.reasons, card.consequences, strict=True):
@@ -98,7 +103,7 @@ def main(argv: list[str] | None = None) -> int:
     card = copilot.process(args.id, text)
     TraceWriter(args.traces).write(card.trace())
     if args.json:
-        print(json.dumps(card.to_dict(), ensure_ascii=False, indent=2))
+        _print_json(card)
     else:
         _print_card(card)
     return 0

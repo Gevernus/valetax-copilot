@@ -1,20 +1,21 @@
 """One ticket through the co-pilot: mask, rules, classify, draft, check, route."""
 
+import hashlib
 import time
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
+from pathlib import Path
 from typing import Any
 
-from pydantic import ValidationError
-
-from copilot import rules
+from copilot import grounding, quantities, reply_guard, rules
 from copilot.classify import YES_NO, Classification, Classifier
 from copilot.classify.questions import REPLY, TICKET
 from copilot.draft import PROMPT_VERSION, Draft, Drafter, acknowledgement, trading_decline
+from copilot.errors import ProviderError, RetryPolicy, UsageLimitError, with_retry
 from copilot.grounding import check_draft
 from copilot.kb import KnowledgeBase
 from copilot.language import detect_language
-from copilot.llm import LlmError, LlmUsage
+from copilot.llm import LlmUsage
 from copilot.masking import mask_pii
 from copilot.reply_guard import check_reply
 from copilot.routing import CONSEQUENCE, Reason, Signals, Thresholds, route
@@ -53,10 +54,20 @@ class Card:
     prompt_version: str = PROMPT_VERSION
     reply_check: dict[str, Any] = field(default_factory=dict)  # P(yes) per reply question
     draft_mode: str | None = None
-    raw_reply: str | None = field(default=None, repr=False)  # kept for evals, never traced
+    attempts: dict[str, int] = field(default_factory=dict)  # calls per stage, retries included
+    error: dict[str, Any] | None = None  # stage, error class and attempts when a stage failed
+    versions: dict[str, Any] = field(default_factory=dict)
+    raw_reply: str | None = field(default=None, repr=False)  # the model's text, withheld or not
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        """What the agent sees: never the model's withheld text."""
+        out = asdict(self)
+        del out["raw_reply"]
+        return out
+
+    def to_eval_dict(self) -> dict[str, Any]:
+        """For evals and debugging only: the agent export plus the model's raw reply."""
+        return {**self.to_dict(), "raw_reply": self.raw_reply}
 
     def trace(self) -> dict[str, Any]:
         """One observability line: decisions, versions, tokens and timings. No ticket text,
@@ -82,6 +93,9 @@ class Card:
             "reply_check": self.reply_check,
             "kb_version": self.kb_version,
             "prompt_version": self.prompt_version,
+            "attempts": self.attempts,
+            "error": self.error,
+            "versions": self.versions,
         }
 
 
@@ -94,6 +108,7 @@ class Copilot:
         thresholds: Thresholds | None = None,
         *,
         reply_checker: Classifier | None,
+        retry: RetryPolicy | None = None,
     ) -> None:
         """`reply_checker` asks the REPLY questions of each shown draft; None is a deliberate
         choice (patterns only), recorded in every trace line."""
@@ -106,10 +121,29 @@ class Copilot:
         self.drafter = drafter
         self.thresholds = thresholds or Thresholds()
         self.reply_checker = reply_checker
+        self.retry = retry or RetryPolicy()
+        self.versions = {
+            "prompt": PROMPT_VERSION,
+            "kb": kb.version,
+            "ticket_questions": TICKET.version,
+            "reply_questions": REPLY.version,
+            "rules": _RULES_VERSION,
+            "thresholds": asdict(self.thresholds),
+        }
 
     def process(self, ticket_id: str, text: str) -> Card:
-        timings: dict[str, int] = {}
-        t = _Timer(timings)
+        """One ticket to one card. Any failure ends as a card for a person, never an exception,
+        except a usage limit, which stops the caller instead of being recorded as a result."""
+        run = _Run(deadline=time.perf_counter() + self.retry.deadline_s)
+        try:
+            return self._process(ticket_id, text, run)
+        except UsageLimitError:
+            raise
+        except Exception as e:  # noqa: BLE001 - whatever failed, a person handles the ticket
+            return self._failure_card(ticket_id, run, e)
+
+    def _process(self, ticket_id: str, text: str, run: "_Run") -> Card:
+        t = _Timer(run)
 
         with t("mask"):
             masked = mask_pii(text)
@@ -125,7 +159,10 @@ class Copilot:
             language = detect_language(ticket)
 
         with t("classify"):
-            cls = self.classifier.classify(ticket)
+            cls = with_retry(
+                lambda: self.classifier.classify(ticket),
+                self.retry, run.deadline, run.attempts, "classify",
+            )  # fmt: skip
 
         th = self.thresholds
         a = cls.answers
@@ -159,13 +196,18 @@ class Copilot:
         if mode is Mode.ANSWER:
             with t("draft"):
                 try:
-                    result = self.drafter.draft(ticket, language)
+                    result = with_retry(
+                        lambda: self.drafter.draft(ticket, language),
+                        self.retry, run.deadline, run.attempts, "draft",
+                    )  # fmt: skip
                     draft, llm_usage, llm_latency = (
                         result.draft,
                         result.llm.usage,
                         result.llm.latency_ms,
                     )
-                except (LlmError, ValidationError):
+                except UsageLimitError:
+                    raise
+                except ProviderError:
                     draft_error = True
             if draft is not None and not draft.abstain and not draft.reply.strip():
                 # Saying nothing is abstaining, whatever the flag says.
@@ -183,6 +225,8 @@ class Copilot:
                             # Patterns on every draft, so the reason is not lost; the model
                             # only on a draft that could still be shown.
                             checker = None if problems else self.reply_checker
+                            if checker is not None:
+                                checker = _Retrying(checker, self.retry, run)
                             guard = check_reply(draft.reply, checker, self.thresholds.reply_flag)
                             reply_problems, reply_reasons = guard.problems, guard.reasons
                             reply_check = guard.record
@@ -190,6 +234,8 @@ class Copilot:
                                 reply_check = {"status": "skipped: grounding"}
                             if reply_problems:
                                 client_figures = ()
+                    except UsageLimitError:
+                        raise
                     except Exception:  # noqa: BLE001 - a check that cannot run must withhold, not crash
                         check_error = True
                         reply_check = {"status": "error"}
@@ -246,7 +292,7 @@ class Copilot:
             problems=[*problems, *reply_problems],
             client_figures=list(client_figures),
             masked=masked.counts,
-            timings_ms=timings,
+            timings_ms=run.timings,
             classifier=_classifier_meta(cls),
             drafter={
                 "model": self.drafter.model if mode is Mode.ANSWER else None,
@@ -255,9 +301,65 @@ class Copilot:
             },
             kb_version=self.kb.version,
             reply_check=reply_check,
+            attempts=dict(run.attempts),
+            versions=self.versions,
             draft_mode=mode.value if mode else None,
             raw_reply=draft.reply if draft else None,
         )
+
+    def _failure_card(self, ticket_id: str, run: "_Run", error: Exception) -> Card:
+        """A neutral card for a person: no draft, nothing from a model, and in the trace the
+        stage and the error class only (never the message, which can carry a response body)."""
+        failed = route(Signals(classifier_error=run.stage == "classify",
+                               pipeline_error=run.stage != "classify"))  # fmt: skip
+        attempts = run.attempts.get(run.stage, 1)
+        return Card(
+            ticket_id=ticket_id,
+            route=failed.label,
+            reasons=[r.value for r in failed.reasons],
+            consequences=[CONSEQUENCE[r] for r in failed.reasons],
+            category="", urgency="", sentiment="", language="",
+            flags={}, rule_hits=[], reply=None, citations=[], unanswered=[], abstain_reason="",
+            problems=[], client_figures=[], masked={}, timings_ms=run.timings,
+            classifier={}, drafter={}, kb_version=self.kb.version,
+            attempts=dict(run.attempts), versions=self.versions,
+            error={"stage": run.stage, "type": type(error).__name__, "attempts": attempts},
+        )  # fmt: skip
+
+
+class _Run:
+    """What one ticket's processing has done so far: for the trace, and for the failure card."""
+
+    def __init__(self, deadline: float) -> None:
+        self.deadline = deadline
+        self.stage = "start"
+        self.timings: dict[str, int] = {}
+        self.attempts: dict[str, int] = {}
+
+
+class _Retrying:
+    """A classifier whose transient failures are retried within the ticket's budget."""
+
+    def __init__(self, inner: Classifier, policy: RetryPolicy, run: _Run) -> None:
+        self.name, self.questions = inner.name, inner.questions
+        self._inner, self._policy, self._run = inner, policy, run
+
+    def classify(self, text: str) -> Classification:
+        return with_retry(
+            lambda: self._inner.classify(text),
+            self._policy, self._run.deadline, self._run.attempts, "reply_check",
+        )  # fmt: skip
+
+
+def _rules_version() -> str:
+    """The deterministic checks' source, hashed: a changed pattern or table is a new version."""
+    digest = hashlib.sha256()
+    for module in (rules, quantities, grounding, reply_guard):
+        digest.update(Path(str(module.__file__)).read_bytes())
+    return digest.hexdigest()[:12]
+
+
+_RULES_VERSION = _rules_version()
 
 
 def _classifier_meta(cls: Classification) -> dict[str, Any]:
@@ -272,20 +374,19 @@ def _classifier_meta(cls: Classification) -> dict[str, Any]:
 
 
 class _Timer:
-    def __init__(self, sink: dict[str, int]) -> None:
-        self._sink = sink
-        self._name = ""
+    def __init__(self, run: _Run) -> None:
+        self._run = run
         self._start = 0.0
 
     def __call__(self, name: str) -> "_Timer":
-        self._name = name
+        self._run.stage = name
         return self
 
     def __enter__(self) -> None:
         self._start = time.perf_counter()
 
     def __exit__(self, *exc: object) -> None:
-        self._sink[self._name] = int((time.perf_counter() - self._start) * 1000)
+        self._run.timings[self._run.stage] = int((time.perf_counter() - self._start) * 1000)
 
 
 __all__ = ["Card", "Copilot", "Reason"]

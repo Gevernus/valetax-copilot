@@ -100,21 +100,18 @@ The writer counts a correct KB figure restated in another unit ("within an hour"
 minutes) or taken from an uncited section as unsupported, and the same value as a word ("six
 months") as supported.
 
-| figures set | recall | precision |
+| figures set, 200 rows | recall | precision |
 |---|---|---|
-| withheld, all 200 | 91% (83/91, 84–96%) | 95% (83/87, 89–98%) |
-| en / ru-es / other | 33/38 / 26/27 / 24/26 | 33/36 / 26/27 / 24/24 |
+| withheld | 91% (83/91, 84–96%) | 95% (83/87, 89–98%) |
 | sent to a person (withheld, or shown with figures only from the ticket) | 93% (85/91, 86–97%) | 85% (85/100, 77–91%) |
 
-Missed (shown as ready): "overnight", "by Friday", "Withdrawals are instant" from an uncited
-section, "полугода" for the KB's 6 months, "24 horas úteis" for 24 hours, "一天内"; two figures
-echoed from the ticket as policy ("within 2 days", "within 5 hours") are not withheld but do go
-to a person. Withheld though supported: "Credit time (minutes): 60", a ticket reference
-"#48213", the client's own date "1 November", and "1 к 2000" for 1:2000. The 11 further
-"sent to a person" alarms are client figures the draft attributes to the client ("your 300 USD
-withdrawal"); the check cannot tell attribution from assertion and sends them to a person by
-design. Disagreements with the writer's labels are listed here, not relabelled (results in
-`evals/results/figures_challenge-check_draft.md`).
+The rows come in 40 groups of 5 drafts on one ticket, so they are not independent and the
+Wilson intervals are optimistic; 45% of rows are positive, so the precision holds for this set,
+not for live traffic. Misses are timelines without a unit word, unit words outside the tables
+and figures from an uncited section; the false withholds and the 11 client figures the draft
+attributes to the client are listed by id, as disagreements and not relabelled, in
+[the results](../evals/results/figures_challenge-check_draft.md). Re-run after the list-marker
+and step-range fixes (1ec259f and later): 0 of 200 predictions changed.
 **Why the decision model, and what the patterns are for.** Measured with
 `evals/run_drafts.py` (results in `evals/results/drafts-*` and `drafts_challenge-*`, threshold 0.5,
 jev-1.14.0, questions `reply-v2`). Headline: the blind challenge set, 180 rows written by a
@@ -128,15 +125,14 @@ run once:
 | handover | 9/34 / 9/9 | 34/34 (90–100%) / 34/35 | 34/34 / 34/35 |
 | any of the three | 27/93 (29%) / 27/27 | 93/93 (96–100%) / 93/94 | 93/93 / 93/94 |
 
-On our own `evals/drafts.jsonl` (465 rows: drafts from every saved run split by ticket, both
-review panels' probes in dev, paraphrases written before the checks changed in holdout; dev
+On our own `evals/drafts.jsonl` (465 rows: drafts from every saved run split by ticket, probe
+sentences in dev, paraphrases written before the checks changed in holdout; dev
 256 / holdout 209, holdout frozen by hash) the holdout agrees: patterns 55% recall, Jev only
 and patterns + Jev 100% (87/87) at 97% precision. The patterns add one dev row the model
 misses ("Your account has not been verified", p = 0.41) and nothing on holdout or challenge.
 They stay because they cost nothing, still run when the model is disabled
 (`--reply-checker none`, recorded in the trace) or the draft already failed the source check,
-and never raised a false alarm on dev. They
-are a frozen, model-free floor: they are not widened. A new miss becomes a dev row in
+and never raised a false alarm on dev. They are a frozen, model-free floor: they are not widened. A new miss becomes a dev row in
 `evals/drafts.jsonl` and, if needed, a change to the question wording, measured on dev and
 then once on holdout.
 **Limits.** A classifier and patterns, not proof. Both sets are synthetic and small (50
@@ -148,11 +144,8 @@ across tickets. Observed over-caution: a future "we will send your request to th
 (challenge c125, drafts d317) and "after verification is completed, you're all set" are
 withheld. Disagreements on the challenge set, kept as labelled: c046 (a completed handover the
 model also reads as a decision, p = 0.51), c058 and c166 ("flagged" payments the model also
-reads as a decision, p = 0.53 and 0.67). Not covered: a paraphrased timeline or amount without
-a number or a unit word ("withdrawals are usually quick", "processed overnight"); numbers
-spelled out in languages other than en, ru, es and id ("trong hai ngày" is caught only by its
-unit word); and digitless times in Chinese and Thai ("一天内", "当天处理", "ภายในวันเดียวกัน"),
-kept as strict expected failures in `tests/test_quantities.py`. Trading advice in a draft is
+reads as a decision, p = 0.53 and 0.67). The number layer's limits are in its measurement above
+and in the `quantities.py` docstring. Trading advice in a draft is
 still checked by a pattern only (`rules.gives_trading_advice`); the fixed decline is what the
 client sees for an advice request. The reply check adds one decision-model call (about 0.3 s)
 per draft that passed the source check; only Jev is measured, and an unmeasured backend is
@@ -204,10 +197,11 @@ not run: no API key was available.
 ## 12. One trace line per ticket, no text
 
 **Decision.** `traces/*.jsonl`: route, reasons, labels with probabilities, rule hits,
-citations, masked-entity counts, per-stage latency, tokens, model ids, KB version hash and
-prompt version.
-**Why.** Enough to run the weekly review and to attribute any change to a KB or prompt
-version; nothing in it needs PII handling.
+citations, masked-entity counts, per-stage latency and attempts, tokens, the backend and
+resolved model of every call, and the versions of the prompt, KB, ticket questions, reply
+questions, rules (a hash of the deterministic checks' source) and thresholds.
+**Why.** Enough to run the weekly review and to attribute any change to a KB, prompt, question,
+rule or threshold version; nothing in it needs PII handling.
 **Rejected.** Logging prompts and replies: they contain client data, and the cards already
 hold the reply for the agent.
 
@@ -227,3 +221,25 @@ rate; hard-rule violations counted per ticket.
 change must move to mean anything. The labels are ours, so the set measures agreement with
 our reading of the brief, not with Valetax's agents: the first pilot week replaces it with
 real tickets.
+
+## 15. Failures go to a person
+
+**Decision.** Nothing that fails produces a draft. A failed ticket classification (timeout,
+dropped connection, 429/5xx, a malformed answer) gives a neutral card with
+`classifier_error` and no model call; any other failure in processing (masking, language
+detection) gives `pipeline_error`; a failed drafter call gives `draft_error`, a failed check
+`check_error`. Jev, the claude CLI and the Anthropic API turn their failures into three errors
+(`copilot/errors.py`; anything else a backend raises, e.g. Laya, is not retried):
+transient (timeouts, connection errors, 429, 5xx, a sampled answer that breaks the schema),
+permanent (other 4xx, a malformed decision-model answer) and usage limit, which stops an eval
+run instead of being scored. Only transient errors are retried: at most three calls per stage,
+with a 1 s backoff that doubles, inside a 120 s budget per ticket. The trace records the
+attempts per stage and, for a failed ticket, the stage and the error class; never a message or
+a response body, which can echo the ticket. The agent's export (`Card.to_dict`, the CLI, the
+HTML view) never contains the model's withheld text; `Card.to_eval_dict` adds it for evals.
+Jev is pinned to `jev-1.14.0`, the version the thresholds were measured with.
+**Why.** A vendor outage at 9 a.m. should cost the agents their drafts, not their tickets. One
+live Jev failure turned two ready drafts into `check_error` in a replay; with the retry, that
+failure (a single transient error) leaves the draft ready (`tests/test_failures.py`).
+**Rejected.** Retrying permanent errors (they fail the same way, slower) and a resilience
+framework (three error classes and one retry function cover the four backends).

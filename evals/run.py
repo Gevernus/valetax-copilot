@@ -24,8 +24,9 @@ from copilot.classify import MEASURED_REPLY_CHECKERS, make_classifier, make_repl
 from copilot.classify.llm import SCHEMA as CLASSIFY_SCHEMA
 from copilot.classify.llm import SYSTEM as CLASSIFY_SYSTEM
 from copilot.draft import Drafter, schema, system_prompt
+from copilot.errors import UsageLimitError
 from copilot.kb import KnowledgeBase, load_kb
-from copilot.llm import ClaudeCli, UsageLimitError, make_llm
+from copilot.llm import ClaudeCli, make_llm
 from copilot.masking import mask_pii
 from copilot.pipeline import Copilot
 from evals.metrics import compute
@@ -98,19 +99,14 @@ def run(args: argparse.Namespace) -> None:
         if out_of_quota.is_set():
             raise UsageLimitError("stopped after a usage-limit error")
         text = labels[tid]["text"]
-        for attempt in (1, 2):
-            try:
-                card = copilot.process(tid, text).to_dict()
-                break
-            except UsageLimitError:
-                # Quota is not a model failure: stop the run rather than score it.
-                out_of_quota.set()
-                raise
-            except Exception as e:  # a transient API error should not lose the whole run
-                if attempt == 2:
-                    raise
-                print(f"{tid}: retry after {type(e).__name__}", file=sys.stderr)
-                time.sleep(2)
+        try:
+            # Failures end as cards for a person, retried inside the pipeline; the eval export
+            # keeps the model's raw reply, which the agent's export leaves out.
+            card = copilot.process(tid, text).to_eval_dict()
+        except UsageLimitError:
+            # Quota is not a model failure: stop the run rather than score it.
+            out_of_quota.set()
+            raise
         card["ticket"] = mask_pii(text).text
         print(f"{tid}: {card['route']:5} {','.join(card['reasons'])}", file=sys.stderr)
         return card

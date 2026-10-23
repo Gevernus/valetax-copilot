@@ -25,6 +25,10 @@ log or write them, and never put them in a test fixture.
 ## Where things are
 
 - `src/copilot/pipeline.py`: the order of stages; the one place that decides what runs.
+- `src/copilot/errors.py`: the three provider errors (transient, permanent, usage limit) and the
+  one retry policy; Jev, the claude CLI and the Anthropic API raise only these (anything else,
+  e.g. from Laya, counts as permanent). `Copilot.process` never raises except a usage limit:
+  any other failure is a card for a person.
 - `src/copilot/routing.py`: the rule table and thresholds. A new reason needs a row in
   `_TABLE`, a `CONSEQUENCE` text, and a test in `tests/test_routing.py`.
 - `src/copilot/classify/questions.py`: the typed questions, shared by every backend.
