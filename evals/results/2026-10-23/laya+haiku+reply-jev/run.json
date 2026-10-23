@@ -1,0 +1,17 @@
+{
+  "config": "laya+haiku+reply-jev",
+  "set": "tickets",
+  "classifier": "laya",
+  "reply_checker": "jev",
+  "llm_backend": "claude-cli",
+  "drafter_model": "claude-haiku-5-5",
+  "kb_version": "dbacc5135785",
+  "tickets": 80,
+  "workers": 4,
+  "wall_s": 26.1,
+  "calibration": {
+    "drafter": {
+      "system": 1924
+    }
+  }
+}

@@ -1,0 +1,490 @@
+{
+  "n": 80,
+  "failures": {
+    "count": 0,
+    "tickets": []
+  },
+  "fields": {
+    "category": {
+      "hits": 76,
+      "n": 80,
+      "value": 0.95,
+      "ci95": [
+        0.878,
+        0.98
+      ]
+    },
+    "urgency": {
+      "hits": 77,
+      "n": 80,
+      "value": 0.9625,
+      "ci95": [
+        0.895,
+        0.987
+      ]
+    },
+    "sentiment": {
+      "hits": 79,
+      "n": 80,
+      "value": 0.9875,
+      "ci95": [
+        0.933,
+        0.998
+      ]
+    },
+    "language": {
+      "hits": 78,
+      "n": 80,
+      "value": 0.975,
+      "ci95": [
+        0.913,
+        0.993
+      ]
+    }
+  },
+  "flags": {
+    "trading_advice": {
+      "recall": {
+        "hits": 9,
+        "n": 9,
+        "value": 1.0,
+        "ci95": [
+          0.701,
+          1.0
+        ]
+      },
+      "precision": {
+        "hits": 9,
+        "n": 9,
+        "value": 1.0,
+        "ci95": [
+          0.701,
+          1.0
+        ]
+      },
+      "model_only_recall": {
+        "hits": 9,
+        "n": 9,
+        "value": 1.0,
+        "ci95": [
+          0.701,
+          1.0
+        ]
+      },
+      "model_only_precision": {
+        "hits": 9,
+        "n": 9,
+        "value": 1.0,
+        "ci95": [
+          0.701,
+          1.0
+        ]
+      }
+    },
+    "complaint": {
+      "recall": {
+        "hits": 3,
+        "n": 4,
+        "value": 0.75,
+        "ci95": [
+          0.301,
+          0.954
+        ]
+      },
+      "precision": {
+        "hits": 3,
+        "n": 3,
+        "value": 1.0,
+        "ci95": [
+          0.438,
+          1.0
+        ]
+      },
+      "model_only_recall": {
+        "hits": 3,
+        "n": 4,
+        "value": 0.75,
+        "ci95": [
+          0.301,
+          0.954
+        ]
+      },
+      "model_only_precision": {
+        "hits": 3,
+        "n": 3,
+        "value": 1.0,
+        "ci95": [
+          0.438,
+          1.0
+        ]
+      }
+    },
+    "kyc_case": {
+      "recall": {
+        "hits": 4,
+        "n": 4,
+        "value": 1.0,
+        "ci95": [
+          0.51,
+          1.0
+        ]
+      },
+      "precision": {
+        "hits": 4,
+        "n": 6,
+        "value": 0.6666666666666666,
+        "ci95": [
+          0.3,
+          0.903
+        ]
+      },
+      "model_only_recall": {
+        "hits": 4,
+        "n": 4,
+        "value": 1.0,
+        "ci95": [
+          0.51,
+          1.0
+        ]
+      },
+      "model_only_precision": {
+        "hits": 4,
+        "n": 6,
+        "value": 0.6666666666666666,
+        "ci95": [
+          0.3,
+          0.903
+        ]
+      }
+    },
+    "aml_case": {
+      "recall": {
+        "hits": 4,
+        "n": 4,
+        "value": 1.0,
+        "ci95": [
+          0.51,
+          1.0
+        ]
+      },
+      "precision": {
+        "hits": 4,
+        "n": 4,
+        "value": 1.0,
+        "ci95": [
+          0.51,
+          1.0
+        ]
+      },
+      "model_only_recall": {
+        "hits": 4,
+        "n": 4,
+        "value": 1.0,
+        "ci95": [
+          0.51,
+          1.0
+        ]
+      },
+      "model_only_precision": {
+        "hits": 4,
+        "n": 4,
+        "value": 1.0,
+        "ci95": [
+          0.51,
+          1.0
+        ]
+      }
+    },
+    "injection": {
+      "recall": {
+        "hits": 5,
+        "n": 5,
+        "value": 1.0,
+        "ci95": [
+          0.566,
+          1.0
+        ]
+      },
+      "precision": {
+        "hits": 5,
+        "n": 5,
+        "value": 1.0,
+        "ci95": [
+          0.566,
+          1.0
+        ]
+      },
+      "model_only_recall": {
+        "hits": 5,
+        "n": 5,
+        "value": 1.0,
+        "ci95": [
+          0.566,
+          1.0
+        ]
+      },
+      "model_only_precision": {
+        "hits": 5,
+        "n": 5,
+        "value": 1.0,
+        "ci95": [
+          0.566,
+          1.0
+        ]
+      }
+    },
+    "account_lookup": {
+      "recall": {
+        "hits": 17,
+        "n": 17,
+        "value": 1.0,
+        "ci95": [
+          0.816,
+          1.0
+        ]
+      },
+      "precision": {
+        "hits": 17,
+        "n": 20,
+        "value": 0.85,
+        "ci95": [
+          0.64,
+          0.948
+        ]
+      },
+      "model_only_recall": {
+        "hits": 17,
+        "n": 17,
+        "value": 1.0,
+        "ci95": [
+          0.816,
+          1.0
+        ]
+      },
+      "model_only_precision": {
+        "hits": 17,
+        "n": 20,
+        "value": 0.85,
+        "ci95": [
+          0.64,
+          0.948
+        ]
+      }
+    }
+  },
+  "route": {
+    "accuracy": {
+      "hits": 77,
+      "n": 80,
+      "value": 0.9625,
+      "ci95": [
+        0.895,
+        0.987
+      ]
+    },
+    "human_recall": {
+      "hits": 48,
+      "n": 48,
+      "value": 1.0,
+      "ci95": [
+        0.926,
+        1.0
+      ]
+    },
+    "auto_precision": {
+      "hits": 29,
+      "n": 29,
+      "value": 1.0,
+      "ci95": [
+        0.883,
+        1.0
+      ]
+    },
+    "auto_recall": {
+      "hits": 29,
+      "n": 32,
+      "value": 0.90625,
+      "ci95": [
+        0.758,
+        0.968
+      ]
+    },
+    "auto_share": {
+      "hits": 29,
+      "n": 80,
+      "value": 0.3625,
+      "ci95": [
+        0.266,
+        0.472
+      ]
+    },
+    "missed_escalations": [],
+    "needless_escalations": [
+      "en12",
+      "en51",
+      "ru18"
+    ]
+  },
+  "abstain": {
+    "recall": {
+      "hits": 9,
+      "n": 9,
+      "value": 1.0,
+      "ci95": [
+        0.701,
+        1.0
+      ]
+    },
+    "precision": {
+      "hits": 9,
+      "n": 9,
+      "value": 1.0,
+      "ci95": [
+        0.701,
+        1.0
+      ]
+    }
+  },
+  "citations": {
+    "valid": {
+      "hits": 43,
+      "n": 43,
+      "value": 1.0,
+      "ci95": [
+        0.918,
+        1.0
+      ]
+    },
+    "expected_hit": {
+      "hits": 38,
+      "n": 38,
+      "value": 1.0,
+      "ci95": [
+        0.908,
+        1.0
+      ]
+    }
+  },
+  "violations": {
+    "count": 0,
+    "tickets": {}
+  },
+  "grounding_rejections": [
+    "en51",
+    "ru18"
+  ],
+  "latency_ms": {
+    "check": {
+      "p50": 323,
+      "p95": 2144
+    },
+    "classify": {
+      "p50": 4701,
+      "p95": 13707
+    },
+    "draft": {
+      "p50": 6052,
+      "p95": 11083
+    },
+    "mask": {
+      "p50": 0,
+      "p95": 1
+    },
+    "total": {
+      "p50": 10773,
+      "p95": 22515
+    }
+  },
+  "tokens_mean": {
+    "classifier_input": 2.0,
+    "classifier_output": 371.5,
+    "drafter_prompt_raw": 2652.8,
+    "drafter_output": 452.4,
+    "drafted_share": 0.8
+  },
+  "holdout": {
+    "route": {
+      "accuracy": {
+        "hits": 19,
+        "n": 20,
+        "value": 0.95,
+        "ci95": [
+          0.764,
+          0.991
+        ]
+      },
+      "human_recall": {
+        "hits": 13,
+        "n": 13,
+        "value": 1.0,
+        "ci95": [
+          0.772,
+          1.0
+        ]
+      },
+      "auto_precision": {
+        "hits": 6,
+        "n": 6,
+        "value": 1.0,
+        "ci95": [
+          0.61,
+          1.0
+        ]
+      },
+      "auto_recall": {
+        "hits": 6,
+        "n": 7,
+        "value": 0.8571428571428571,
+        "ci95": [
+          0.487,
+          0.974
+        ]
+      },
+      "auto_share": {
+        "hits": 6,
+        "n": 20,
+        "value": 0.3,
+        "ci95": [
+          0.145,
+          0.519
+        ]
+      },
+      "missed_escalations": [],
+      "needless_escalations": [
+        "ru18"
+      ]
+    },
+    "violations": {
+      "count": 0,
+      "tickets": {}
+    }
+  },
+  "cost": {
+    "drafter_our_prompt_tokens_mean": 1960.6,
+    "usd_per_ticket_warm": 0.00046,
+    "usd_per_ticket_cold": 0.000744,
+    "usd_per_10k_warm": 4.6,
+    "usd_per_10k_cold": 7.44,
+    "usd_per_ticket_reply_check": 1.6e-05
+  },
+  "meta": {
+    "config": "llm+haiku+reply-jev",
+    "set": "tickets",
+    "classifier": "llm",
+    "reply_checker": "jev",
+    "llm_backend": "claude-cli",
+    "drafter_model": "claude-haiku-5-5",
+    "kb_version": "dbacc5135785",
+    "tickets": 80,
+    "workers": 4,
+    "wall_s": 240.2,
+    "calibration": {
+      "drafter": {
+        "system": 1924
+      },
+      "classifier": {
+        "system": 930
+      }
+    }
+  }
+}

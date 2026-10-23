@@ -1,0 +1,17 @@
+{
+  "config": "jev+haiku+reply-jev",
+  "set": "tickets_challenge",
+  "classifier": "jev",
+  "reply_checker": "jev",
+  "llm_backend": "claude-cli",
+  "drafter_model": "claude-haiku-5-5",
+  "kb_version": "dbacc5135785",
+  "tickets": 60,
+  "workers": 4,
+  "wall_s": 75.2,
+  "calibration": {
+    "drafter": {
+      "system": 1924
+    }
+  }
+}

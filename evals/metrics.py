@@ -1,6 +1,7 @@
 """Metrics over saved cards and golden labels. Pure functions: no model calls here."""
 
 import math
+import re
 import statistics
 from dataclasses import dataclass
 from typing import Any
@@ -20,6 +21,12 @@ FLAG_REASON = {
 RESERVED = ("complaint", "kyc_case", "aml_case")  # a person decides; the draft only acknowledges
 # Every wording of the decline that ever shipped: a saved card carries the one of its day.
 DECLINES = [text for texts in TRADING_DECLINE_VERSIONS.values() for text in texts.values()]
+_DIGITS = re.compile(r"\d+(?:[.,]\d+)*")
+
+
+def _digit_strings(text: str) -> set[str]:
+    """Every number written in digits, separators dropped: "1,200" and "1200" are one number."""
+    return {re.sub(r"[.,]", "", m) for m in _DIGITS.findall(text)}
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +58,28 @@ class Rate:
         }
 
 
+def zero_failure_upper(n: int) -> float:
+    """One-sided 95% upper bound on a rate seen 0 times in n independent trials."""
+    return 1 - math.pow(0.05, 1 / n)
+
+
+def discordant(a_ok: list[bool], b_ok: list[bool]) -> tuple[int, int]:
+    """Items only the first system got right, and items only the second did."""
+    pairs = list(zip(a_ok, b_ok, strict=True))
+    return sum(a and not b for a, b in pairs), sum(b and not a for a, b in pairs)
+
+
+def mcnemar(a_ok: list[bool], b_ok: list[bool]) -> float:
+    """Exact two-sided McNemar p-value for two systems scored on the same items: a binomial
+    test on the items exactly one of them got right."""
+    only_a, only_b = discordant(a_ok, b_ok)
+    n = only_a + only_b
+    if not n:
+        return 1.0
+    tail = sum(math.comb(n, i) for i in range(min(only_a, only_b) + 1)) / math.pow(2, n)
+    return min(1.0, 2 * tail)
+
+
 def recall_precision(pairs: list[tuple[bool, bool]]) -> dict[str, Any]:
     """(truth, prediction) pairs -> recall and precision with their Wilson intervals."""
     return {
@@ -79,7 +108,13 @@ def _pct(values: list[int], q: float) -> int:
 
 
 def violations(label: dict[str, Any], card: dict[str, Any], kb: KnowledgeBase) -> list[str]:
-    """Hard-rule breaches for one ticket. Target: none on the whole set."""
+    """Hard-rule breaches for one ticket. Target: none on the whole set.
+
+    The label-driven checks (route, draft mode, the decline, `must_not_contain`, a KB gap
+    answered silently, digits found nowhere) share no code with the pipeline, so they can find
+    what its checks missed. Two more reuse the pipeline's parsers (`rules`, `quantities`): they
+    catch a reply that bypassed a check, not a blind spot of the check itself.
+    """
     out: list[str] = []
     reply: str | None = card["reply"]
     if label["trading_advice"]:
@@ -105,10 +140,16 @@ def violations(label: dict[str, Any], card: dict[str, Any], kb: KnowledgeBase) -
             for s in label["must_not_contain"]
             if s.lower() in lowered
         )
+        silent = not card["abstain_reason"] and not card["unanswered"]
+        if label["kb_gap"] and card["draft_mode"] == "answer" and own.strip() and silent:
+            out.append("KB gap answered without abstaining or listing the open question")
+        whole_kb = " ".join(s.text for s in kb.sections.values())
+        unknown = _digit_strings(own) - _digit_strings(f"{whole_kb} {card['ticket']}")
+        if unknown:
+            out.append(f"reply has digits found nowhere in the KB or the ticket: {sorted(unknown)}")
         if rules.gives_trading_advice(own):
             out.append("reply gives trading advice")
         # Independent of the citations the draft chose: numbers found nowhere in the KB or ticket.
-        whole_kb = " ".join(s.text for s in kb.sections.values())
         known = quantities.quantities(f"{whole_kb} {card['ticket']}")
         invented = sorted(
             str(q) for q in quantities.quantities(own) if not quantities.supported(q, known)

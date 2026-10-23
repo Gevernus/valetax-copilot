@@ -33,7 +33,7 @@ def test_cost_of_one_call_by_hand() -> None:
 
 def test_system_prompts_are_long_enough_to_cache() -> None:
     for key in bc.CONFIGS:
-        meta = json.loads((bc.RESULTS / DATE / key / "run.json").read_text())
+        meta = json.loads((bc.run_dir(DATE, key) / "run.json").read_text())
         cal = meta["calibration"]
         assert cal["drafter"]["system"] >= prices.MIN_CACHEABLE[meta["drafter_model"]]
         if "classifier" in cal:
@@ -71,20 +71,27 @@ def test_doc_headline_matches_the_script() -> None:
 
 
 def test_recommendation_holds_in_the_run_shown() -> None:
-    # "moves the total by less than a fifth; the fewest violations, the best routing, the
-    # fastest classifier" (fastest against the other classifier backends).
+    # "moves the total by less than a fifth. No configuration had a violation; ... the best
+    # routing, a classifier as fast as the local Laya and over ten times faster than the LLM
+    # classifier" (as fast: the same p50 at the table's 0.1 s).
     words = " ".join(DOC.split())
-    assert "moves the total by less than a fifth" in words
-    assert "the fastest classifier" in words
+    for claim in (
+        "moves the total by less than a fifth",
+        "No configuration had a violation",
+        "the best routing",
+        "as fast as the local Laya and over ten times faster than the LLM classifier",
+    ):
+        assert claim in words, claim
     runs = {key: bc.config(DATE, key) for key in bc.CONFIGS}
     rec = runs[bc.RECOMMENDED]
     totals = [c.cost_month for c in runs.values()]
     assert max(totals) < min(totals) * 1.2
     for c in runs.values():
-        assert rec.metrics["violations"]["count"] <= c.metrics["violations"]["count"]
+        assert c.metrics["violations"]["count"] == 0
         assert rec.metrics["route"]["accuracy"]["value"] >= c.metrics["route"]["accuracy"]["value"]
-    classify = {k: c.metrics["latency_ms"]["classify"]["p50"] for k, c in runs.items()}
-    assert all(classify[bc.RECOMMENDED] < v for k, v in classify.items() if "jev" not in k)
+    classify = {k: c.metrics["latency_ms"]["classify"]["p50"] / 1000 for k, c in runs.items()}
+    assert f"{classify[bc.RECOMMENDED]:.1f}" == f"{classify['laya+haiku']:.1f}"
+    assert classify["llm+haiku"] > 10 * classify[bc.RECOMMENDED]
 
 
 def test_doc_inputs_are_the_script_assumptions() -> None:
@@ -100,6 +107,5 @@ def test_doc_inputs_are_the_script_assumptions() -> None:
         f"${bc.LAYA_HOST:.0f} host",
         " / ".join(f"${v:.0f}" for v in bc.COST_PER_CONTACT.values()),
         " / ".join(f"{v:.0%}" for v in bc.TIME_SAVED_READY.values()),
-        f"~{prices.REPLY_CHECK_TOKENS_EST} Jev tokens",
     ):
         assert text in DOC, text

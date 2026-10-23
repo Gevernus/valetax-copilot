@@ -18,11 +18,14 @@ flowchart LR
     r --> tr[(trace line<br/>no text)]
 ```
 
-**Results** on 80 hand-labelled tickets (details and intervals in [docs/evals.md](docs/evals.md)):
-0 hard-rule violations; every one of the 48 tickets that needs a person reached one; 30 of 32
+**Results** for Jev + Haiku, run `2026-10-23` on the current code (details and intervals in
+[docs/evals.md](docs/evals.md)). On 80 hand-labelled tickets: 0 hard-rule violations (95%
+upper bound 3.7%); every one of the 48 tickets that needs a person reached one; 30 of 32
 answerable tickets got a ready draft (the two misses are thank-you notes); route accuracy 98%
-(95% CI 91–99%); about $0.0005 per ticket at API prices with Jev classification and Haiku
-drafting. Sonnet adds nothing measurable; zero-shot Laya is safe but sends nearly everything
+(95% CI 91–99%), 95% on the 20 held-out tickets; $0.00031–0.00049 per ticket at API prices.
+On 60 blind tickets frozen before their one run: 0 violations, 39 of 39 reached a person,
+route accuracy 95% (86–98%). Sonnet adds nothing measurable; the LLM classifier routes the
+same within noise at 4.7 s against 0.33 s; zero-shot Laya is safe but sends nearly everything
 to a person. The business case: [docs/business-case.md](docs/business-case.md).
 
 ## Run it
@@ -40,7 +43,7 @@ The drafter defaults to `--llm claude-cli --model haiku`, which shells out to an
 [decisions §11](docs/decisions.md#11-claude-subscription-cli-for-development-the-api-for-production)).
 Each run appends one line to `traces/traces.jsonl`.
 
-Agent view: `uv run copilot view evals/results/2026-10-22-v3/jev+haiku/cards.jsonl -o agent-view.html`
+Agent view: `uv run copilot view evals/results/2026-10-23/jev+haiku+reply-jev/cards.jsonl -o agent-view.html`
 and open the file; the cards are embedded, no server needed.
 
 Evals and tests:
@@ -48,7 +51,8 @@ Evals and tests:
 ```bash
 uv run pytest                                              # no network, fake models
 uv run python -m evals.run run --classifier jev --model haiku   # golden set, one configuration
-uv run python -m evals.run report --date 2026-10-22            # re-score saved cards, no model calls
+uv run python -m evals.run report --date 2026-10-23            # re-score saved cards, no model calls
+uv run python -m evals.run replay --date 2026-10-23            # saved model outputs, current code
 ```
 
 ## Requirement → where

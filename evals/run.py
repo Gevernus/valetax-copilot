@@ -1,11 +1,17 @@
-"""Run the golden set through one configuration, or rebuild the summary from saved runs.
+"""Run a ticket set through one configuration, rebuild the summary, or replay saved runs.
 
-    uv run python -m evals.run run --classifier jev --model haiku
-    uv run python -m evals.run report
+    uv run python -m evals.run run --classifier jev --model haiku [--set tickets_challenge]
+    uv run python -m evals.run report --date <dir>
+    uv run python -m evals.run replay --date <dir> [--reply-checker jev]
 
-A run writes evals/results/<date>/<classifier>+<model>/{cards,traces}.jsonl; `report` (also called
-at the end of every run) recomputes metrics from saved cards and writes evals/results/<date>.json
-and <date>.md. Re-scoring never calls a model.
+A run writes evals/results/<date>/<classifier>+<model>+reply-<checker>/{cards,traces}.jsonl;
+`report` (also called at the end of every run) recomputes metrics from saved cards and writes
+evals/results/<date>.json and <date>.md. Re-scoring never calls a model.
+
+`replay` puts each saved run's model outputs (the classifier's answers, the drafter's reply)
+through the current deterministic code and scores the result: a regression check for a code
+change, without the network unless `--reply-checker jev`. It judges the code, not new model
+behaviour; a changed prompt or question needs a new run.
 """
 
 import argparse
@@ -20,19 +26,29 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from copilot.classify import MEASURED_REPLY_CHECKERS, make_classifier, make_reply_checker
+from copilot.classify import (
+    MEASURED_REPLY_CHECKERS,
+    Answer,
+    Classification,
+    make_classifier,
+    make_reply_checker,
+)
 from copilot.classify.llm import SCHEMA as CLASSIFY_SCHEMA
 from copilot.classify.llm import SYSTEM as CLASSIFY_SYSTEM
+from copilot.classify.questions import TICKET, YES_NO
 from copilot.draft import Drafter, schema, system_prompt
-from copilot.errors import UsageLimitError
+from copilot.errors import PermanentError, RetryPolicy, UsageLimitError
 from copilot.kb import KnowledgeBase, load_kb
-from copilot.llm import ClaudeCli, make_llm
+from copilot.llm import ClaudeCli, LlmResult, LlmUsage, make_llm
 from copilot.pipeline import Copilot
-from evals.metrics import compute
+from evals.metrics import compute, fmt
 from evals.prices import run_cost, user_tokens
 
 ROOT = Path(__file__).resolve().parent
-TICKETS = ROOT / "tickets.jsonl"
+TICKET_SETS = {
+    "tickets": ROOT / "tickets.jsonl",  # golden: dev and holdout
+    "tickets_challenge": ROOT / "tickets_challenge.jsonl",  # blind: run, never tuned on
+}
 RESULTS = ROOT / "results"
 
 
@@ -56,8 +72,8 @@ class OutageGuard:
                 raise OutageError(f"{self._in_a_row} provider failures in a row")
 
 
-def load_labels() -> dict[str, dict[str, Any]]:
-    rows = [json.loads(line) for line in TICKETS.read_text().splitlines() if line.strip()]
+def load_labels(name: str = "tickets") -> dict[str, dict[str, Any]]:
+    rows = [json.loads(line) for line in TICKET_SETS[name].read_text().splitlines() if line.strip()]
     return {r["id"]: r for r in rows}
 
 
@@ -82,7 +98,7 @@ def calibrate(llm: ClaudeCli, system: str, schema_: dict[str, Any]) -> dict[str,
 
 def run(args: argparse.Namespace) -> None:
     kb = load_kb()
-    labels = load_labels()
+    labels = load_labels(args.set)
     check_labels(labels, kb)
     ids = list(labels)[: args.limit] if args.limit else list(labels)
 
@@ -151,6 +167,7 @@ def run(args: argparse.Namespace) -> None:
             f.write(json.dumps(trace, ensure_ascii=False) + "\n")
     meta = {
         "config": config,
+        "set": args.set,
         "classifier": args.classifier,
         "reply_checker": args.reply_checker,
         "llm_backend": args.llm,
@@ -188,20 +205,29 @@ def cost_per_ticket(cards: list[dict[str, Any]], meta: dict[str, Any]) -> dict[s
     }
 
 
+def score(cards: list[dict[str, Any]], labels: dict[str, Any], kb: KnowledgeBase) -> dict[str, Any]:
+    """Metrics of a whole run, and of its holdout split on its own when it has one."""
+    metrics = compute(labels, cards, kb)
+    holdout = [c for c in cards if labels[c["ticket_id"]]["split"] == "holdout"]
+    if holdout:
+        h = compute(labels, holdout, kb)
+        metrics["holdout"] = {"route": h["route"], "violations": h["violations"]}
+    return metrics
+
+
+def _saved(run_dir: Path) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    cards = [json.loads(line) for line in (run_dir / "cards.jsonl").read_text().splitlines()]
+    return cards, json.loads((run_dir / "run.json").read_text())
+
+
 def report(day: str) -> None:
     kb = load_kb()
-    labels = load_labels()
     runs: dict[str, Any] = {}
     for run_dir in sorted((RESULTS / day).iterdir()):
         if not (run_dir / "cards.jsonl").exists():
             continue
-        cards = [json.loads(line) for line in (run_dir / "cards.jsonl").read_text().splitlines()]
-        meta = json.loads((run_dir / "run.json").read_text())
-        metrics = compute(labels, cards, kb)
-        holdout = [c for c in cards if labels[c["ticket_id"]]["split"] == "holdout"]
-        if holdout:
-            h = compute(labels, holdout, kb)
-            metrics["holdout"] = {"route": h["route"], "violations": h["violations"]}
+        cards, meta = _saved(run_dir)
+        metrics = score(cards, load_labels(meta.get("set", "tickets")), kb)
         metrics["cost"] = cost_per_ticket(cards, meta)
         metrics["meta"] = meta
         (run_dir / "metrics.json").write_text(json.dumps(metrics, indent=2, ensure_ascii=False))
@@ -220,11 +246,12 @@ def _fmt(r: dict[str, Any]) -> str:
 
 def summary_markdown(day: str, runs: dict[str, Any]) -> str:
     names = list(runs)
+    sets = sorted({m["meta"].get("set", "tickets") for m in runs.values()})
     lines = [
         f"# Eval results {day}",
         "",
-        f"Golden set: {next(iter(runs.values()))['n'] if runs else 0} hand-labelled tickets "
-        "(evals/tickets.jsonl). Cells: value (hits/n, Wilson 95% CI).",
+        f"Ticket set: {', '.join(f'evals/{s}.jsonl' for s in sets)}. Failures went to a person "
+        "and are kept out of every rate. Cells: value (hits/n, Wilson 95% CI).",
         "",
         "| metric | " + " | ".join(names) + " |",
         "|---|" + "---|" * len(names),
@@ -233,6 +260,7 @@ def summary_markdown(day: str, runs: dict[str, Any]) -> str:
     def row(title: str, get: Any) -> None:
         lines.append(f"| {title} | " + " | ".join(get(runs[n]) for n in names) + " |")
 
+    row("tickets scored", lambda m: str(m["n"]))
     row("**hard-rule violations**", lambda m: f"**{m['violations']['count']}**")
     row(
         "failures (sent to a person, not scored)",
@@ -308,6 +336,107 @@ def _short(r: dict[str, Any]) -> str:
     return "–" if r["value"] is None else f"{r['value']:.0%} ({r['hits']}/{r['n']})"
 
 
+class SavedClassifier:
+    """A saved card's classifier answers. The card keeps P(yes) of each flag and P of the chosen
+    category only, which is all the routing reads."""
+
+    name = "saved"
+    questions = TICKET
+
+    def __init__(self, card: dict[str, Any]) -> None:
+        self.card = card
+
+    def classify(self, text: str, timeout_s: float | None = None) -> Classification:
+        c = self.card
+        answers = {
+            "category": Answer(c["category"], {c["category"]: c["classifier"]["category_p"]}),
+            "urgency": Answer(c["urgency"], {c["urgency"]: 1.0}),
+            "sentiment": Answer(c["sentiment"], {c["sentiment"]: 1.0}),
+        }
+        for name in YES_NO:
+            p = c["flags"][name]
+            answers[name] = Answer("yes" if p >= 0.5 else "no", {"yes": p, "no": 1 - p})
+        return Classification(answers, "saved", c["classifier"].get("model") or "saved")
+
+
+class SavedLlm:
+    """A saved card's draft, as the drafter model returned it (before any check)."""
+
+    name = "saved"
+    model = "saved"
+
+    def __init__(self, card: dict[str, Any]) -> None:
+        self.card = card
+
+    def complete(
+        self, system: str, user: str, schema_: dict[str, Any], timeout_s: float | None = None
+    ) -> LlmResult:
+        c = self.card
+        if "draft_error" in c["reasons"]:
+            raise PermanentError("the saved run had no draft")
+        data = {
+            "abstain": bool(c["abstain_reason"]),
+            "abstain_reason": c["abstain_reason"],
+            "reply": c["raw_reply"] or "",
+            "citations": [x["id"] for x in c["citations"]],
+            "unanswered": c["unanswered"],
+        }
+        return LlmResult(data, LlmUsage(), "saved", 0)
+
+
+def replay_run(run: str, reply_checker: str = "none") -> dict[str, Any]:
+    """One saved run (`<date>/<config>`) through the current code. A saved failure card stays as
+    it was: there is no model output to replay."""
+    kb = load_kb()
+    saved, meta = _saved(RESULTS / run)
+    labels = load_labels(meta.get("set", "tickets"))
+    checker = make_reply_checker(reply_checker)
+    no_wait = RetryPolicy(backoff_s=0.0)
+    cards = []
+    for old in saved:
+        if old.get("error"):
+            cards.append(old)
+            continue
+        copilot = Copilot(
+            kb, SavedClassifier(old), Drafter(SavedLlm(old), kb),
+            reply_checker=checker, retry=no_wait,
+        )  # fmt: skip
+        cards.append(
+            copilot.process(old["ticket_id"], labels[old["ticket_id"]]["text"]).to_eval_dict()
+        )
+    changed = [
+        (old, new)
+        for old, new in zip(saved, cards, strict=True)
+        if (old["route"], old["reasons"], old["reply"])
+        != (new["route"], new["reasons"], new["reply"])
+    ]
+    return {"cards": cards, "metrics": score(cards, labels, kb), "changed": changed}
+
+
+def replay(day: str, reply_checker: str) -> int:
+    """Every run of a results dir; prints what changed and the scores. Exit 1 on a violation."""
+    bad = 0
+    for run_dir in sorted(p for p in (RESULTS / day).iterdir() if (p / "cards.jsonl").exists()):
+        result = replay_run(f"{day}/{run_dir.name}", reply_checker)
+        m, r = result["metrics"], result["metrics"]["route"]
+        print(f"## {day}/{run_dir.name}, replayed with reply check: {reply_checker}")
+        for old, new in result["changed"]:
+            text = ", new reply" if old["reply"] != new["reply"] else ""
+            print(
+                f"- {old['ticket_id']}: {old['route']} {old['reasons']} -> "
+                f"{new['route']} {new['reasons']}{text}"
+            )
+        hold = m.get("holdout", {}).get("route", {}).get("accuracy")
+        print(
+            f"violations {m['violations']['count']} {m['violations']['tickets'] or ''}\n"
+            f"failures {m['failures']['count']}, route accuracy {fmt(r['accuracy'])}"
+            + (f", holdout {fmt(hold)}" if hold else "")
+            + f", needs-a-person recall {fmt(r['human_recall'])}, ready {fmt(r['auto_share'])}\n"
+        )
+        bad += m["violations"]["count"]
+    return 1 if bad else 0
+
+
 def _today() -> str:
     return datetime.now().astimezone().date().isoformat()
 
@@ -323,11 +452,19 @@ def main() -> None:
     r.add_argument("--workers", type=int, default=4)
     r.add_argument("--limit", type=int)
     r.add_argument("--date", default=_today())
+    r.add_argument("--set", choices=list(TICKET_SETS), default="tickets")
     rep = sub.add_parser("report")
     rep.add_argument("--date", default=_today())
+    again = sub.add_parser("replay", help="saved model outputs through the current code")
+    again.add_argument("--date", required=True)
+    again.add_argument(
+        "--reply-checker", choices=[*MEASURED_REPLY_CHECKERS, "none"], default="none"
+    )
     args = parser.parse_args()
     if args.command == "run":
         run(args)
+    elif args.command == "replay":
+        sys.exit(replay(args.date, args.reply_checker))
     else:
         report(args.date)
 

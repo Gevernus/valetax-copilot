@@ -6,8 +6,8 @@ a **conflict** as a reason to send any draft that cites the section to a person,
 **defect** (content known to be wrong) as something the drafter must not see, and a **gap**
 as something to abstain on. These are also the content fixes with the highest
 return: on the golden set, 4 of 80 tickets (en08, en26, en32, ru15: deposit, account-opening
-and verification times) go to a person for no other reason than I1 or I5, and every "how do
-I withdraw" ticket goes there because of I2.
+and verification times) go to a person for no other reason than I1 or I5 (on the blind set,
+c35, c46 and c41), and every "how do I withdraw" ticket goes there because of I2.
 
 | id | kind | where | what the pages say | effect on the co-pilot |
 |---|---|---|---|---|

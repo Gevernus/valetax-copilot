@@ -217,8 +217,9 @@ accuracy within the interval of the larger one. Measured: Haiku 98% (91–99%), 
 
 ## 14. Evals written by us, with a holdout
 
-**Decision.** 80 hand-labelled tickets, one in four held out; Wilson 95% intervals on every
-rate; hard-rule violations counted per ticket.
+**Decision.** 80 hand-labelled tickets, one in four held out, and 60 blind tickets frozen
+before their one run; Wilson 95% intervals on every rate; hard-rule violations counted per
+ticket.
 **Why.** At this size an accuracy is a range, not a number; the intervals say how much a
 change must move to mean anything. The labels are ours, so the set measures agreement with
 our reading of the brief, not with Valetax's agents: the first pilot week replaces it with

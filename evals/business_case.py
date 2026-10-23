@@ -1,6 +1,6 @@
 """The two number tables of docs/business-case.md, from one results dir.
 
-    uv run python -m evals.business_case --date 2026-10-22 [--update-doc]
+    uv run python -m evals.business_case --date 2026-10-23 [--update-doc]
 
 Cost: measured tokens at official prices (evals/prices.py, shared with `evals.run report`).
 Saving: one hypothesis, a ready draft saves part of an agent's handling time; the rest is cost.
@@ -17,7 +17,7 @@ from evals.prices import run_cost
 
 RESULTS: Final = Path(__file__).resolve().parent / "results"
 DOC: Final = Path(__file__).resolve().parents[1] / "docs" / "business-case.md"
-DATE: Final = "2026-10-22"  # the only results dir with all four configurations
+DATE: Final = "2026-10-23"  # the newest results dir with all four configurations
 CONFIGS: Final = {
     "jev+haiku": "Jev + Haiku",
     "jev+sonnet": "Jev + Sonnet",
@@ -25,6 +25,7 @@ CONFIGS: Final = {
     "laya+haiku": "Laya + Haiku",
 }
 RECOMMENDED: Final = "jev+haiku"
+REPLY_CHECKER: Final = "jev"  # the shipped reply check; runs are named after it (evals/run.py)
 
 # Assumptions (docs/business-case.md, inputs).
 TICKETS_PER_MONTH: Final = 10_000
@@ -73,8 +74,12 @@ class Config:
         return math.ceil(per_draft * 100) / 100
 
 
+def run_dir(date: str, key: str) -> Path:
+    return RESULTS / date / f"{key}+reply-{REPLY_CHECKER}"
+
+
 def config(date: str, key: str) -> Config:
-    run = RESULTS / date / key
+    run = run_dir(date, key)
     cards = [json.loads(line) for line in (run / "cards.jsonl").read_text().splitlines()]
     meta = json.loads((run / "run.json").read_text())
     warm = run_cost(cards, meta, hit_draft=CACHE_HIT, hit_classify=CACHE_HIT).total

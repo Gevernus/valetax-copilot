@@ -11,7 +11,10 @@ uv run pytest                              # unit tests, no network
 uv run ruff check . && uv run ruff format --check . && uv run mypy
 uv run copilot run "ticket text"           # needs TYPESAFE_API_KEY for the default jev classifier
 uv run python -m evals.run run --classifier jev --model haiku
+uv run python -m evals.run run --classifier jev --model haiku --set tickets_challenge --date <dir>-challenge
 uv run python -m evals.run report --date <dir>   # re-score saved cards, no model calls
+uv run python -m evals.run replay --date <dir>   # saved model outputs through current code, no network
+uv run python -m evals.headline --golden <dir> --challenge <dir>-challenge --update-doc   # docs/evals.md table
 uv run python -m evals.business_case --date <dir> --update-doc   # dir with all four configs
 ```
 
@@ -39,7 +42,10 @@ log or write them, and never put them in a test fixture.
 - `src/copilot/draft.py`: the drafter prompt (`PROMPT_VERSION`) and the fixed decline texts.
 - `kb/valetax.toml`: the knowledge base; `docs/kb-issues.md` explains the issue tags
   (`conflict` routes to a person, `defect` keeps a section out of the prompt, `gap`).
-- `evals/tickets.jsonl`: golden set; `evals/metrics.py`: scoring; `evals/results/`: runs.
+- `evals/tickets.jsonl`: golden set (holdout hash pinned in `tests/test_evals.py`);
+  `evals/tickets_challenge.jsonl`: blind ticket set, run it, never tune on it or relabel it;
+  `evals/metrics.py`: scoring; `evals/results/`: runs. A code change is checked with `replay`
+  on the newest run; a prompt, question or KB change needs a new run.
 - `src/copilot/reply_guard.py`: what a shown reply must not say (decision, compliance check,
   handover): frozen patterns plus the `REPLY` questions; `--reply-checker` picks a measured backend.
 - `evals/drafts.jsonl`: labelled drafts for the reply checks; `uv run python -m evals.run_drafts
