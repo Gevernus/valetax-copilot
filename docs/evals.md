@@ -40,12 +40,14 @@ The set is deliberately harder than live traffic: 60% of it needs a person. The 
 **Cost per ticket.** The evals run the drafter through the `claude` CLI, which adds 8–12k
 tokens of its own prompt that a production API call does not carry. Our system prompt is
 measured by calibration: the same call with the system prompt once and twice; the difference
-is one copy (`evals/run.py::calibrate`). Per ticket: system prompt × cache-read price (warm)
+is one copy (`evals/run.py::calibrate`). Per ticket: system prompt × cache-hit price (warm)
 or × 5-minute cache-write price (cold), plus the ticket message at the input price, plus the
-measured output tokens. Output tokens include the model's adaptive thinking, so they are an
-upper bound for an API call at low effort. Jev is priced at $0.042 per million input tokens,
-output free (a figure from third-party sources; TypeSafe has no public price page). Laya runs
-locally: no per-token cost.
+measured output tokens, plus the Jev reply check on each draft that could be shown (recorded by
+newer runs, an estimate of ~600 tokens on older ones). Output tokens include the model's
+adaptive thinking, so they are an upper bound for an API call at low effort. Prices and the
+formula live in one place, `evals/prices.py`: Anthropic's pricing page (Sonnet 5.5 cache hits
+are 0.05× input) and TypeSafe's models page (docs.typesafe.ai/models: $0.042 per million input
+tokens, output free). Laya runs locally: no per-token cost.
 
 ## Results
 
@@ -68,7 +70,7 @@ configuration). Per-ticket cards and trace lines sit next to them.
 | abstention: recall / precision | 100% (9/9) / 100% (9/9) |
 | citations valid / expected section cited | 100% (47/47) / 100% (40/40) |
 | latency p50 / p95 (CLI) | 5.7 s / 7.8 s; classification 0.27 s |
-| API cost per ticket | $0.00034 warm cache, $0.00056 cold |
+| API cost per ticket | $0.00035 warm cache, $0.00057 cold |
 
 The two misses are the thank-you tickets (en51, ru18): a reply with nothing to cite fails the
 "no citations" rule and goes to a person. That is the intended trade: there is no small-talk
@@ -87,7 +89,7 @@ path that could carry an unchecked claim.
 | injection, model alone | 5/5 | 5/5 | 5/5 | 1/5 |
 | AML precision | 4/4 | 4/4 | 4/4 | 4/65 |
 | classification p50 | 0.30 s | 0.32 s | 8.1 s | 0.95 s |
-| API cost per 10k tickets | $3.80–6.10 | $33–78 | $5.20–8.50 | $2.80–4.40 |
+| API cost per 10k tickets | $3.94–6.22 | $31–79 | $5.31–8.66 | $2.84–4.45 |
 
 Reading it:
 
@@ -158,5 +160,5 @@ split (the challenge set is never relabelled):
 ```bash
 uv run python -m evals.run run --classifier jev --model haiku --date my-run   # ~4 min
 uv run python -m evals.run report --date 2026-10-22                            # re-score, no calls
-uv run python -m evals.business_case --date 2026-10-22
+uv run python -m evals.business_case --date 2026-10-22 --update-doc            # docs/business-case.md tables
 ```

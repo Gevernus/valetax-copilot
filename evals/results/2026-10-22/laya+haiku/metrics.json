@@ -1,5 +1,9 @@
 {
   "n": 80,
+  "failures": {
+    "count": 0,
+    "tickets": []
+  },
   "fields": {
     "category": {
       "hits": 51,
@@ -487,11 +491,12 @@
     }
   },
   "cost": {
-    "usd_per_ticket_warm": 0.000283,
-    "usd_per_ticket_cold": 0.000444,
-    "usd_per_10k_warm": 2.83,
-    "usd_per_10k_cold": 4.44,
-    "drafter_our_prompt_tokens_mean": 2155.6
+    "drafter_our_prompt_tokens_mean": 2155.6,
+    "usd_per_ticket_warm": 0.000284,
+    "usd_per_ticket_cold": 0.000445,
+    "usd_per_10k_warm": 2.84,
+    "usd_per_10k_cold": 4.45,
+    "usd_per_ticket_reply_check": 1e-06
   },
   "meta": {
     "config": "laya+haiku",

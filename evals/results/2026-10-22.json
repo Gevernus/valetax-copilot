@@ -1,6 +1,10 @@
 {
   "jev+haiku": {
     "n": 80,
+    "failures": {
+      "count": 0,
+      "tickets": []
+    },
     "fields": {
       "category": {
         "hits": 79,
@@ -456,11 +460,12 @@
       }
     },
     "cost": {
-      "usd_per_ticket_warm": 0.00038,
-      "usd_per_ticket_cold": 0.000608,
-      "usd_per_10k_warm": 3.8,
-      "usd_per_10k_cold": 6.08,
-      "drafter_our_prompt_tokens_mean": 2154.5
+      "drafter_our_prompt_tokens_mean": 2154.5,
+      "usd_per_ticket_warm": 0.000394,
+      "usd_per_ticket_cold": 0.000622,
+      "usd_per_10k_warm": 3.94,
+      "usd_per_10k_cold": 6.22,
+      "usd_per_ticket_reply_check": 1.4e-05
     },
     "meta": {
       "config": "jev+haiku",
@@ -480,6 +485,10 @@
   },
   "jev+sonnet": {
     "n": 80,
+    "failures": {
+      "count": 0,
+      "tickets": []
+    },
     "fields": {
       "category": {
         "hits": 79,
@@ -938,11 +947,12 @@
       }
     },
     "cost": {
-      "usd_per_ticket_warm": 0.003286,
-      "usd_per_ticket_cold": 0.007848,
-      "usd_per_10k_warm": 32.86,
-      "usd_per_10k_cold": 78.48,
-      "drafter_our_prompt_tokens_mean": 2154.5
+      "drafter_our_prompt_tokens_mean": 2154.5,
+      "usd_per_ticket_warm": 0.003103,
+      "usd_per_ticket_cold": 0.007864,
+      "usd_per_10k_warm": 31.03,
+      "usd_per_10k_cold": 78.64,
+      "usd_per_ticket_reply_check": 1.5e-05
     },
     "meta": {
       "config": "jev+sonnet",
@@ -962,6 +972,10 @@
   },
   "laya+haiku": {
     "n": 80,
+    "failures": {
+      "count": 0,
+      "tickets": []
+    },
     "fields": {
       "category": {
         "hits": 51,
@@ -1449,11 +1463,12 @@
       }
     },
     "cost": {
-      "usd_per_ticket_warm": 0.000283,
-      "usd_per_ticket_cold": 0.000444,
-      "usd_per_10k_warm": 2.83,
-      "usd_per_10k_cold": 4.44,
-      "drafter_our_prompt_tokens_mean": 2155.6
+      "drafter_our_prompt_tokens_mean": 2155.6,
+      "usd_per_ticket_warm": 0.000284,
+      "usd_per_ticket_cold": 0.000445,
+      "usd_per_10k_warm": 2.84,
+      "usd_per_10k_cold": 4.45,
+      "usd_per_ticket_reply_check": 1e-06
     },
     "meta": {
       "config": "laya+haiku",
@@ -1473,6 +1488,10 @@
   },
   "llm+haiku": {
     "n": 80,
+    "failures": {
+      "count": 0,
+      "tickets": []
+    },
     "fields": {
       "category": {
         "hits": 77,
@@ -1933,11 +1952,12 @@
       }
     },
     "cost": {
-      "usd_per_ticket_warm": 0.000517,
-      "usd_per_ticket_cold": 0.000852,
-      "usd_per_10k_warm": 5.17,
-      "usd_per_10k_cold": 8.52,
-      "drafter_our_prompt_tokens_mean": 2154.5
+      "drafter_our_prompt_tokens_mean": 2154.5,
+      "usd_per_ticket_warm": 0.000531,
+      "usd_per_ticket_cold": 0.000866,
+      "usd_per_10k_warm": 5.31,
+      "usd_per_10k_cold": 8.66,
+      "usd_per_ticket_reply_check": 1.4e-05
     },
     "meta": {
       "config": "llm+haiku",

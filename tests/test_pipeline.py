@@ -42,9 +42,11 @@ class FakeClassifier:
             self.answers[name] = Answer("yes" if p >= 0.5 else "no", {"yes": p, "no": 1 - p})
         assert set(self.answers) == set(QUESTIONS)
         self.seen: list[str] = []
+        self.timeouts: list[float | None] = []
 
-    def classify(self, text: str) -> Classification:
+    def classify(self, text: str, timeout_s: float | None = None) -> Classification:
         self.seen.append(text)
+        self.timeouts.append(timeout_s)
         return Classification(self.answers, "fake", "fake")
 
 
@@ -63,7 +65,9 @@ class FakeLlm:
         self.data.update(data)
         self.calls: list[tuple[str, str]] = []
 
-    def complete(self, system: str, user: str, schema: dict[str, Any]) -> LlmResult:
+    def complete(
+        self, system: str, user: str, schema: dict[str, Any], timeout_s: float | None = None
+    ) -> LlmResult:
         self.calls.append((system, user))
         return LlmResult(dict(self.data), LlmUsage(), self.model, 1)
 
@@ -259,7 +263,7 @@ class FakeReplyChecker:
         self.p_yes = p_yes
         self.seen: list[str] = []
 
-    def classify(self, text: str) -> Classification:
+    def classify(self, text: str, timeout_s: float | None = None) -> Classification:
         self.seen.append(text)
         answers = {
             name: Answer("yes" if p >= 0.5 else "no", {"yes": p, "no": 1 - p})
@@ -293,7 +297,7 @@ def test_reply_questions_pass_a_clean_draft() -> None:
 
 def test_reply_questions_failing_withhold_the_draft() -> None:
     class Down(FakeReplyChecker):
-        def classify(self, text: str) -> Classification:
+        def classify(self, text: str, timeout_s: float | None = None) -> Classification:
             raise TimeoutError
 
     card = with_reply_checker(Down(), FakeLlm(**MIN_DEPOSIT)).process("t", "Min deposit?")
@@ -307,7 +311,7 @@ def test_decline_does_not_point_to_an_unconfirmed_document() -> None:
 
 def test_a_malformed_reply_answer_withholds_the_draft() -> None:
     class Malformed(FakeReplyChecker):
-        def classify(self, text: str) -> Classification:
+        def classify(self, text: str, timeout_s: float | None = None) -> Classification:
             raw = {name: {"yes": float("nan"), "no": float("nan")} for name in REPLY.options}
             return Classification(answers_from_probabilities(raw, REPLY), "fake", "fake")
 
@@ -376,3 +380,30 @@ def test_reply_check_status_per_branch() -> None:
     checked = with_reply_checker(FakeReplyChecker(), FakeLlm(**MIN_DEPOSIT)).process("t", "Min?")
     assert checked.trace()["reply_check"]["status"] == "checked"
     assert "input_tokens" in checked.trace()["reply_check"]
+
+
+def test_draft_caps_are_checked_in_code_not_sent_to_providers() -> None:
+    import json as _json
+
+    from copilot.draft import schema
+
+    sent = _json.dumps(schema(load_kb()))
+    assert "maxLength" not in sent
+    assert "maxItems" not in sent
+    llm = FakeLlm(reply="x" * 4001, citations=["funding.min-deposit"])
+    card = make(FakeClassifier(), llm).process("t", "Min deposit?")
+    assert card.reasons == ["draft_error"]
+
+
+def test_the_prompt_caps_the_unanswered_list() -> None:
+    from copilot.draft import system_prompt
+
+    assert "at most 10" in system_prompt(load_kb())
+
+
+def test_the_injection_patterns_are_linear_on_whitespace_runs() -> None:
+    import time
+
+    started = time.perf_counter()
+    rules.looks_like_injection("игнорируй" + "\x0b" * 10_000 + "x")
+    assert time.perf_counter() - started < 0.05

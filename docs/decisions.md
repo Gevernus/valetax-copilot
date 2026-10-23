@@ -111,7 +111,8 @@ not for live traffic. Misses are timelines without a unit word, unit words outsi
 and figures from an uncited section; the false withholds and the 11 client figures the draft
 attributes to the client are listed by id, as disagreements and not relabelled, in
 [the results](../evals/results/figures_challenge-check_draft.md). Re-run after the list-marker
-and step-range fixes (1ec259f and later): 0 of 200 predictions changed.
+and step-range fixes (1ec259f and later), and with the ticket normalised and masked as the
+pipeline gives it to the check (C2): 0 of 200 predictions changed.
 **Why the decision model, and what the patterns are for.** Measured with
 `evals/run_drafts.py` (results in `evals/results/drafts-*` and `drafts_challenge-*`, threshold 0.5,
 jev-1.14.0, questions `reply-v2`). Headline: the blind challenge set, 180 rows written by a
@@ -160,7 +161,7 @@ An LLM backend for the REPLY questions answers with p = 0 or 1 and is not measur
   written by the model; the ticket routes to a person. The drafter answers only the rest, and
   the decline stays on the card when that part is withheld.
 - **Complaints, KYC, AML**: the drafter does not run, and its prompt says nothing about them
-  (`draft-v2`). The card carries a fixed, neutral acknowledgement per case and language
+  (since `draft-v2`). The card carries a fixed, neutral acknowledgement per case and language
   (`draft.ACKNOWLEDGEMENT`) that promises no outcome or timeline, does not claim a handover
   that has not happened, and never names a compliance check; the route is always a person.
 - **Fixed texts are versioned**: a wording change adds a version and keeps the old ones, so
@@ -199,7 +200,8 @@ not run: no API key was available.
 **Decision.** `traces/*.jsonl`: route, reasons, labels with probabilities, rule hits,
 citations, masked-entity counts, per-stage latency and attempts, tokens, the backend and
 resolved model of every call, and the versions of the prompt, KB, ticket questions, reply
-questions, rules (a hash of the deterministic checks' source) and thresholds.
+questions, rules (a hash of the source of the deterministic checks and the routing table; any
+edit to those files, a comment included, bumps it) and thresholds, once per line.
 **Why.** Enough to run the weekly review and to attribute any change to a KB, prompt, question,
 rule or threshold version; nothing in it needs PII handling.
 **Rejected.** Logging prompts and replies: they contain client data, and the cards already
@@ -224,22 +226,38 @@ real tickets.
 
 ## 15. Failures go to a person
 
-**Decision.** Nothing that fails produces a draft. A failed ticket classification (timeout,
-dropped connection, 429/5xx, a malformed answer) gives a neutral card with
-`classifier_error` and no model call; any other failure in processing (masking, language
-detection) gives `pipeline_error`; a failed drafter call gives `draft_error`, a failed check
-`check_error`. Jev, the claude CLI and the Anthropic API turn their failures into three errors
-(`copilot/errors.py`; anything else a backend raises, e.g. Laya, is not retried):
-transient (timeouts, connection errors, 429, 5xx, a sampled answer that breaks the schema),
-permanent (other 4xx, a malformed decision-model answer) and usage limit, which stops an eval
-run instead of being scored. Only transient errors are retried: at most three calls per stage,
-with a 1 s backoff that doubles, inside a 120 s budget per ticket. The trace records the
-attempts per stage and, for a failed ticket, the stage and the error class; never a message or
-a response body, which can echo the ticket. The agent's export (`Card.to_dict`, the CLI, the
-HTML view) never contains the model's withheld text; `Card.to_eval_dict` adds it for evals.
-Jev is pinned to `jev-1.14.0`, the version the thresholds were measured with.
-**Why.** A vendor outage at 9 a.m. should cost the agents their drafts, not their tickets. One
-live Jev failure turned two ready drafts into `check_error` in a replay; with the retry, that
-failure (a single transient error) leaves the draft ready (`tests/test_failures.py`).
-**Rejected.** Retrying permanent errors (they fail the same way, slower) and a resilience
-framework (three error classes and one retry function cover the four backends).
+**Decision.** Nothing that fails produces a draft. A failed classification gives a neutral card
+(`classifier_error`), any other failure `pipeline_error`, a provider failure while drafting or
+checking `draft_error` / `check_error` (a bug in our own check is `check_error` too, but scored).
+Every stage reads one normalised text, the ticket and the draft alike (`copilot/normalise.py`:
+NFKC; every space as " "; format characters, Unicode default-ignorable code points, lone
+surrogates and a combining mark on an ASCII letter or digit dropped; a wide gap between two
+digits kept as a column tab, other runs as one space). So a zero-width, variation-selector or
+combining character cannot split an email, a card number, a fee claim, "AML" or "ignore all
+previous instructions", and the draft the agent sees is the text that was checked. NFKC
+changes some meanings: superscripts and circled digits become plain digits, "½" becomes "1⁄2",
+"№" becomes "No". A ticket over 20,000 normalised characters is masked and read by the injection
+and advice patterns, then goes to a person unread by the models (`too_long`); raw input over
+80,000 characters is not read at all. Jev, the claude CLI and the Anthropic API normalise their
+failures into transient, permanent and usage-limit errors (`copilot/errors.py`); Laya and the
+LLM classifier do not, and still end as a card for a person. Only transient errors are retried:
+three calls per stage inside one 120 s budget per ticket, each call given the time left as its
+timeout. The trace keeps attempts, the failed stage and the error class, never a message or a
+body; metrics count these cards as failures, apart from quality. The agent's view
+(`pipeline.agent_view`, used by the CLI, the HTML page and `Card.to_dict`) drops the raw reply,
+and all model-written text when the draft is withheld; problem texts can still quote a draft
+fragment ("numbers not in cited sections: 10 USD"). A usage limit is a failed ticket for the
+agent; an eval run stops on it, or after five provider failures in a row. The drafter's length
+caps (reply, abstain reason, unanswered list) are checked in code, not sent in the schema: a
+provider may reject or rewrite them.
+**Why.** A vendor outage should cost the agents their drafts, not their tickets, and should not
+be scored as the co-pilot's quality. A test reproduces the transient Jev failure seen in a
+replay: the retried draft stays ready.
+**Limits.** The budget is checked between calls; inside one call the HTTP and SDK timeouts are
+per phase (connect, read), so a slow call can run past it. Laya runs in process and ignores it.
+The Anthropic backend is written against the SDK documentation and has not been run live (no
+API key here); its error mapping is tested with real SDK exception objects. There is no ingest
+queue in this repo: the length cap protects whatever feeds the co-pilot later.
+**Rejected.** Retrying permanent errors (they fail the same way, slower), the SDK's own retries
+(they would multiply the pipeline's), and a resilience framework: three error classes and one
+budget cover the four backends.

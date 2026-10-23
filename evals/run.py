@@ -27,23 +27,33 @@ from copilot.draft import Drafter, schema, system_prompt
 from copilot.errors import UsageLimitError
 from copilot.kb import KnowledgeBase, load_kb
 from copilot.llm import ClaudeCli, make_llm
-from copilot.masking import mask_pii
 from copilot.pipeline import Copilot
 from evals.metrics import compute
+from evals.prices import run_cost, user_tokens
 
 ROOT = Path(__file__).resolve().parent
 TICKETS = ROOT / "tickets.jsonl"
 RESULTS = ROOT / "results"
 
-# USD per million tokens. Anthropic: list prices for claude-haiku-5-5 and claude-sonnet-5-5
-# (claude-api reference, cached 2026-10-06); cache read 0.1x and 5-minute cache write 1.25x of input.
-# Jev: $0.042/M input, output free -- third-party figure, not confirmed on TypeSafe's own pages.
-PRICES = {
-    "claude-haiku-5-5": {"input": 0.10, "output": 0.50},
-    "claude-sonnet-5-5": {"input": 2.00, "output": 10.00},
-}
-CACHE_READ, CACHE_WRITE = 0.1, 1.25
-JEV_INPUT_PER_M = 0.042
+
+class OutageError(RuntimeError):
+    """Too many provider failures in a row: the run measures the outage, not the co-pilot."""
+
+
+class OutageGuard:
+    """Stops a run after `limit` cards in a row failed on a provider (the card has an `error`);
+    a card that went through resets the count."""
+
+    def __init__(self, limit: int = 5) -> None:
+        self.limit = limit
+        self._in_a_row = 0
+        self._lock = threading.Lock()
+
+    def record(self, card: dict[str, Any]) -> None:
+        with self._lock:
+            self._in_a_row = self._in_a_row + 1 if card.get("error") else 0
+            if self._in_a_row >= self.limit:
+                raise OutageError(f"{self._in_a_row} provider failures in a row")
 
 
 def load_labels() -> dict[str, dict[str, Any]]:
@@ -82,6 +92,7 @@ def run(args: argparse.Namespace) -> None:
         make_classifier(args.classifier),
         Drafter(llm, kb),
         reply_checker=make_reply_checker(args.reply_checker),
+        raise_usage_limit=True,  # a run out of quota is discarded, not scored
     )
     config = f"{args.classifier}+{args.model}+reply-{args.reply_checker}"
     out = RESULTS / args.date / config
@@ -93,41 +104,50 @@ def run(args: argparse.Namespace) -> None:
     if args.classifier == "llm":
         calibration["classifier"] = calibrate(ClaudeCli("haiku"), CLASSIFY_SYSTEM, CLASSIFY_SCHEMA)
 
-    out_of_quota = threading.Event()
+    stopped: list[Exception] = []  # the first reason to stop: a usage limit or an outage
+    outage = OutageGuard()
 
-    def one(tid: str) -> dict[str, Any]:
-        if out_of_quota.is_set():
-            raise UsageLimitError("stopped after a usage-limit error")
+    def one(tid: str) -> tuple[dict[str, Any], dict[str, Any]]:
+        if stopped:
+            raise stopped[0]
         text = labels[tid]["text"]
         try:
             # Failures end as cards for a person, retried inside the pipeline; the eval export
             # keeps the model's raw reply, which the agent's export leaves out.
-            card = copilot.process(tid, text).to_eval_dict()
-        except UsageLimitError:
+            processed = copilot.process(tid, text)
+        except UsageLimitError as e:
             # Quota is not a model failure: stop the run rather than score it.
-            out_of_quota.set()
+            stopped.append(e)
             raise
-        card["ticket"] = mask_pii(text).text
+        card = processed.to_eval_dict()  # its `ticket` is the text the models saw
+        try:
+            outage.record(card)
+        except OutageError as e:
+            stopped.append(e)  # the other workers stop too
+            raise
         print(f"{tid}: {card['route']:5} {','.join(card['reasons'])}", file=sys.stderr)
-        return card
+        return card, processed.trace()
 
     started = time.perf_counter()
     if args.classifier == "laya":
         copilot.classifier.classify("warm-up")  # load the checkpoint outside the timings
     try:
         with ThreadPoolExecutor(max_workers=args.workers) as pool:
-            cards = list(pool.map(one, ids))
+            results = list(pool.map(one, ids))
     except UsageLimitError:
         shutil.rmtree(out)
         raise SystemExit(f"{config}: usage limit reached; run discarded, nothing scored") from None
+    except OutageError as e:
+        shutil.rmtree(out)
+        raise SystemExit(f"{config}: {e}; run discarded, nothing scored") from None
     wall_s = round(time.perf_counter() - started, 1)
+    cards = [card for card, _ in results]
 
     with (out / "cards.jsonl").open("w") as f:
         for card in cards:
             f.write(json.dumps(card, ensure_ascii=False) + "\n")
     with (out / "traces.jsonl").open("w") as f:
-        for card in cards:
-            trace = {k: v for k, v in card.items() if k in _TRACE_KEYS}
+        for _, trace in results:  # the same line the CLI writes: Card.trace()
             f.write(json.dumps(trace, ensure_ascii=False) + "\n")
     meta = {
         "config": config,
@@ -145,64 +165,26 @@ def run(args: argparse.Namespace) -> None:
     report(args.date)
 
 
-_TRACE_KEYS = {"ticket_id", "route", "reasons", "category", "urgency", "language", "flags",
-               "rule_hits", "citations", "masked", "timings_ms", "classifier", "drafter",
-               "reply_check", "kb_version", "prompt_version", "draft_mode"}  # fmt: skip
-
-
-def _user_tokens(card: dict[str, Any]) -> int:
-    # The per-ticket message is short (mode, language, ticket); 3 characters per token is
-    # conservative for English and close for Cyrillic and Arabic.
-    return 20 + len(card["ticket"]) // 3
-
-
 def cost_per_ticket(cards: list[dict[str, Any]], meta: dict[str, Any]) -> dict[str, Any]:
-    """API cost of our own tokens: the calibrated system prompt priced as a cache read (warm) or a
-    5-minute cache write (cold), the ticket message at the input price, and output tokens as
-    measured (they include adaptive thinking, so they are an upper bound for an API call at low
-    effort)."""
-    cal = meta.get("calibration", {})
-    price = PRICES[meta["drafter_model"]]
-
-    def llm_cost(system: int, user: int, output: int, p: dict[str, float]) -> tuple[float, float]:
-        base = (user * p["input"] + output * p["output"]) / 1e6
-        return (
-            base + system * p["input"] * CACHE_READ / 1e6,
-            base + system * p["input"] * CACHE_WRITE / 1e6,
-        )
-
-    warm: list[float] = []
-    cold: list[float] = []
-    prompt_tokens: list[int] = []
-    for card in cards:
-        w = c = 0.0
-        cls = card["classifier"]
-        if cls["backend"] == "jev":
-            w = c = cls["input_tokens"] * JEV_INPUT_PER_M / 1e6
-        elif cls["backend"] == "llm":
-            w, c = llm_cost(
-                cal["classifier"]["system"], _user_tokens(card), cls["output_tokens"],
-                PRICES["claude-haiku-5-5"],
-            )  # fmt: skip
-        if card["drafter"]["model"]:
-            # claude-cli: calibrated; anthropic: the cached part the API reports.
-            d = card["drafter"]
-            system = cal.get("drafter", {}).get("system") or (
-                d["cache_read_tokens"] + d["cache_write_tokens"]
-            )
-            dw, dc = llm_cost(system, _user_tokens(card), card["drafter"]["output_tokens"], price)
-            w, c = w + dw, c + dc
-            prompt_tokens.append(system + _user_tokens(card))
-        warm.append(w)
-        cold.append(c)
+    """API cost of our own tokens (evals/prices.py): every system prompt a cache hit (warm) or a
+    5-minute cache write (cold); the Jev reply check included, estimated on runs before it
+    recorded its tokens."""
+    warm = run_cost(cards, meta, hit_draft=1.0, hit_classify=1.0)
+    cold = run_cost(cards, meta, hit_draft=0.0, hit_classify=0.0)
+    system = meta.get("calibration", {}).get("drafter", {}).get("system")
+    prompts = [
+        (system or c["drafter"]["cache_read_tokens"] + c["drafter"]["cache_write_tokens"])
+        + user_tokens(c)
+        for c in cards
+        if c["drafter"]["model"]
+    ]
     return {
-        "usd_per_ticket_warm": round(statistics.fmean(warm), 6),
-        "usd_per_ticket_cold": round(statistics.fmean(cold), 6),
-        "usd_per_10k_warm": round(statistics.fmean(warm) * 10_000, 2),
-        "usd_per_10k_cold": round(statistics.fmean(cold) * 10_000, 2),
-        "drafter_our_prompt_tokens_mean": round(statistics.fmean(prompt_tokens), 1)
-        if prompt_tokens
-        else 0,
+        "drafter_our_prompt_tokens_mean": round(statistics.fmean(prompts), 1) if prompts else 0,
+        "usd_per_ticket_warm": round(warm.total, 6),
+        "usd_per_ticket_cold": round(cold.total, 6),
+        "usd_per_10k_warm": round(warm.total * 10_000, 2),
+        "usd_per_10k_cold": round(cold.total * 10_000, 2),
+        "usd_per_ticket_reply_check": round(warm.reply_check, 6),
     }
 
 
@@ -252,6 +234,10 @@ def summary_markdown(day: str, runs: dict[str, Any]) -> str:
         lines.append(f"| {title} | " + " | ".join(get(runs[n]) for n in names) + " |")
 
     row("**hard-rule violations**", lambda m: f"**{m['violations']['count']}**")
+    row(
+        "failures (sent to a person, not scored)",
+        lambda m: str(m.get("failures", {}).get("count", 0)),
+    )
     row("route accuracy", lambda m: _fmt(m["route"]["accuracy"]))
     row(
         "route accuracy, holdout only",

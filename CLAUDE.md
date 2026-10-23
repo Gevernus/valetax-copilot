@@ -12,7 +12,7 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy
 uv run copilot run "ticket text"           # needs TYPESAFE_API_KEY for the default jev classifier
 uv run python -m evals.run run --classifier jev --model haiku
 uv run python -m evals.run report --date <dir>   # re-score saved cards, no model calls
-uv run python -m evals.business_case --date <dir>
+uv run python -m evals.business_case --date <dir> --update-doc   # dir with all four configs
 ```
 
 The drafter runs through the `claude` CLI by default; `llm.ClaudeCli` isolates it from the
@@ -24,13 +24,16 @@ log or write them, and never put them in a test fixture.
 
 ## Where things are
 
-- `src/copilot/pipeline.py`: the order of stages; the one place that decides what runs.
+- `src/copilot/pipeline.py`: the order of stages; the one place that decides what runs. Every
+  stage reads the text from `normalise.py`, never the raw ticket; drafts are normalised too, so
+  the shown text is the checked text.
 - `src/copilot/errors.py`: the three provider errors (transient, permanent, usage limit) and the
-  one retry policy; Jev, the claude CLI and the Anthropic API raise only these (anything else,
-  e.g. from Laya, counts as permanent). `Copilot.process` never raises except a usage limit:
-  any other failure is a card for a person.
+  per-ticket budget; Jev, the claude CLI and the Anthropic API raise only these (Laya and the
+  LLM classifier do not, and are not retried). `Copilot.process` returns a card for a person on
+  any failure; only evals ask it to raise a usage limit (`raise_usage_limit=True`).
 - `src/copilot/routing.py`: the rule table and thresholds. A new reason needs a row in
-  `_TABLE`, a `CONSEQUENCE` text, and a test in `tests/test_routing.py`.
+  `_TABLE`, a `CONSEQUENCE` text, and a test in `tests/test_routing.py`. Failure cards
+  (`too_long`, `classifier_error`, `pipeline_error`) get their reasons from the same table.
 - `src/copilot/classify/questions.py`: the typed questions, shared by every backend.
 - `src/copilot/rules.py` and `grounding.py`: deterministic checks on input and draft.
 - `src/copilot/draft.py`: the drafter prompt (`PROMPT_VERSION`) and the fixed decline texts.

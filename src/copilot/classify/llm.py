@@ -45,8 +45,10 @@ class LlmClassifier:
         self.questions = questions
         self._system, self._schema = system(questions), schema(questions)
 
-    def classify(self, text: str) -> Classification:
-        result = self._llm.complete(self._system, f"<text>\n{text}\n</text>", self._schema)
+    def classify(self, text: str, timeout_s: float | None = None) -> Classification:
+        result = self._llm.complete(
+            self._system, f"<text>\n{text}\n</text>", self._schema, timeout_s=timeout_s
+        )
         answers = {
             name: Answer(str(result.data[name]), {str(result.data[name]): 1.0})
             for name in self.questions.options

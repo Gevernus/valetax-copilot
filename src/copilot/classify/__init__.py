@@ -43,7 +43,9 @@ class Classifier(Protocol):
     name: str
     questions: QuestionSet  # what it answers: TICKET or REPLY
 
-    def classify(self, text: str) -> Classification: ...
+    def classify(self, text: str, timeout_s: float | None = None) -> Classification:
+        """`timeout_s`: the time left in the ticket's budget, as the call's timeout."""
+        ...
 
 
 def answers_from_probabilities(

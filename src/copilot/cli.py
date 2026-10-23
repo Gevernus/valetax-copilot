@@ -32,35 +32,37 @@ def _print_json(card: Card) -> None:
 
 
 def _print_card(card: Card) -> None:
-    print(f"ROUTE: {card.route.upper()}  priority={card.urgency}  [{card.ticket_id}]")
-    for reason, consequence in zip(card.reasons, card.consequences, strict=True):
+    """Printed from the agent's view, like every other way out to the agent."""
+    c = card.to_dict()
+    print(f"ROUTE: {c['route'].upper()}  priority={c['urgency']}  [{c['ticket_id']}]")
+    for reason, consequence in zip(c["reasons"], c["consequences"], strict=True):
         print(f"  - {reason}: {consequence}")
     print(
-        f"category={card.category} language={card.language} sentiment={card.sentiment} "
-        f"draft_mode={card.draft_mode}"
+        f"category={c['category']} language={c['language']} sentiment={c['sentiment']} "
+        f"draft_mode={c['draft_mode']}"
     )
     print("\nDRAFT:")
-    if card.reply is not None:
-        print(card.reply)
-    elif card.abstain_reason:
-        print(f"(abstained: {card.abstain_reason})")
-    elif card.problems:
-        print("(withheld: " + "; ".join(card.problems) + ")")
+    if c["reply"] is not None:
+        print(c["reply"])
+    elif c["abstain_reason"]:
+        print(f"(abstained: {c['abstain_reason']})")
+    elif c["problems"]:
+        print("(withheld: " + "; ".join(c["problems"]) + ")")
     else:
         print("(none)")
-    if card.client_figures:
+    if c["client_figures"]:
         print("\nFROM THE CLIENT'S MESSAGE, NOT IN THE SOURCES:")
-        for figure in card.client_figures:
+        for figure in c["client_figures"]:
             print(f"  - {figure}")
-    if card.unanswered:
+    if c["unanswered"]:
         print("\nNOT IN THE KNOWLEDGE BASE:")
-        for q in card.unanswered:
+        for q in c["unanswered"]:
             print(f"  - {q}")
-    if card.citations:
+    if c["citations"]:
         print("\nSOURCES:")
-        for c in card.citations:
-            print(f"  [{c['id']}] {c['title']} — {c['url']}")
-    print(f"\ntimings_ms={card.timings_ms}")
+        for source in c["citations"]:
+            print(f"  [{source['id']}] {source['title']} — {source['url']}")
+    print(f"\ntimings_ms={c['timings_ms']}")
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -227,7 +227,7 @@ _NUMBER: Final = re.compile(
 # "1. Log in. 2. Select" or "1) Visit": list numbering at a line start or after a sentence,
 # stripped only as a sequence 1, 2, ... of at least two ("1) …; 2) …" too). A marker after ":"
 # may only start one, so "Minimum deposit: 4." after a list, "Fee: 1." or "(3)" stays a figure.
-_LIST_MARKER: Final = re.compile(r"(?m)(?:^|(?<=[.!?:;]))\s*(?P<n>\d{1,2})[.)](?=\s)")
+_LIST_MARKER: Final = re.compile(r"(?m)(?:^|(?<=[.!?:;]))[ \t]*(?P<n>\d{1,2})[.)](?=\s)")
 # Between two numbers, these make a range or a list, so a unit after the second one applies to
 # the first too: "1-2 days", "two to three days", "два и три дня".
 _RANGE: Final = re.compile(r"(?i)\s*(?:-|–|—|to|or|and|y|o|a|и|или|до|hingga|sampai|atau|dan)\s*")
@@ -375,11 +375,14 @@ def _strip_list_markers(text: str) -> str:
     runs: list[list[re.Match[str]]] = []
     for m in _LIST_MARKER.finditer(text):
         n = int(m.group("n"))
-        after_colon = text[m.start() - 1 : m.start()] == ":"
+        before = text[m.start() - 1 : m.start()]  # "", "\n" or the punctuation it follows
         if n == 1:
             runs.append([m])
-        elif runs and not after_colon and n == int(runs[-1][-1].group("n")) + 1:
-            runs[-1].append(m)
+        elif runs and n == int(runs[-1][-1].group("n")) + 1 and before != ":":
+            # After ";" only a list already run with ";" or ":" goes on ("1) …; 2) …").
+            prev = text[runs[-1][-1].start() - 1 : runs[-1][-1].start()]
+            if before != ";" or prev in (";", ":", "\n", ""):
+                runs[-1].append(m)
     spans = sorted((m.start(), m.end()) for run in runs if len(run) >= 2 for m in run)
     parts, pos = [], 0
     for start, end in spans:

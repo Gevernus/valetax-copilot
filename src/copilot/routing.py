@@ -5,6 +5,7 @@ from enum import StrEnum
 
 
 class Reason(StrEnum):
+    TOO_LONG = "too_long"
     CLASSIFIER_ERROR = "classifier_error"
     PIPELINE_ERROR = "pipeline_error"
     PROMPT_INJECTION = "prompt_injection"
@@ -26,13 +27,14 @@ class Reason(StrEnum):
 
 # What the agent sees first on the card: why, and what it means for them.
 CONSEQUENCE: dict[Reason, str] = {
+    Reason.TOO_LONG: "The message is longer than the co-pilot reads: no draft, and not checked for AML, KYC or complaint. Read it and check before replying.",
     Reason.CLASSIFIER_ERROR: "The ticket could not be classified (service unavailable or a bad answer). No draft; read and handle it.",
     Reason.PIPELINE_ERROR: "The co-pilot failed on this ticket. No draft; read and handle it.",
     Reason.PROMPT_INJECTION: "Message tries to instruct the AI. No draft was generated; handle manually.",
     Reason.AML: "Compliance case. Forward to the AML team; the draft only acknowledges.",
     Reason.KYC: "Verification decision. Forward to the KYC team; the draft only acknowledges.",
     Reason.COMPLAINT: "Complaint. A person decides the outcome; the draft only acknowledges.",
-    Reason.TRADING_ADVICE: "Asks for trading advice. The draft declines it; check the decline fits.",
+    Reason.TRADING_ADVICE: "Asks for trading advice. Never answer that part; a draft, if any, ends with the fixed decline.",
     Reason.ACCOUNT_LOOKUP: "Needs the client's records (transaction, balance, status). Check them before replying.",
     Reason.LOW_CONFIDENCE: "Classifier is unsure about the topic. Read the ticket before using the draft.",
     Reason.KB_GAP: "The help pages do not answer all of it. Fill in what is listed as unanswered.",
@@ -62,6 +64,7 @@ class Thresholds:
 
 @dataclass(frozen=True, slots=True)
 class Signals:
+    too_long: bool = False
     classifier_error: bool = False
     pipeline_error: bool = False
     injection: bool = False
@@ -96,6 +99,7 @@ class Route:
 
 
 _TABLE: tuple[tuple[str, Reason], ...] = (
+    ("too_long", Reason.TOO_LONG),
     ("classifier_error", Reason.CLASSIFIER_ERROR),
     ("pipeline_error", Reason.PIPELINE_ERROR),
     ("injection", Reason.PROMPT_INJECTION),

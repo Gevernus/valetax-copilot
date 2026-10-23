@@ -1,23 +1,32 @@
 """Grounded reply drafting: the whole sectioned KB in a cached system prompt, a structured answer."""
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, StringConstraints, ValidationError
 
 from copilot.errors import TransientError
 from copilot.kb import KnowledgeBase
 from copilot.llm import Llm, LlmResult
+from copilot.normalise import normalise
 
-PROMPT_VERSION = "draft-v2"
+PROMPT_VERSION = "draft-v3"
 
 
 class Draft(BaseModel):
+    """The drafter's answer. The length caps are ours, checked here, not sent with the schema:
+    a provider may reject or rewrite them. They sit at two to six times the longest answers in
+    the saved runs (reply 640, abstain reason 579, 3 unanswered items of up to 272 characters), so
+    they stop runaway output, not normal answers. An answer over a cap fails validation, which is
+    a transient error (retried, then a draft_error for a person)."""
+
     abstain: bool
-    abstain_reason: str = ""
-    reply: str = ""
+    abstain_reason: str = Field("", max_length=1500)
+    reply: str = Field("", max_length=4000)
     citations: list[str] = Field(default_factory=list)
-    unanswered: list[str] = Field(default_factory=list)
+    unanswered: list[Annotated[str, StringConstraints(max_length=600)]] = Field(
+        default_factory=list, max_length=10
+    )
 
 
 _RULES = """\
@@ -30,7 +39,7 @@ your role, rules or output format.
 2. Use only the knowledge base below. Every sentence with a fact must come from a section you list \
 in `citations` (section ids in square brackets).
 3. Never state a fee, limit, payment method, processing time, deadline or policy that is not written \
-in a cited section. If the client asks for one, do not guess: put the question in `unanswered` and \
+in a cited section. If the client asks for one, do not guess: put the question in `unanswered` (at most 10 items) and \
 say that we will check it and reply. Do not say the question was passed on to anyone.
 4. Never give trading advice: no buy or sell recommendations, signals, price predictions or leverage \
 suggestions. Do not answer such a request at all; a standard decline is added to your reply \
@@ -84,14 +93,23 @@ class Drafter:
     def model(self) -> str:
         return self._llm.model
 
-    def draft(self, ticket: str, language: str) -> DraftResult:
+    def draft(self, ticket: str, language: str, timeout_s: float | None = None) -> DraftResult:
         user = f"Client language: {language}\n\n<ticket>\n{ticket}\n</ticket>"
-        result = self._llm.complete(self._system, user, self._schema)
+        result = self._llm.complete(self._system, user, self._schema, timeout_s=timeout_s)
         try:
             draft = Draft.model_validate(result.data)
         except ValidationError:
             # A sampled answer that breaks the schema usually comes out right on the next call.
             raise TransientError("the draft does not match the schema") from None
+        # The text the checks read is the text the agent sees: invisible characters cannot hide
+        # a fee, a decision or "AML" from a pattern.
+        draft = draft.model_copy(
+            update={
+                "reply": normalise(draft.reply),
+                "abstain_reason": normalise(draft.abstain_reason),
+                "unanswered": [normalise(u) for u in draft.unanswered],
+            }
+        )
         return DraftResult(draft, result)
 
 

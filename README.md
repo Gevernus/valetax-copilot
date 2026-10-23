@@ -58,7 +58,7 @@ uv run python -m evals.run report --date 2026-10-22            # re-score saved 
 | Classify: category, urgency, language, sentiment | `src/copilot/classify/` (questions in `questions.py`), `src/copilot/language.py` |
 | Draft grounded in the KB with citations, or abstain | `kb/valetax.toml`, `src/copilot/draft.py`, `src/copilot/grounding.py` |
 | Route to a human reviewer whenever required | `src/copilot/routing.py`, `src/copilot/pipeline.py` |
-| Fail safely: any failure is a card for a person, transient errors retried | `src/copilot/errors.py`, the boundary in `Copilot.process` ([decisions §15](docs/decisions.md)) |
+| Fail safely: any failure is a card for a person, transient errors retried | `src/copilot/errors.py`, the boundary in `Copilot.process` ([decisions §15](docs/decisions.md)); the Anthropic API backend is written against the SDK docs, not run live |
 | No trading advice; detect and decline politely | `rules.asks_trading_advice`, the `trading_advice` question, `draft.TRADING_DECLINE`, `rules.gives_trading_advice` |
 | Never decide complaint, KYC or AML outcomes | fixed acknowledgements in `draft.ACKNOWLEDGEMENT`, `rules.py` patterns and the `REPLY` questions on every draft ([decisions §8](docs/decisions.md)), routing reasons |
 | Never invent policy, fees or timelines | `grounding.check_draft` with `quantities.py`, abstention in the draft schema |

@@ -14,7 +14,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
-from copilot.errors import PermanentError, ProviderError, TransientError, UsageLimitError
+from copilot.errors import (
+    PermanentError,
+    ProviderError,
+    TransientError,
+    UsageLimitError,
+    for_status,
+)
 
 MODEL_IDS = {"haiku": "claude-haiku-5-5", "sonnet": "claude-sonnet-5-5"}
 
@@ -41,14 +47,26 @@ class LlmResult:
     latency_ms: int
 
 
-_LIMIT = re.compile(r"(?i)usage limit|rate limit|hit your limit|limit reached")
+# The CLI's own messages for an exhausted plan or budget, in its JSON `result` field ("You've hit
+# your weekly limit", "reached your monthly spend limit", "out of usage credits", "Credit balance
+# is too low"). A rate limit (429) is not one: it passes, so it is retried as transient.
+_USAGE_LIMIT = re.compile(
+    r"(?i)(?:hit|reached) your\b[^.]{0,40}?\b(?:limit|usage|budget|credit)"
+    r"|out of (?:extra )?usage|usage credits|spend limit|shared budget|credit balance"
+    r"|usage limit|limit reached"
+)
+_RATE_LIMIT = re.compile(r"(?i)rate.?limit|\b429\b")
 
 
 class Llm(Protocol):
     name: str
     model: str
 
-    def complete(self, system: str, user: str, schema: dict[str, Any]) -> LlmResult: ...
+    def complete(
+        self, system: str, user: str, schema: dict[str, Any], timeout_s: float | None = None
+    ) -> LlmResult:
+        """`timeout_s`: the time left in the ticket's budget, as the call's timeout."""
+        ...
 
 
 class ClaudeCli:
@@ -61,7 +79,9 @@ class ClaudeCli:
         self._workdir = Path(tempfile.gettempdir()) / "copilot-claude-cli"
         self._workdir.mkdir(exist_ok=True)
 
-    def complete(self, system: str, user: str, schema: dict[str, Any]) -> LlmResult:
+    def complete(
+        self, system: str, user: str, schema: dict[str, Any], timeout_s: float | None = None
+    ) -> LlmResult:
         # The ticket goes through stdin, not argv, so it never shows up in the process list.
         # Isolated from the developer's setup: without these flags and an empty working
         # directory the CLI adds the user's CLAUDE.md, memory, hooks, MCP servers and skills to
@@ -87,22 +107,23 @@ class ClaudeCli:
                 cwd=self._workdir,
                 capture_output=True,
                 text=True,
-                timeout=self._timeout_s,
+                timeout=min(self._timeout_s, timeout_s or self._timeout_s),
                 check=False,
             )
         except subprocess.TimeoutExpired as e:
             raise TransientError(f"claude CLI timed out after {self._timeout_s:.0f}s") from e
         latency_ms = int((time.perf_counter() - started) * 1000)
-        failed = proc.returncode != 0 or '"is_error":true' in proc.stdout.replace(" ", "")
-        if failed and _LIMIT.search(proc.stdout + proc.stderr):
-            raise UsageLimitError("claude CLI reports a usage or rate limit")
+        out = _json_object(proc.stdout)
+        if out is not None and out.get("is_error"):
+            result = str(out.get("result", ""))
+            rate_limited = out.get("api_error_status") == 429 or _RATE_LIMIT.search(result)
+            if _USAGE_LIMIT.search(result) and not rate_limited:
+                raise UsageLimitError("claude CLI reports a usage limit")
         if proc.returncode != 0:
             # stderr can echo the prompt; keep only the exit code.
             raise TransientError(f"claude CLI exited with {proc.returncode}")
-        try:
-            out = json.loads(proc.stdout)
-        except json.JSONDecodeError as e:
-            raise TransientError("claude CLI returned non-JSON output") from e
+        if out is None:
+            raise TransientError("claude CLI returned non-JSON output")
         data = out.get("structured_output")
         if out.get("is_error") or not isinstance(data, dict):
             raise TransientError(f"claude CLI returned no structured output ({out.get('subtype')})")
@@ -116,21 +137,35 @@ class ClaudeCli:
         return LlmResult(data, usage, self.model, latency_ms)
 
 
+def _json_object(text: str) -> dict[str, Any] | None:
+    try:
+        out = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    return out if isinstance(out, dict) else None
+
+
 class AnthropicApi:
     """Messages API with the system prompt cached. Written against the SDK docs; not run here."""
 
     name = "anthropic"
 
-    def __init__(self, model: str = "haiku", max_tokens: int = 2048) -> None:
+    def __init__(
+        self, model: str = "haiku", max_tokens: int = 2048, timeout_s: float = 60.0
+    ) -> None:
         import anthropic
 
         if not os.environ.get("ANTHROPIC_API_KEY"):
             raise RuntimeError("ANTHROPIC_API_KEY is not set")
         self.model = MODEL_IDS.get(model, model)
         self._max_tokens = max_tokens
-        self._client = anthropic.Anthropic()
+        self._timeout_s = timeout_s
+        # Retries are the pipeline's, within the ticket's budget; the SDK's own would multiply them.
+        self._client = anthropic.Anthropic(max_retries=0)
 
-    def complete(self, system: str, user: str, schema: dict[str, Any]) -> LlmResult:
+    def complete(
+        self, system: str, user: str, schema: dict[str, Any], timeout_s: float | None = None
+    ) -> LlmResult:
         import anthropic
 
         started = time.perf_counter()
@@ -144,6 +179,7 @@ class AnthropicApi:
                     "effort": "low",
                     "format": {"type": "json_schema", "schema": schema},
                 },
+                timeout=min(self._timeout_s, timeout_s or self._timeout_s),
             )
         except anthropic.AnthropicError as e:
             raise anthropic_error(e) from None  # the SDK message can carry the response body
@@ -174,10 +210,7 @@ def anthropic_error(e: Exception) -> ProviderError:
     if isinstance(e, anthropic.APITimeoutError | anthropic.APIConnectionError):
         return TransientError(type(e).__name__)
     if isinstance(e, anthropic.APIStatusError):
-        status = e.status_code
-        if status == 429 or status >= 500:
-            return TransientError(f"HTTP {status}")
-        return PermanentError(f"HTTP {status}")
+        return for_status(e.status_code)
     return PermanentError(type(e).__name__)
 
 

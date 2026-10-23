@@ -225,6 +225,9 @@ def test_a_ratio_carries_no_unit() -> None:
         ("To deposit: 1. Log in. 2. Select a channel. 3) Enter the amount.", set()),
         ("1. Log in.\n2. Select MT5 or TRC20.", set()),
         ("Чтобы пополнить счёт: 1) войдите; 2) выберите способ; 3) введите сумму.", set()),
+        # After ";" a list continues only if it was already running on ";" or ":".
+        ("1. Log in. 2. Pick a channel. Minimum deposit; 3. Done.", {q("3")}),
+        ("Fee:\n\n\n2. Next.", {q("2")}),
         # A list is a sequence from 1, never after "("; a marker after ":" may only start one.
         ("Minimum deposit: 5. You can fund via any channel.", {q("5")}),
         ("Withdrawal fee: 2. It is charged on every withdrawal.", {q("2")}),

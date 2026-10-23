@@ -1,85 +1,67 @@
-# Business case: is it worth running at 10,000 tickets a month?
+# Business case
 
-**Yes, as a co-pilot with Jev classification and Haiku drafting.** The model bill is about
-$4–6 a month; the cost that matters is people's time to keep it correct (about $530 a month
-assumed). It pays for itself if it saves the team more than about $0.30 of agent time per
-ticket, and on our golden set it never let a ticket that needs a person through.
+**The pilot pays for itself if a ready draft saves at least $0.16 of agent time (3% of a $5
+contact)**, at the golden set's ready share: an authored mix, and an upper bound for current
+code. The pilot measures the live share; a downside case is below the sensitivity table. The
+model bill is about $5 a month; people and hosting are about $570.
 
-## Cost per configuration, measured
+Recommended: **Jev + Haiku**. People dominate the cost, so the configuration moves the total
+by less than a fifth; Jev + Haiku has the fewest violations, the best routing, the fastest
+classifier, and probabilities to gate on. This is a success criterion for a pilot, not a
+proven return.
 
-Measured on the 80-ticket golden set (`evals/results/2026-10-22.json`, `-v3.json`); our own
-tokens at API list prices, CLI overhead removed ([evals.md](evals.md#method)). "Warm" prices
-the ~2,000-token system prompt as a cache read, "cold" as a 5-minute cache write; at 10k
-tickets a month (one every ~4 minutes on average) real traffic sits between the two.
+## Configurations
 
-| configuration | hard-rule violations | route accuracy | drafts ready | model cost per 10k tickets | p50 latency |
-|---|---|---|---|---|---|
-| **Jev + Haiku** (recommended) | 0 | 98% (91–99%) | 38% | **$3.40–6.10** | 5.7–7.4 s |
-| Jev + Sonnet | 0 | 96% (90–99%) | 36% | $33–78 | 11.7 s |
-| LLM classifier + Haiku | 1 | 98% (91–99%) | 38% | $5.20–8.50 | 17.8 s |
-| Laya zero-shot + Haiku | 0 | 61% (50–71%) | 1% | $2.80–4.40 + a local machine | 7.8 s |
+<!-- generated:configs -->
+Run `2026-10-22`, before the reply check, so the ready share is an upper bound for current code. Model cost at 10,000 tickets a month, all calls cold in brackets; total adds people and hosting.
 
-Prices: Haiku $0.10/$0.50 and Sonnet $2/$10 per million input/output tokens, cache read 0.1×,
-cache write 1.25× (Anthropic list prices). Jev $0.042 per million input tokens, output free:
-reported consistently by third parties (Zuplo gateway docs, launch coverage); **TypeSafe
-publishes no price page, so this is unverified**. At ~1,180 tokens per ticket Jev costs about
-$0.50 a month at this volume; even at ten times that price it does not change the answer.
-Latency was measured through the `claude` CLI, which adds several seconds of start-up; the API
-should be faster, but that is not measured here.
+| configuration | violations | route accuracy | ready | p50 classify / end to end (CLI) | model $ a month | total $ a month |
+|---|---|---|---|---|---|---|
+| **Jev + Haiku** (recommended) | 0 | 98% | 38% | 0.3 s / 7.4 s | $4.70 ($6.22) | $575 |
+| Jev + Sonnet | 0 | 96% | 36% | 0.3 s / 11.7 s | $46.90 ($78.64) | $617 |
+| LLM classifier + Haiku | 1 | 98% | 38% | 8.1 s / 17.8 s | $6.42 ($8.66) | $576 |
+| Laya + Haiku | 0 | 61% | 1% | 0.9 s / 7.8 s | $3.37 ($4.45) + $100 host | $673 |
+<!-- /generated -->
 
-## Fixed cost (assumptions)
+- **Sonnet** adds nothing measurable here at a much higher model bill.
+- **The LLM classifier** missed one complaint flag (the ticket still reached a person via
+  account lookup) and gives no probabilities to gate on. The run's one violation (en11, a
+  ticket routed to a person) was a draft that copied "Start Trading!" from the KB; the same
+  drafter was clean on en11 in the Jev run, so one case points to drafter variance, not the
+  classifier.
+- **Laya** is a data-residency option; zero-shot it almost never produces a ready draft. Plan:
+  fine-tune it on the pilot's labelled tickets ([phase2.md](phase2.md)).
 
-| item | assumption | per month |
-|---|---|---|
-| hosting | one small VM for the service; Laya adds a CPU/GPU box if used | $50 |
-| weekly review and fixes | 2 h a week of an engineer at $50/h | $400 |
-| support lead's review time | 1 h a week at $20/h | $80 |
-| **total fixed** | | **$530** |
+## Inputs
 
-## What it saves (assumptions, with sensitivity)
-
-- **A1. Human cost per contact.** Industry figures are $6–20 per contact (vendor sources, see
-  the research notes); an offshore broker team is likely cheaper, so the table starts at $2.
-- **A2. Time saved.** 50% of handling time on a ticket with a ready draft; 15% on a ticket
-  that needs a person but arrives classified, prioritised and with a drafted acknowledgement,
-  decline or partial answer. For scale: a field study of an LLM assistant in customer support
-  measured +14% resolutions per hour on average and +34% for new agents (NBER, 2023).
-- **A3. Share of ready drafts in live traffic.** Unknown. The golden set is built to be hard
-  (60% needs a person) and gives 38%; live traffic has more routine questions. 30–70% shown.
-
-Monthly saving with 20% of tickets assisted (`uv run python -m evals.business_case --date 2026-10-22`):
-
-| cost per contact | 30% ready | 50% ready | 70% ready |
+| input | value | tag | source |
 |---|---|---|---|
-| $2 | $3,600 | $5,600 | $7,600 |
-| $4 | $7,200 | $11,200 | $15,200 |
-| $6 | $10,800 | $16,800 | $22,800 |
-| $10 | $18,000 | $28,000 | $38,000 |
+| tickets a month | 10,000 | assumption | the brief |
+| ready drafts, tokens | per configuration, from the run above | measured | cards, `run.json` |
+| prices | Anthropic and TypeSafe list prices; prompts of 512+ tokens cache | official | [`evals/prices.py`](../evals/prices.py) |
+| cache, reply check | 67% of calls hit the 5-minute cache; the reply check reads ~600 Jev tokens | assumption | `evals/prices.py` |
+| people and hosting | $570 a month: VM $50, an engineer 2 h a week at $50, the support lead 1 h a week at $20, 52/12 weeks a month; Laya adds a $100 host | assumption | ours |
+| saving | a contact costs $2 / $5 / $10; a ready draft saves 15% / 35% / 50% of its handling time | assumption | fintech email or ticket $7–12 per case, offshore often 35–60% lower ([Office Gurus 2026](https://theofficegurus.com/customer-support-cost-benchmarks-for-2026-what-you-need-to-know/), vendor); AI assistance raised "issues resolved per hour, by 15% on average" ([Brynjolfsson, Li and Raymond, QJE 2025](https://academic.oup.com/qje/article/140/2/889/7990658)), i.e. 1 − 1/1.15 ≈ 13% less time per issue across all tickets |
 
-Break-even against $530 a month: **$0.29 of agent time per contact** at the low end. For
-comparison, per-resolution pricing of hosted AI agents is about $0.50–0.99 per resolved
-ticket (Fin $0.99; a forex broker on another vendor about $0.50, single source), i.e. roughly
-$2,500–5,000 a month at this volume for a customer-facing bot, with less control over the
-hard rules.
+## The saving, as the pilot's hypothesis
 
-## Which configuration, and why not the others
+Net a month for Jev + Haiku. Only ready drafts count; acknowledgements and the classified card
+may save time too, but are left out rather than guessed.
 
-- **Jev + Haiku.** Best measured quality, lowest latency, cost negligible.
-- **Sonnet** adds nothing measurable on this set at roughly 10× the drafting cost. Revisit when
-  the KB grows and answers need more synthesis; route to it by rule, not by default.
-- **LLM as classifier** ties on routing but is 25× slower per ticket, returns no probabilities
-  (so no confidence gate), and missed one complaint.
-- **Laya** matters for **data residency**: classification runs inside the perimeter, only
-  masked text leaves it, and there is no third-party dependency for routing. Zero-shot it is
-  not usable: it flags almost everything and sends 79 of 80 tickets to a person (safe, but no
-  value). The plan is to fine-tune it on the pilot's labelled tickets ([phase2.md](phase2.md))
-  and switch when it matches Jev on the golden set. Cost is not the reason: Jev is ~$0.50 a
-  month here.
+<!-- generated:sensitivity -->
+| cost of a contact | low: 15% saved | base: 35% saved | high: 50% saved |
+|---|---|---|---|
+| low $2 | $550 | $2,050 | $3,175 |
+| base $5 | $2,238 | $5,988 | $8,800 |
+| high $10 | $5,050 | $12,550 | $18,175 |
 
-## Risks that the numbers do not cover
+Downside: if only 15% of live tickets get a ready draft instead of 38%, a ready draft must save at least $0.39 (8% of a $5 contact).
+<!-- /generated -->
 
-- The golden set is ours: 80 synthetic tickets labelled by the same person who built the
-  system. The pilot's first weeks replace it with real tickets and agents' corrections.
-- The production LLM path (`--llm anthropic`) is written but not run; the evals used the CLI.
-- The KB contradicts itself in three places ([kb-issues.md](kb-issues.md)); until fixed, every
-  ticket on those topics goes to a person. That content fix is the cheapest gain available.
+The pilot measures handling time on ready-draft tickets against a control group randomised by
+ticket, how often agents send, edit or discard a draft, and the live share of ready drafts.
+
+## Risks
+
+The golden set is synthetic and labelled by its author; token counts come from the CLI, not the
+production API path. Details: [evals.md](evals.md).

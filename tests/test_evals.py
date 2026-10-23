@@ -50,3 +50,17 @@ def test_figures_challenge_set_is_frozen() -> None:
     # Blind set for the number layer: run once, never tuned on or relabelled.
     digest = hashlib.sha256((RESULTS.parent / "figures_challenge.jsonl").read_bytes()).hexdigest()
     assert digest == "f248bcdcfda1e243ba6358901eef96e84c02c54a8ec2e5eaf72790e9b16d2d35"
+
+
+def test_every_saved_draft_fits_the_draft_caps() -> None:
+    from copilot.draft import Draft
+
+    for path in RESULTS.glob("*/*/cards.jsonl"):
+        for card in (json.loads(line) for line in path.read_text().splitlines()):
+            Draft.model_validate({
+                "abstain": bool(card["abstain_reason"]),
+                "abstain_reason": card["abstain_reason"],
+                "reply": card.get("raw_reply") or "",
+                "citations": [c["id"] for c in card["citations"]],
+                "unanswered": card["unanswered"],
+            })  # fmt: skip

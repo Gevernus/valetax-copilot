@@ -16,7 +16,9 @@ class FakeLlm:
         self.data = data
         self.schemas: list[dict[str, Any]] = []
 
-    def complete(self, system: str, user: str, schema: dict[str, Any]) -> LlmResult:
+    def complete(
+        self, system: str, user: str, schema: dict[str, Any], timeout_s: float | None = None
+    ) -> LlmResult:
         self.schemas.append(schema)
         return LlmResult(self.data, LlmUsage(), self.model, 1)
 

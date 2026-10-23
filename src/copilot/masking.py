@@ -4,14 +4,19 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 
-_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+from copilot.normalise import normalise
+
+# Anchored at the start of a run, so a long run without "@" is scanned once, not from every
+# position in it.
+_EMAIL = re.compile(r"(?<![\w.+-])[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 _IBAN = re.compile(r"\b[A-Z]{2}\d{2}(?:\s?[A-Z0-9]{4}){2,7}(?:\s?[A-Z0-9]{1,4})?\b")
-_CARD = re.compile(r"\b\d(?:[ -]?\d){12,18}\b")
+_CARD = re.compile(r"\b\d(?:[ \t-]?\d){12,18}\b")  # a tab: normalise keeps wide gaps as one
 _WALLET = re.compile(r"\b(?:T[1-9A-HJ-NP-Za-km-z]{33}|0x[0-9a-fA-F]{40}|bc1[0-9a-z]{25,59})\b")
 _PHONE = re.compile(r"(?<![\w+])\+\d[\d\s().-]{7,}\d")
 # Account and login numbers: a keyword followed by 5+ digits, or any bare run of 7+ digits.
 _ACCOUNT_KEYWORD = re.compile(
-    r"(?i)\b(account|acc|login|mt[45]|id|счет|счёт|счета|логин|аккаунт)(\s*(?:no\.?|number|№|#|:)?\s*)"
+    r"(?i)\b(account|acc|login|mt[45]|id|счет|счёт|счета|логин|аккаунт)"
+    r"(\s{0,3}(?:no\.?|number|№|#)?[ \t]{0,2}:?\s{0,3})"
     r"(\d{5,})"
 )
 _LONG_NUMBER = re.compile(r"\b\d{7,}\b")
@@ -34,6 +39,9 @@ def _luhn_ok(digits: str) -> bool:
 
 
 def mask_pii(text: str) -> Masked:
+    """Masks the normalised text (`normalise` is idempotent, so a caller that already normalised
+    loses nothing): an invisible character cannot split an email or a number."""
+    text = normalise(text)
     counts: Counter[str] = Counter()
 
     def sub(pattern: re.Pattern[str], label: str, s: str) -> str:

@@ -8,6 +8,7 @@ import subprocess
 import pytest
 
 from copilot import cli
+from copilot.pipeline import Card
 from copilot.view import AGENT_FIELDS, render_page
 from test_pipeline import FakeClassifier, FakeLlm, make
 
@@ -88,3 +89,63 @@ def test_hostile_strings_render_as_text() -> None:
     assert "&lt;script&gt;" in out
     assert "&#39;" in out
     assert "&quot;" in out
+
+
+def test_model_text_is_cleared_with_a_withheld_draft() -> None:
+    from copilot.pipeline import EVAL_ONLY
+
+    llm = FakeLlm(
+        reply="Your account is under compliance review.",
+        citations=["funding.withdrawal-pending"],
+        unanswered=["whether the AML investigation on your account is finished"],
+    )
+    card = make(FakeClassifier(), llm).process("t", "why is my withdrawal pending?")
+    agent = card.to_dict()
+    assert agent["reply"] is None
+    assert agent["unanswered"] == []
+    assert agent["abstain_reason"] == ""
+    assert "AML investigation" not in json.dumps(agent)
+    full = card.to_eval_dict()
+    assert full["unanswered"] == ["whether the AML investigation on your account is finished"]
+    assert set(EVAL_ONLY) <= set(full)
+
+
+def test_shown_model_text_is_checked_by_the_patterns() -> None:
+    llm = FakeLlm(
+        reply="The minimum deposit starts from 8 USD, depending on the account type.",
+        citations=["funding.min-deposit"],
+        unanswered=["whether the compliance review of your account is finished"],
+    )
+    card = make(FakeClassifier(), llm).process("t", "min deposit? and is my review done?")
+    assert "tipping_off" in card.reasons
+    assert card.reply is None
+    assert card.to_dict()["unanswered"] == []
+
+
+def tipping_off_card() -> Card:
+    llm = FakeLlm(
+        reply="Your account is under compliance review.",
+        citations=["funding.withdrawal-pending"],
+        unanswered=["whether the AML investigation on your account is finished"],
+    )
+    return make(FakeClassifier(), llm).process("t", "why is my withdrawal pending?")
+
+
+def test_the_cli_prints_only_the_agent_view(capsys: pytest.CaptureFixture[str]) -> None:
+    cli._print_card(tipping_off_card())
+    assert "AML" not in capsys.readouterr().out
+
+
+def test_the_page_shows_only_the_agent_view_of_an_eval_card() -> None:
+    assert "AML" not in render_page([tipping_off_card().to_eval_dict()])
+
+
+def test_cards_saved_before_the_withheld_field_are_cleared_too() -> None:
+    from copilot.pipeline import agent_view
+
+    old = {"reply": None, "raw_reply": "x", "problems": [], "unanswered": ["AML?"],
+           "abstain_reason": ""}  # fmt: skip
+    assert agent_view(old)["unanswered"] == []
+    old = {"reply": None, "problems": ["numbers not in cited sections: 3"],
+           "unanswered": ["AML?"], "abstain_reason": ""}  # fmt: skip
+    assert agent_view(old)["unanswered"] == []

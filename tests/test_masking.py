@@ -41,3 +41,33 @@ def test_card_like_number_failing_luhn_is_not_called_a_card() -> None:
     masked = mask_pii("order 1234567890123")
     assert "[CARD]" not in masked.text
     assert "[NUMBER]" in masked.text
+
+
+def test_masking_is_linear_on_long_runs() -> None:
+    import time
+
+    def seconds(n: int) -> float:
+        started = time.perf_counter()
+        mask_pii("1" * n + " " + "a." * n + " account" + " " * n + "1")
+        return time.perf_counter() - started
+
+    small, large = seconds(5_000), seconds(20_000)
+    assert large < 2.0
+    assert large < 10 * max(small, 0.01)  # 4x the input, not 16x the time
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["account:\n123456", "Login:\n\n123456", "логин:\n654321", "my id\n12345",
+     "Account No.: 123456"],
+)  # fmt: skip
+def test_account_numbers_across_a_line_break(text: str) -> None:
+    assert "[ACCOUNT]" in mask_pii(text).text
+
+
+def test_mask_pii_normalises_first() -> None:
+    assert "[EMAIL]" in mask_pii("write to jo\u200bhn@x.com").text
+
+
+def test_a_card_split_by_nul_is_masked() -> None:
+    assert mask_pii("4111\x001111\x001111\x001111").counts == {"CARD": 1}

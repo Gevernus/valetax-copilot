@@ -131,8 +131,11 @@ def _violations_or_error(
 def compute(
     labels: dict[str, dict[str, Any]], cards: list[dict[str, Any]], kb: KnowledgeBase
 ) -> dict[str, Any]:
-    pairs = [(labels[c["ticket_id"]], c) for c in cards]
-    m: dict[str, Any] = {"n": len(pairs)}
+    # A failure card (the co-pilot could not process the ticket) went to a person with nothing
+    # to judge: counted on its own line, kept out of every quality rate.
+    failed = [c["ticket_id"] for c in cards if c.get("error")]
+    pairs = [(labels[c["ticket_id"]], c) for c in cards if not c.get("error")]
+    m: dict[str, Any] = {"n": len(pairs), "failures": {"count": len(failed), "tickets": failed}}
 
     fields: dict[str, Rate] = {
         "category": _rate([lab["category"] == c["category"] for lab, c in pairs]),
@@ -234,9 +237,13 @@ def compute(
                 for _, c in pairs
             ),
             1,
-        ),
+        )
+        if pairs
+        else 0.0,
         "drafter_output": mean("output_tokens", "drafter"),
         # The drafter ran: answer mode now, acknowledge mode too on cards from before draft-v2.
-        "drafted_share": round(sum(1 for _, c in pairs if c["drafter"]["model"]) / len(pairs), 3),
+        "drafted_share": round(sum(1 for _, c in pairs if c["drafter"]["model"]) / len(pairs), 3)
+        if pairs
+        else 0.0,
     }
     return m

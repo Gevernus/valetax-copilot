@@ -22,7 +22,8 @@ class LayaClassifier:
         self._router = Router(max_loaded=1)
         self._lock = threading.Lock()  # one model instance; torch inference is not re-entrant here
 
-    def classify(self, text: str) -> Classification:
+    def classify(self, text: str, timeout_s: float | None = None) -> Classification:
+        # Local and in-process: there is no call to bound, so the timeout is not used.
         questions = self.questions.systemone()
         with self._lock:
             result: dict[str, Any] = self._router.predict(text, questions, model=CHECKPOINT)

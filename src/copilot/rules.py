@@ -6,30 +6,42 @@ from typing import Final
 
 # --- input side -------------------------------------------------------------
 
+
+def _words(pattern: str) -> str:
+    r"""Patterns are written with single spaces; a ticket may break a phrase across a line. Only
+    `\s+` is emitted, and every optional word carries its own separator, so no two whitespace
+    quantifiers meet (which would backtrack quadratically on a long whitespace run)."""
+    return pattern.replace(" ", r"\s+")
+
+
 _INJECTION: Final = re.compile(
-    r"(?i)("
-    r"ignore (all |any |the )?(previous|prior|above|earlier) (instructions|rules|prompts?)"
-    r"|disregard (your|the|all) (rules|instructions|guidelines)"
-    r"|(reveal|print|show|repeat) (me )?(your|the) (system )?(prompt|instructions)"
-    r"|system prompt|developer mode|you are now|act as (an?|my) (?!support)"
-    r"|игнорируй (все )?(предыдущие|прошлые)? ?(инструкции|правила)"
-    r"|забудь (все )?(инструкции|правила)|системн\w+ промпт|ты теперь"
-    r")"
+    _words(
+        r"(?i)("
+        r"ignore (all |any |the )?(previous|prior|above|earlier) (instructions|rules|prompts?)"
+        r"|disregard (your|the|all) (rules|instructions|guidelines)"
+        r"|(reveal|print|show|repeat) (me )?(your|the) (system )?(prompt|instructions)"
+        r"|system prompt|developer mode|you are now|act as (an?|my) (?!support)"
+        r"|игнорируй (все )?((предыдущие|прошлые) )?(инструкции|правила)"
+        r"|забудь (все )?(инструкции|правила)|системн\w+ промпт|ты теперь"
+        r")"
+    )
 )
 
 _TRADING_ADVICE_REQUEST: Final = re.compile(
-    r"(?i)("
-    r"\bshould i (buy|sell|go long|go short|open a (long|short)|trade|invest)"
-    r"|\b(buy|sell) (now )?or (wait|hold|sell|buy)"
-    r"|\bwhat (should|do you think) i (trade|buy|sell)"
-    r"|\b(trading )?signals?\b|\bprice (target|prediction|forecast)"
-    r"|\bwhich (pair|instrument|stock|coin|asset)s? (will|to)"
-    r"|\bwhat leverage should\b|\bwhich leverage (is best|should)|\bbest leverage\b"
-    r"|\bwill (gold|xau|eur\/?usd|bitcoin|btc|oil|the dollar|the price) (go|rise|fall|drop|move)"
-    r"|стоит ли (покупать|продавать|купить|продать|входить)"
-    r"|(купить|покупать) или (продать|продавать|ждать|подождать)"
-    r"|какое плечо (лучше|выбрать|поставить)|сигнал\w*|прогноз\w* (по|на|цен)"
-    r")"
+    _words(
+        r"(?i)("
+        r"\bshould i (buy|sell|go long|go short|open a (long|short)|trade|invest)"
+        r"|\b(buy|sell) (now )?or (wait|hold|sell|buy)"
+        r"|\bwhat (should|do you think) i (trade|buy|sell)"
+        r"|\b(trading )?signals?\b|\bprice (target|prediction|forecast)"
+        r"|\bwhich (pair|instrument|stock|coin|asset)s? (will|to)"
+        r"|\bwhat leverage should\b|\bwhich leverage (is best|should)|\bbest leverage\b"
+        r"|\bwill (gold|xau|eur\/?usd|bitcoin|btc|oil|the dollar|the price) (go|rise|fall|drop|move)"
+        r"|стоит ли (покупать|продавать|купить|продать|входить)"
+        r"|(купить|покупать) или (продать|продавать|ждать|подождать)"
+        r"|какое плечо (лучше|выбрать|поставить)|сигнал\w*|прогноз\w* (по|на|цен)"
+        r")"
+    )
 )
 
 
@@ -64,7 +76,7 @@ _OUTCOME: Final = (
     r"(approved|verified|rejected|declined|denied|accepted|unblocked|unfrozen|blocked|frozen"
     r"|refunded|released|reinstated|suspended|cancell?ed|closed|restricted|complete|completed)"
 )
-_SENTENCE_START: Final = r"(?:^|(?<=[.!?\n]))\s*"
+_SENTENCE_START: Final = r"(?:^|(?<=[.!?\n]))[ \t]*"
 _DECISION_LANGUAGE: Final = re.compile(
     r"(?i)("
     rf"{_SENTENCE_START}your(\s+[\w'-]+){{1,5}}?\s+(is|are|was|were|has|have|had)"

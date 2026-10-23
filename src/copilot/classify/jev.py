@@ -7,7 +7,7 @@ import httpx
 
 from copilot.classify import Classification, Usage, answers_from_probabilities
 from copilot.classify.questions import TICKET, QuestionSet
-from copilot.errors import PermanentError, TransientError
+from copilot.errors import PermanentError, TransientError, for_status
 
 URL = "https://api.typesafe.ai/v1/systemone"
 # The model the thresholds and the reply-check measurements were made with. A new version is a
@@ -30,17 +30,18 @@ class JevClassifier:
             raise RuntimeError("TYPESAFE_API_KEY is not set")
         self.questions = questions
         self._model = model
+        self._timeout_s = timeout_s
         self._client = httpx.Client(
             timeout=timeout_s, headers={"Authorization": f"Bearer {key}"}, transport=transport
         )
 
-    def classify(self, text: str) -> Classification:
+    def classify(self, text: str, timeout_s: float | None = None) -> Classification:
         body = {
             "model": self._model,
             "state": text,
             "questions": self.questions.systemone(),
         }
-        data = self._post(body)
+        data = self._post(body, min(self._timeout_s, timeout_s or self._timeout_s))
         try:
             answers = answers_from_probabilities(
                 {name: a["probabilities"] for name, a in data["answers"].items()}, self.questions
@@ -58,20 +59,17 @@ class JevClassifier:
             ),
         )
 
-    def _post(self, body: dict[str, Any]) -> dict[str, Any]:
+    def _post(self, body: dict[str, Any], timeout_s: float) -> dict[str, Any]:
         """The response as JSON; failures as our errors, by status only (the body can echo the
         text that was sent)."""
         try:
-            response = self._client.post(URL, json=body)
+            response = self._client.post(URL, json=body, timeout=timeout_s)
         except httpx.TimeoutException:
             raise TransientError("timeout") from None
         except httpx.TransportError as e:
             raise TransientError(type(e).__name__) from None
-        status = response.status_code
-        if status == 429 or status >= 500:
-            raise TransientError(f"HTTP {status}")
-        if status >= 400:
-            raise PermanentError(f"HTTP {status}")
+        if response.status_code >= 400:
+            raise for_status(response.status_code)
         try:
             data = response.json()
         except ValueError:
